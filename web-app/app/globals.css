@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  /* Dark mode */
+  --color-text-primary-dark: #F0F0F0;
+  --color-text-secondary-dark: #9A9A9A;
+  --color-icon-dark: #E8F4FF;
+  --color-primary: #3D5CFF;
+  --color-bg1-dark: #161616;
+  --color-bg2-dark: #212121;
+  --color-bg3-dark: #303030;
+  --color-bg4-dark: #464646;
+
+  /* Light mode */
+  --color-text-primary-light: #1A1A1A;
+  --color-text-secondary-light: #555555;
+  --color-icon-light: #2B4A66;
+  --color-bg1-light: #F5F5F5;
+  --color-bg2-light: #F1F1F1;
+  --color-bg3-light: #E1E1E1;
+  --color-bg4-light: #D9D9D9;
+
+  /* Primary gradient shades */
+  --color-primary-light: #6D85FF;
+  --color-primary-dark:  #2A47CC;
+}
+
+/* default = light */
+:root {
+  --color-text-primary: var(--color-text-primary-light);
+  --color-text-secondary: var(--color-text-secondary-light);
+  --color-icon: var(--color-icon-light);
+  --color-bg1: var(--color-bg1-light);
+  --color-bg2: var(--color-bg2-light);
+  --color-bg3: var(--color-bg3-light);
+  --color-bg4: var(--color-bg4-light);
+  --drop-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* dark override */
+[data-theme="dark"] {
+  --color-text-primary: var(--color-text-primary-dark);
+  --color-text-secondary: var(--color-text-secondary-dark);
+  --color-icon: var(--color-icon-dark);
+  --color-bg1: var(--color-bg1-dark);
+  --color-bg2: var(--color-bg2-dark);
+  --color-bg3: var(--color-bg3-dark);
+  --color-bg4: var(--color-bg4-dark);
+  --drop-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+@layer base {
+  html, body { min-height: 100%; }
+  body {
+    background: var(--color-bg1);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

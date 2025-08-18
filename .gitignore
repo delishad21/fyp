@@ -1,0 +1,4 @@
+node_modules
+.vscode
+setup-project.sh
+.env
