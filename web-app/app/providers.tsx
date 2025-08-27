@@ -4,6 +4,7 @@ import * as React from "react";
 import { ThemeProvider as MuiThemeProvider, CssBaseline } from "@mui/material";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 import { getMuiTheme } from "@/app/theme/muiTheme";
+import { ToastProvider } from "@/components/ui/toast/ToastProvider";
 
 function MuiAdapter({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme(); // "light" | "dark" | undefined
@@ -27,7 +28,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       storageKey="theme"
       disableTransitionOnChange
     >
-      <MuiAdapter>{children}</MuiAdapter>
+      <MuiAdapter>
+        <ToastProvider>{children}</ToastProvider>
+      </MuiAdapter>
     </NextThemesProvider>
   );
 }

@@ -1,12 +1,20 @@
-import express from 'express';
+import http from "http";
+import index from "./index";
+import "dotenv/config";
+import { connectToDB } from "./model/webapp-user-repository";
 
-const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.USER_PORT || 7202;
 
-app.get('/', (_req, res) => {
-    res.send('Hello from user-service!');
-});
+const server = http.createServer(index);
 
-app.listen(port, () => {
-    console.log(`user-service running on port ${port}`);
-});
+connectToDB()
+  .then(() => {
+    console.log("MongoDB Connected!");
+
+    server.listen(port);
+    console.log("User service server listening on http://localhost:" + port);
+  })
+  .catch((err) => {
+    console.error("Failed to connect to DB");
+    console.error(err);
+  });

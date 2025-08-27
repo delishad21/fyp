@@ -23,6 +23,12 @@
   /* Primary gradient shades */
   --color-primary-light: #6D85FF;
   --color-primary-dark:  #2A47CC;
+
+  /* response colours */
+  --color-error-light: #D32F2F;
+  --color-error-dark:  #EF5350;
+  --color-success: theme(colors.emerald.600);
+  --color-warning: theme(colors.amber.600);
 }
 
 /* default = light */
@@ -35,6 +41,7 @@
   --color-bg3: var(--color-bg3-light);
   --color-bg4: var(--color-bg4-light);
   --drop-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  --color-error: var(--color-error-light);
 }
 
 /* dark override */
@@ -47,6 +54,7 @@
   --color-bg3: var(--color-bg3-dark);
   --color-bg4: var(--color-bg4-dark);
   --drop-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  --color-error: var(--color-error-dark);
 }
 
 @layer base {
