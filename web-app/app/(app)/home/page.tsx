@@ -6,8 +6,6 @@ export default function Home() {
   return (
     <>
       <TodaysQuizzesCard />
-
-      {/* Stack on mobile; at lg: left grows up to 480px, right takes remaining space */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(200px,300px)_1fr] gap-6 mt-6">
         <div>
           <UpcomingQuizzesCard />

@@ -52,8 +52,6 @@ async function callApi<T = any>(
       };
     }
 
-    console.log("API call successful:", json);
-
     return { ok: true, data: json?.data, message: json?.message };
   } catch (e: any) {
     return { ok: false, error: e?.message ?? "Network error" };

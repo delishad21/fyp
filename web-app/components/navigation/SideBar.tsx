@@ -1,5 +1,27 @@
 "use client";
 
+/**
+ * SideBar Component
+ *
+ * Purpose:
+ *   - Provides the primary sidebar navigation for the app.
+ *   - Displays app title, main navigation links, and a sign-out button.
+ *
+ * Nav Items:
+ *   - Defined in `items` array with { label, icon, href }.
+ *   - Labels: "Home", "Quizzes", "Classes", "Settings".
+ *   - Active link detection:
+ *       • "Home": active only when pathname is "/".
+ *       • Others: active if pathname starts with the link href.
+ *
+ * UI Structure:
+ *   - AppTitle at top.
+ *   - Navigation list of links with icons.
+ *       • Active link: colored background, white text/icon.
+ *       • Inactive link: normal text color, hover background highlight.
+ *   - SignOutButton anchored at the bottom.
+ **/
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
@@ -35,7 +57,6 @@ export function SideBar({ className = "" }: { className?: string }) {
         className,
       ].join(" ")}
       role="navigation"
-      aria-label="Primary"
     >
       <div className="px-7 mt-4 mb-8">
         <AppTitle />
@@ -48,7 +69,6 @@ export function SideBar({ className = "" }: { className?: string }) {
             <Link
               key={it.label}
               href={it.href}
-              aria-current={active ? "page" : undefined}
               className={[
                 "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
                 active

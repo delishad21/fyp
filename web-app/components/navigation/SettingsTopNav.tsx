@@ -1,5 +1,26 @@
-// components/navigation/SettingsTopNav.tsx
 "use client";
+
+/**
+ * SettingsTopNav Component
+ *
+ * Purpose:
+ *   - Provides a top navigation bar for the settings section.
+ *   - Highlights the active tab based on the current pathname.
+ *
+ * Behavior / Logic:
+ *   - Tabs are defined in a local `tabs` array with { label, href }.
+ *   - Active tab detection:
+ *       • Active if pathname matches exactly or starts with tab href + "/".
+ *   - Adds `aria-current="page"` to active tab for accessibility.
+ *
+ * UI:
+ *   - Horizontal nav bar (`<ul>`) with tab links styled as buttons.
+ *   - Active tab: background + primary text color.
+ *   - Inactive tab: secondary text color, hover background highlight.
+ *
+ * Notes:
+ *   - Currently only includes "Account" tab.
+ */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";

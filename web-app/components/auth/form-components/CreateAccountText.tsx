@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Basic text component to link user to sign up page
+ **/
+
 import Link from "next/link";
 
 export default function ForgotPasswordText() {

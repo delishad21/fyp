@@ -1,5 +1,49 @@
 "use client";
 
+/**
+ * ToastProvider / useToast / Toaster
+ *
+ * Purpose:
+ * - Provides a global toast notification system with animations.
+ * - Allows showing, dismissing, and clearing toast messages anywhere in the app.
+ *
+ * Types:
+ * - ToastVariant: "default" | "success" | "error" | "warning".
+ * - ToastOptions:
+ *    • id?: string — optional ID (auto-generated if omitted).
+ *    • title?: string — heading text.
+ *    • description?: string — body text.
+ *    • variant?: ToastVariant — style variant.
+ *    • duration?: number — auto-dismiss delay (ms); 0 = sticky.
+ *
+ * Behavior:
+ * - ToastProvider wraps the app and manages state in context.
+ * - showToast(options):
+ *    • Creates a toast with enter animation.
+ *    • Auto-dismisses after `duration` unless sticky.
+ *    • Returns the toast ID.
+ * - dismiss(id):
+ *    • Starts leave animation and removes toast.
+ * - clear():
+ *    • Animates all toasts out, then removes them.
+ * - Toaster renders toasts:
+ *    • Fixed at top-right with stacking layout.
+ *    • Left border color indicates variant (success, error, warning, default).
+ *    • Supports manual dismissal via close button.
+ *    • Animations: slide in/out with translate-x.
+ *
+ * Usage:
+ * - Wrap your app in <ToastProvider>.
+ * - Call const { showToast } = useToast() inside components.
+ * - Example:
+ *    showToast({
+ *      title: "Saved!",
+ *      description: "Your quiz was updated.",
+ *      variant: "success",
+ *      duration: 3000
+ *    })
+ */
+
 import React, {
   createContext,
   useContext,
@@ -18,7 +62,6 @@ export type ToastOptions = {
   duration?: number; // ms (0 = sticky)
 };
 
-// Internal toast with animation flags
 type InternalToast = Required<ToastOptions> & {
   id: string;
   createdAt: number;
@@ -38,14 +81,12 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<InternalToast[]>([]);
   const timers = useRef(new Map<string, number>());
-  const ANIM_MS = 300; // transition duration
+  const ANIM_MS = 300;
 
   const dismiss = (id: string) => {
-    // Set leaving to true to activate animation out
     setToasts((prev) =>
       prev.map((t) => (t.id === id ? { ...t, leaving: true } : t))
     );
-    // remove after leaving animation is done
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
       const tm = timers.current.get(id);
@@ -65,14 +106,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       variant: opts.variant ?? "default",
       duration: opts.duration ?? 3000,
       createdAt: Date.now(),
-      entering: true, // activate enter animation
+      entering: true,
     };
 
-    // Newest on top; older ones push down
     setToasts((prev) => [toast, ...prev]);
 
-    // Flip entering to false on next frame to trigger transition
-    // double rAF ensures layout is committed before class change
     requestAnimationFrame(() =>
       requestAnimationFrame(() =>
         setToasts((prev) =>
@@ -81,7 +119,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       )
     );
 
-    // auto-dismiss
     if (toast.duration > 0) {
       const handle = window.setTimeout(() => dismiss(id), toast.duration);
       timers.current.set(id, handle);
@@ -91,7 +128,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clear = () => {
-    // animate all out, then remove
     setToasts((prev) => prev.map((t) => ({ ...t, leaving: true })));
     window.setTimeout(() => {
       setToasts([]);

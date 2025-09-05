@@ -1,4 +1,3 @@
-// components/ui/Button.tsx
 "use client";
 
 import * as React from "react";
@@ -8,9 +7,10 @@ type ButtonProps = {
   className?: string;
   disabled?: boolean;
   loading?: boolean;
-  variant?: "primary" | "ghost";
+  variant?: "primary" | "ghost" | "error" | "small";
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
   type?: "button" | "submit";
+  title?: string;
 };
 
 export default function Button({
@@ -18,18 +18,30 @@ export default function Button({
   className,
   disabled = false,
   loading = false,
-  variant,
+  variant = "primary",
   onClick,
   type = "button",
+  title,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
 
   const base =
-    "w-full h-full rounded-sm px-4 py-2 text-sm font-medium transition disabled:opacity-60 flex items-center justify-center hover:opacity-90";
-  let variantStyles = "bg-[var(--color-primary)] text-white";
+    "rounded-sm text-sm font-medium transition disabled:opacity-60 flex items-center justify-center hover:opacity-90";
+
+  let variantStyles = "";
+  if (variant === "primary") {
+    variantStyles = "px-4 py-2 bg-[var(--color-primary)] text-white";
+  }
   if (variant === "ghost") {
     variantStyles =
-      "text-[var(--color-text-primary)] hover:bg-[var(--color-bg3)] border-2 border-[var(--color-bg4)]";
+      "px-4 py-2 text-[var(--color-text-primary)] hover:bg-[var(--color-bg3)] border-2 border-[var(--color-bg4)]";
+  }
+  if (variant === "error") {
+    variantStyles = "px-4 py-2 bg-[var(--color-error)] text-white";
+  }
+  if (variant === "small") {
+    variantStyles =
+      "text-xs px-3 py-1 bg-[var(--color-bg3)] w-auto h-auto font-normal";
   }
 
   return (
@@ -37,8 +49,8 @@ export default function Button({
       type={type}
       disabled={isDisabled}
       onClick={onClick}
-      aria-busy={loading}
       className={[base, variantStyles, className ?? ""].join(" ")}
+      title={title}
     >
       {loading ? (
         <>

@@ -3,7 +3,6 @@
 import * as React from "react";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { ThemeProvider as MuiThemeProvider, CssBaseline } from "@mui/material";
-import { getMuiTheme } from "@/app/theme/muiTheme";
 
 type Mode = "light" | "dark";
 
@@ -25,9 +24,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("theme", mode);
   }, [mode]);
 
-  // Use your existing theme factory (no changes)
-  const theme = React.useMemo(() => getMuiTheme(mode), [mode]);
-
   return (
     <ThemeContext.Provider
       value={{
@@ -35,10 +31,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         toggle: () => setMode((m) => (m === "dark" ? "light" : "dark")),
       }}
     >
-      <MuiThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-      </MuiThemeProvider>
+      <CssBaseline />
+      {children}
     </ThemeContext.Provider>
   );
 }

@@ -1,9 +1,46 @@
 "use client";
 
+/**
+ * ConfirmEmailChangeModal Component
+ *
+ * Purpose:
+ *   - Renders a modal dialog to confirm a user's new email address.
+ *   - Accepts and validates a 6-digit OTP code sent to the new email.
+ *   - Handles confirmation, resend requests, and closing.
+ *
+ * Props:
+ *   @param {boolean} open - Controls modal visibility.
+ *   @param {string} selector - Identifier used for verification (e.g., email selector/token).
+ *   @param {number} countdown - Seconds remaining before resend is allowed.
+ *   @param {() => void} onClose - Callback to close the modal.
+ *   @param {(code: string, selector: string) => Promise<{ ok: boolean; error?: string; message?: string }>} onConfirm
+ *          - Async handler to confirm the OTP code.
+ *   @param {() => Promise<{ ok: boolean; selector?: string; cooldownSeconds?: number; error?: string }>} onResend
+ *          - Async handler to request a new OTP code.
+ *
+ * State:
+ *   - code: string[] (stores each digit of the 6-digit OTP input).
+ *   - loading: boolean (tracks confirmation submission state).
+ *   - resending: boolean (tracks resend request state).
+ *
+ * Key Features:
+ *   - Clears OTP input whenever modal opens or selector changes.
+ *   - Validates OTP format (must be 6 digits) before enabling submission.
+ *   - Shows countdown until resend is available; disables resend during cooldown.
+ *   - Displays loading indicators for both confirmation and resend actions.
+ *   - Closes automatically after successful confirmation (with slight delay).
+ *
+ * UI:
+ *   - Title and instructions.
+ *   - 6-digit OTP input component.
+ *   - "Confirm Email" button with loading state.
+ *   - Countdown/resend link for requesting new code.
+ *   - "Close" link to dismiss modal.
+ */
+
 import { useEffect, useState } from "react";
 import OTPInput from "@/components/auth/form-components/OTPInput";
-import SubmitButton from "@/components/ui/SubmitButton";
-import { useToast } from "@/components/ui/toast/ToastProvider";
+import SubmitButton from "@/components/ui/buttons/SubmitButton";
 
 type Props = {
   open: boolean;
@@ -34,8 +71,6 @@ export default function ConfirmEmailChangeModal({
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
-  const { showToast } = useToast();
-
   useEffect(() => {
     if (!open) return;
     setCode(Array(6).fill(""));
@@ -53,20 +88,9 @@ export default function ConfirmEmailChangeModal({
     const res = await onConfirm(joined, selector);
 
     if (!res.ok) {
-      showToast({
-        title: "Verification failed",
-        description: res.error || "Invalid or expired code.",
-        variant: "error",
-      });
       setLoading(false);
       return;
     }
-
-    showToast({
-      title: "Email confirmed",
-      description: res.message || "Your email address has been updated.",
-      variant: "success",
-    });
 
     setLoading(false);
     setTimeout(onClose, 800);
@@ -78,23 +102,8 @@ export default function ConfirmEmailChangeModal({
 
     const res = await onResend();
 
-    if (!res.ok) {
-      showToast({
-        title: "Resend failed",
-        description: res.error || "Could not send a new code.",
-        variant: "error",
-      });
-      setResending(false);
-      return;
-    }
-
-    showToast({
-      title: "Code resent",
-      description: "A new verification code has been sent.",
-      variant: "success",
-    });
-
     setResending(false);
+    return;
   }
 
   return (

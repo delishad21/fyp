@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Basic sign out button component that calls the sign out action on button press
+ */
+
 import { signOutAction } from "@/services/user/sign-in-actions";
 
 export default function SignOutButton() {

@@ -14,12 +14,12 @@ export default async function ResetPasswordPage({
   const selector = params.selector?.toString() || "";
   const validator = params.validator?.toString() || "";
 
-  // Must have both in the URL to continue
-  // but we only validate the selector on page load
+  // Check for selector and validator in link. Redirect if either is not present
   if (!selector || !validator) {
     redirect("/");
   }
 
+  // Check for valid selector in backend, redirect if selector is not valid
   const status = await checkValidSelector(selector);
 
   if (!status) {

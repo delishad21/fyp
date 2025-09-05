@@ -3,3 +3,4 @@ node_modules
 setup-project.sh
 .env
 mongo
+uploads

@@ -1,3 +1,8 @@
+/**
+ *   - Displays the application title with an icon/avatar placeholder.
+ *   - Provides a consistent header element for dashboards or app layouts.
+ */
+
 export function AppTitle() {
   return (
     <div className=" flex items-center gap-3 h-16">

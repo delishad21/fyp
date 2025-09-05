@@ -1,5 +1,30 @@
 "use client";
 
+/**
+ * OTPInput Component
+ *
+ * Purpose:
+ *   - Renders a multi-digit input field for one-time passwords (OTP).
+ *   - Provides keyboard navigation, paste support, and auto-focus behavior.
+ *
+ * Props:
+ *   @param {number} [length=6] - Number of digits in the OTP input.
+ *   @param {string[]} value - Current array of digit values.
+ *   @param {(next: string[]) => void} onChange - Callback fired when digits change.
+ *
+ * Key Features:
+ *   - Restricts input to numeric characters only.
+ *   - Automatically focuses next field after typing a digit.
+ *   - Handles Backspace, ArrowLeft, and ArrowRight for smooth navigation.
+ *   - Supports pasting an entire OTP sequence (numbers only).
+ *   - Auto-focuses the first empty field after pasting.
+ *
+ * UI:
+ *   - Renders `length` input boxes side by side.
+ *   - Each box is styled for large, centered numeric input.
+ *   - Highlights active input with a focus ring.
+ */
+
 import { useRef } from "react";
 
 type Props = {

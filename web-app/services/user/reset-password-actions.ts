@@ -64,7 +64,6 @@ export async function resetPasswordAction(
 
     if (!response.ok) {
       const res = await response.json();
-      console.log(JSON.stringify(res));
       return {
         ...next,
         fieldErrors: { password: res.errors },
@@ -89,9 +88,12 @@ export async function resetPasswordAction(
  * Request a reset link by email (no session needed).
  * Always returns a generic message on success.
  */
-export async function requestPasswordReset(
-  email: string
-): Promise<{ error?: string; message?: string; cooldownSeconds?: number }> {
+export async function requestPasswordReset(email: string): Promise<{
+  ok: boolean;
+  error?: string;
+  message?: string;
+  cooldownSeconds?: number;
+}> {
   try {
     const resp = await fetch(`${USER_SVC_URL}/webapp/auth/forget-password`, {
       method: "POST",
@@ -102,26 +104,26 @@ export async function requestPasswordReset(
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      return { error: err.message ?? "Request failed." };
+      return { ok: false, error: err.message ?? "Request failed." };
     }
 
     const data = await resp.json();
 
     return {
+      ok: true,
       message:
         data.message || "If an account exists, a reset link has been sent.",
       cooldownSeconds: data.cooldownSeconds,
     };
   } catch {
     return {
+      ok: false,
       error: "Unable to request reset right now. Please try again later.",
     };
   }
 }
 
 export async function checkValidSelector(selector: string): Promise<boolean> {
-  console.log("Checking selector:", selector);
-
   if (!selector) {
     return false;
   }
@@ -144,7 +146,6 @@ export async function checkValidSelector(selector: string): Promise<boolean> {
 
     return false;
   } catch (err) {
-    console.log("Error checking selector validity:", err);
     return false;
   }
 }

@@ -11,6 +11,7 @@ export default async function ConfirmEmailPage({
 }) {
   const selector = (await searchParams).selector;
 
+  // Check for valid selector. Redirect if selector is not present.
   if (!selector) {
     redirect("/");
   }

@@ -1,12 +1,22 @@
-import express from 'express';
+import http from "http";
+import index from "./index";
+import "dotenv/config";
+import { connectToDB, registerAllQuizzes } from "./model/quiz-registry";
 
-const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.QUIZ_PORT || 7302;
 
-app.get('/', (_req, res) => {
-    res.send('Hello from quiz-service!');
-});
+const server = http.createServer(index);
 
-app.listen(port, () => {
-    console.log(`quiz-service running on port ${port}`);
-});
+connectToDB()
+  .then(() => {
+    console.log("MongoDB Connected!");
+    registerAllQuizzes();
+    console.log("Quizzes Registered");
+    server.listen(port);
+    console.log("Quiz service server listening on http://localhost:" + port);
+  })
+  .catch((err) => {
+    console.error("Failed to connect to DB");
+    console.error(err);
+  });
+

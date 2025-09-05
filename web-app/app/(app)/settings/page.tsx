@@ -1,4 +1,4 @@
-import AccountSettingsForm from "@/components/auth/forms/AccountSettingsForm";
+import AccountSettingsForm from "@/components/auth/forms/account-settings/AccountSettingsForm";
 import { getSession } from "@/services/user/session-definitions";
 
 export default async function AccountSettingsPage() {

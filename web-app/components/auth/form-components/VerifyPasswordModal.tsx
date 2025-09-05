@@ -1,9 +1,40 @@
 "use client";
 
+/**
+ * VerifyPasswordModal Component
+ *
+ * Purpose:
+ *   - Displays a modal dialog prompting the user to re-enter their password
+ *     before performing sensitive actions.
+ *   - Handles password input, error display, and async verification.
+ *
+ * Props:
+ *   @param {boolean} open - Controls modal visibility.
+ *   @param {boolean} [loading] - Indicates if verification is in progress.
+ *   @param {() => void} onClose - Callback to close the modal.
+ *   @param {(password: string) => Promise<{ ok: boolean; error?: string }>} onSubmit
+ *          - Async handler to verify the password.
+ *
+ * State:
+ *   - password: string (stores the input password).
+ *   - error: string | undefined (stores error messages if verification fails).
+ *
+ * Key Features:
+ *   - Resets input and error state when modal opens.
+ *   - Submits password via `onSubmit` and displays errors if invalid.
+ *   - Supports pressing "Enter" to trigger verification.
+ *   - Disables "Unlock" button when no password is entered.
+ *
+ * UI:
+ *   - Password input with inline error support.
+ *   - "Cancel" button to close without submitting.
+ *   - "Unlock" button with optional loading state.
+ *   - Overlay backdrop with centered modal styling.
+ */
+
 import { useEffect, useState } from "react";
-import Button from "@/components/ui/Button";
-import TextInput from "@/components/ui/TextInput";
-import { useToast } from "@/components/ui/toast/ToastProvider";
+import Button from "@/components/ui/buttons/Button";
+import TextInput from "@/components/ui/text-inputs/TextInput";
 
 type Props = {
   open: boolean;
@@ -20,7 +51,6 @@ export default function VerifyPasswordModal({
 }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | undefined>();
-  const { showToast } = useToast();
 
   useEffect(() => {
     if (open) {
@@ -36,12 +66,6 @@ export default function VerifyPasswordModal({
     const res = await onSubmit(password);
     if (!res.ok) {
       setError(res.error || "Incorrect password.");
-    } else {
-      showToast({
-        variant: "success",
-        title: "Verified",
-        description: "You can now edit this field.",
-      });
     }
   }
 

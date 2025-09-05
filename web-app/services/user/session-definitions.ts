@@ -119,7 +119,6 @@ export const isSessionLoggedIn = async () => {
 export const isSessionAdmin = async () => {
   const session = await getSession();
 
-  console.log("isSessionAdmin: ", session.isAdmin);
   if (!session.isAdmin) {
     return false;
   } else {

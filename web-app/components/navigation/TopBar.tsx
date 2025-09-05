@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * TopBar Component
+ *
+ * Purpose:
+ *   - Renders the top navigation bar for the application.
+ *   - Displays the current page title, notification button, user avatar placeholder, and theme toggle.
+ *
+ * Notes:
+ *   - To be implemented: Account dropdown and notifications menu (if needed)
+ */
+
 import { Icon } from "@iconify/react";
 import ThemeToggle from "../ui/ThemeToggle";
 

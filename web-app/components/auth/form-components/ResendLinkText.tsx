@@ -1,3 +1,9 @@
+"use client";
+
+/**
+ * Renders text for resending OTP code.
+ */
+
 export default function ResendLinkText({
   countdown,
   resending,

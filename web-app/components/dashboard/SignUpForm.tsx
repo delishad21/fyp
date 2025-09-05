@@ -1,13 +1,13 @@
 "use client";
 
-import TextInput from "@/components/ui/TextInput";
-import Select from "@/components/ui/Select";
+import TextInput from "@/components/ui/text-inputs/TextInput";
+import Select from "@/components/ui/selectors/select/Select";
 import { SignUpState, signUpAction } from "@/services/user/sign-up-actions";
-import SubmitButton from "../../ui/SubmitButton";
+import SubmitButton from "../ui/buttons/SubmitButton";
 import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { HONORIFICS } from "./AccountSettingsForm";
 import { useToast } from "@/components/ui/toast/ToastProvider";
+import { HONORIFICS } from "@/services/user/helpers/constants";
 
 const REDIRECT_TIMEOUT = 1000; // 1 second
 

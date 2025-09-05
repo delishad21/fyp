@@ -118,14 +118,12 @@ export async function confirmEmail(
 ): Promise<{
   error?: string;
   message?: string;
-  ok?: boolean;
+  ok: boolean;
   redirect?: string;
 }> {
   if (!selector || !code) {
-    return { error: "Missing verification parameters." };
+    return { ok: false, error: "Missing verification parameters." };
   }
-
-  console.log(`confirming email with code ${code} for selector ${selector}`);
 
   const response = await fetch(`${USER_SVC_URL}/webapp/auth/verify-email`, {
     method: "PATCH",
@@ -137,6 +135,7 @@ export async function confirmEmail(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     return {
+      ok: false,
       error: errorData.message ?? "Invalid or expired verification code.",
     };
   }
@@ -171,12 +170,12 @@ export async function confirmEmail(
  */
 export async function resendCode(selector: string): Promise<{
   error?: string;
-  ok?: true;
+  ok: boolean;
   selector?: string;
   ttl?: number;
   cooldownSeconds?: number;
 }> {
-  if (!selector) return { error: "Missing selector." };
+  if (!selector) return { ok: false, error: "Missing selector." };
 
   const response = await fetch(
     `${USER_SVC_URL}/webapp/auth/verify-email/resend`,
@@ -190,7 +189,7 @@ export async function resendCode(selector: string): Promise<{
 
   if (!response.ok) {
     const errorData = await response.json();
-    return { error: errorData.message ?? "Could not resend code." };
+    return { ok: false, error: errorData.message ?? "Could not resend code." };
   }
 
   const res = await response.json();
@@ -199,7 +198,7 @@ export async function resendCode(selector: string): Promise<{
   const cooldownSeconds: number | undefined = res?.data?.cooldownSeconds;
 
   if (!newSelector) {
-    return { error: "Unexpected server response." };
+    return { ok: false, error: "Unexpected server response." };
   }
 
   return { ok: true, selector: newSelector, ttl, cooldownSeconds };

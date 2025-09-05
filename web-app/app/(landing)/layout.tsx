@@ -8,8 +8,9 @@ export default async function LandingLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
+
+  // Root app layout check. If user is logged in, redirect user to dashboard
   if (session.isLoggedIn) {
-    // user is logged in, redirect to dashboard
     redirect("/home");
   }
 

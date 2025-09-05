@@ -1,16 +1,14 @@
 import ThemeToggle from "@/components/ui/ThemeToggle";
-import SignUpForm from "@/components/auth/forms/SignUpForm";
+import SignUpForm from "@/components/dashboard/SignUpForm";
 import { AppTitle } from "@/components/navigation/AppTitle";
 
 export default function SignUpPage() {
   return (
     <>
-      {/* theme toggle */}
       <div className="absolute right-6 top-6">
         <ThemeToggle />
       </div>
 
-      {/* Sign up card */}
       <div className="mx-auto grid min-h-dvh w-full max-w-md content-center px-6">
         <div
           className="rounded-md bg-[var(--color-bg2)]

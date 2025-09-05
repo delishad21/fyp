@@ -1,9 +1,43 @@
 "use client";
 
-import TextInput from "@/components/ui/TextInput";
-import Button from "@/components/ui/Button";
+/**
+ * ChangePasswordModal Component
+ *
+ * Purpose:
+ *   - Renders a modal dialog that allows the user to update their password.
+ *   - Handles input state, validation errors, and async submission logic.
+ *
+ * Props:
+ *   @param {boolean} open - Controls whether the modal is visible.
+ *   @param {boolean} [loading] - Indicates if the form is currently submitting.
+ *   @param {() => void} onClose - Callback when modal is closed.
+ *   @param {(password: string, confirmPassword: string) => Promise<
+ *              { ok: true; message?: string } |
+ *              { ok: false; error?: string; fieldErrors?: Record<string, string | string[]> }
+ *          >} onSubmit
+ *          - Async handler for submitting the new password and confirmation.
+ *
+ * State:
+ *   - password: string (new password input value)
+ *   - confirm: string (confirmation password input value)
+ *   - fieldErrors: Record<string, string | string[]> (field-specific error messages)
+ *
+ * Key Features:
+ *   - Clears state and errors on modal close.
+ *   - Submits form via `onSubmit` and updates UI on success/failure.
+ *   - Displays inline error messages returned from validation.
+ *   - Supports pressing "Enter" to trigger submission.
+ *
+ * UI:
+ *   - Two password inputs (Password, Confirm Password).
+ *   - "Close" button to cancel/reset.
+ *   - "Update Password" button with optional loading indicator.
+ *   - Overlay with centered modal styling.
+ */
+
+import TextInput from "@/components/ui/text-inputs/TextInput";
+import Button from "@/components/ui/buttons/Button";
 import { useState } from "react";
-import { useToast } from "@/components/ui/toast/ToastProvider";
 
 export default function ChangePasswordModal({
   open,
@@ -32,8 +66,6 @@ export default function ChangePasswordModal({
     Record<string, string | string[]>
   >({});
 
-  const { showToast } = useToast();
-
   if (!open) return null;
 
   async function handleClose() {
@@ -51,22 +83,8 @@ export default function ChangePasswordModal({
     if (!res.ok) {
       if (res.fieldErrors) setFieldErrors(res.fieldErrors);
 
-      if (res.error) {
-        showToast({
-          title: "Update failed",
-          description: res.error,
-          variant: "error",
-        });
-      }
       return;
     }
-
-    // success toast
-    showToast({
-      title: "Password updated",
-      description: res.message || "Your password has been changed.",
-      variant: "success",
-    });
 
     setPassword("");
     setConfirm("");

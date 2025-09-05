@@ -11,7 +11,7 @@ export default async function AppLayout({
 }) {
   const session = await getSession();
   if (!session.isLoggedIn) {
-    // user tried to hit a protected route -> bounce to sign-in
+    // redirect to sign in if user tries to access app route without a session
     redirect("/auth/sign-in");
   }
 
