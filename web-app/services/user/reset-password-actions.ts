@@ -49,7 +49,7 @@ export async function resetPasswordAction(
 
   try {
     const response = await fetch(
-      `${USER_SVC_URL}/webapp/auth/forget-password/reset`,
+      `${USER_SVC_URL}/teacher/auth/forget-password/reset`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,7 +95,7 @@ export async function requestPasswordReset(email: string): Promise<{
   cooldownSeconds?: number;
 }> {
   try {
-    const resp = await fetch(`${USER_SVC_URL}/webapp/auth/forget-password`, {
+    const resp = await fetch(`${USER_SVC_URL}/teacher/auth/forget-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
@@ -130,7 +130,7 @@ export async function checkValidSelector(selector: string): Promise<boolean> {
 
   try {
     const response = await fetch(
-      `${USER_SVC_URL}/webapp/auth/forget-password/status?selector=${encodeURIComponent(
+      `${USER_SVC_URL}/teacher/auth/forget-password/status?selector=${encodeURIComponent(
         selector
       )}`,
       { cache: "no-store" }

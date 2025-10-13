@@ -1,16 +1,15 @@
 import crypto from "node:crypto";
 import {
-  WebAppAuthToken,
-  WebAppAuthTokenModel,
-} from "../model/webapp-auth-token-model";
+  TeacherAuthToken,
+  TeacherAuthTokenModel,
+} from "../model/teacher-auth-token-model";
 import { ConfirmErr } from "../controller/helpers/email-confirm-helpers";
-import { VERIFY_TTL_SECONDS } from "../controller/helpers/email-resend-helpers";
 
 const OTP_MAX_ATTEMPTS_DEFAULT = 5;
 
 // --- Types ----
 export type OtpVerifyResult =
-  | { ok: true; doc: WebAppAuthToken }
+  | { ok: true; doc: TeacherAuthToken }
   | {
       ok: false;
       reason: OtpFailureReason;
@@ -55,12 +54,12 @@ export async function issueOtpToken(opts: {
   const expiresAt = new Date(now.getTime() + opts.ttlSeconds * 1000);
 
   // Invalidate any outstanding tokens for this user+purpose
-  await WebAppAuthTokenModel.updateMany(
+  await TeacherAuthTokenModel.updateMany(
     { userId: opts.userId, purpose: opts.purpose, usedAt: null },
     { $set: { usedAt: now } }
   );
 
-  await WebAppAuthTokenModel.create({
+  await TeacherAuthTokenModel.create({
     selector,
     validatorHash,
     userId: opts.userId,
@@ -81,7 +80,7 @@ export async function verifyOtpAndMaybeConsume(
   selector: string,
   code: string
 ): Promise<OtpVerifyResult> {
-  const doc = await WebAppAuthTokenModel.findOne({ selector });
+  const doc = await TeacherAuthTokenModel.findOne({ selector });
   if (!doc) return { ok: false, reason: "not_found" };
 
   const now = Date.now();
@@ -93,7 +92,7 @@ export async function verifyOtpAndMaybeConsume(
   const match = timingSafeEqual(tryHash, doc.validatorHash);
 
   if (!match) {
-    await WebAppAuthTokenModel.updateOne(
+    await TeacherAuthTokenModel.updateOne(
       { _id: doc._id, usedAt: null },
       { $inc: { attempts: 1 } }
     );
@@ -104,7 +103,7 @@ export async function verifyOtpAndMaybeConsume(
   }
 
   // Success → consume one-time token
-  await WebAppAuthTokenModel.updateOne(
+  await TeacherAuthTokenModel.updateOne(
     { _id: doc._id, usedAt: null },
     { $set: { usedAt: new Date() } }
   );

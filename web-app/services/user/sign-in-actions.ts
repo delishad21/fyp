@@ -38,7 +38,7 @@ export async function signInAction(
 
   try {
     // sign-in request to API
-    const response = await fetch(`${USER_SVC_URL}/webapp/auth/sign-in`, {
+    const response = await fetch(`${USER_SVC_URL}/teacher/auth/sign-in`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

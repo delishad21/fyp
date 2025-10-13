@@ -1,62 +1,45 @@
 "use client";
 
-/**
- * CardTable Component
- *
- * Purpose:
- *   - Renders a responsive, card-like table layout using CSS grid.
- *   - Supports optional edit and delete actions for each row.
- *
- * Props:
- *   @param {ColumnDef[]} columns
- *     - Column definitions (header, width, alignment, etc.).
- *
- *   @param {RowData[]} rows
- *     - Data to render, each row matched against the column definitions.
- *
- *   @param {(row: RowData) => void | Promise<void>} [onEdit]
- *     - Optional handler triggered when a row's "Edit" action is clicked.
- *
- *   @param {(row: RowData) => void | Promise<void>} [onDelete]
- *     - Optional handler triggered when a row's "Delete" action is clicked.
- *
- * Behavior:
- *   - Builds grid template columns dynamically from `columns` config.
- *   - Displays a header row and a list of `TableRowCard` components.
- *   - Shows an "Actions" column only if edit/delete handlers are provided.
- *
- * Integration:
- *   - Designed as a flexible alternative to traditional `<table>` for quiz or data listings.
- *   - Uses `TableRowCard` for consistent per-row rendering.
- */
-
 import type {
   ColumnDef,
   RowData,
 } from "../../services/quiz/types/quiz-table-types";
 import TableRowCard from "./TableRowCard";
 
+export type DragConfig = {
+  enabled?: boolean; // default false
+  getDragData?: (row: RowData) => any; // data stored in dnd-kit event
+};
+
 export default function CardTable({
   columns,
   rows,
   onEdit,
   onDelete,
+  onRowClick,
+  spacing,
+  dragConfig,
+  draggable = false,
 }: {
   columns: ColumnDef[];
   rows: RowData[];
   onEdit?: (row: RowData) => void | Promise<void>;
   onDelete?: (row: RowData) => void | Promise<void>;
+  onRowClick?: (row: RowData) => void | Promise<void>;
+  spacing?: "compact" | "normal" | "expanded";
+  dragConfig?: DragConfig;
+  draggable?: boolean;
 }) {
   const hasActions = Boolean(onEdit || onDelete);
-
   const colTracks = columns
     .map((c) => `minmax(0, ${c.width ?? 1}fr)`)
     .join(" ");
-  const gridTemplate = `${colTracks}${hasActions ? " max-content" : ""}`;
+  const ACTIONS_COL = 60; // tweak to your buttons' actual width
+  const gridTemplate = `${colTracks}${hasActions ? ` ${ACTIONS_COL}px` : ""}`;
 
   return (
     <div className="w-full">
-      {/* Header (no background) */}
+      {/* header */}
       <div
         className="mb-2 grid items-center"
         style={{ gridTemplateColumns: gridTemplate }}
@@ -75,16 +58,23 @@ export default function CardTable({
             {c.header}
           </div>
         ))}
-
         {hasActions && (
-          <div className="flex items-center justify-end px-2 py-1.5 text-sm font-semibold text-[var(--color-text-primary)]">
+          <div className="flex items-center justify-end px-2 py-1.5 text-sm font-semibold text-[var(--color-text-secondary)]">
             Actions
           </div>
         )}
       </div>
 
-      {/* Rows */}
-      <div className="space-y-2">
+      {/* rows */}
+      <div
+        className={`${
+          spacing === "expanded"
+            ? "space-y-4"
+            : spacing === "compact"
+            ? "space-y-1"
+            : "space-y-2"
+        }`}
+      >
         {rows.map((row) => (
           <TableRowCard
             key={row.id}
@@ -93,6 +83,13 @@ export default function CardTable({
             gridTemplate={gridTemplate}
             onEdit={onEdit}
             onDelete={onDelete}
+            onRowClick={onRowClick}
+            dragData={
+              dragConfig?.enabled && dragConfig.getDragData
+                ? dragConfig.getDragData(row)
+                : undefined
+            }
+            draggable={draggable}
           />
         ))}
       </div>

@@ -50,19 +50,17 @@
 
 import Button from "@/components/ui/buttons/Button";
 import { Icon } from "@iconify/react";
-import {
-  MCOption,
-  ImageMeta,
-} from "../../../../../services/quiz/types/quizTypes";
+import { MCOption } from "../../../../../services/quiz/types/quizTypes";
 import TimerField from "../TimerField";
-import ImageUpload from "../ImageUpload";
+import ImageUpload from "../../../../ImageUpload";
 import clsx from "clsx";
 import TextArea from "@/components/ui/text-inputs/TextArea";
 import TextInput from "@/components/ui/text-inputs/TextInput";
 import IconButton from "@/components/ui/buttons/IconButton";
+import { ImageMeta } from "@/services/images/types";
+import { uploadQuizImage } from "@/services/quiz/actions/quiz-image-upload-action";
 
 export default function MCOptionsEditor({
-  // shared question UI
   text,
   timeLimit,
   image,
@@ -70,13 +68,11 @@ export default function MCOptionsEditor({
   onChangeTime,
   onSetImage,
   onDeleteImage,
-  // options UI
   options,
   onAdd,
   onRemove,
   onSetText,
   onToggleCorrect,
-  // NEW controls
   lockCount = false,
   maxOptions,
   blockTimerDisable = false,
@@ -136,6 +132,7 @@ export default function MCOptionsEditor({
 
         <div className="mt-2">
           <ImageUpload
+            uploadFn={uploadQuizImage}
             fileName={image?.filename}
             onUploaded={(meta) => onSetImage(meta)}
             initialUrl={image?.url}

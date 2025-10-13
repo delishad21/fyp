@@ -62,7 +62,6 @@ export function SelectAddModal({
   adding,
   onClose,
   onSubmit,
-  // NEW
   enableColor,
   colors = [],
   selectedColor = "#ffffff",
@@ -140,7 +139,6 @@ export function SelectAddModal({
                       <span
                         className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10"
                         style={{ backgroundColor: selectedColor }}
-                        aria-hidden
                       />
                     </div>
                     <div className="grid grid-cols-8 mt-3 gap-2">

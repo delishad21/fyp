@@ -1,16 +1,21 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 
 type ButtonProps = {
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
   loading?: boolean;
-  variant?: "primary" | "ghost" | "error" | "small";
+  variant?: "primary" | "ghost" | "error" | "small" | "error";
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
   type?: "button" | "submit";
   title?: string;
+  href?: string;
+  prefetch?: boolean;
+  target?: string;
+  rel?: string;
 };
 
 export default function Button({
@@ -22,34 +27,58 @@ export default function Button({
   onClick,
   type = "button",
   title,
+  href,
+  prefetch,
+  target,
+  rel,
 }: ButtonProps) {
-  const isDisabled = disabled || loading;
+  const isLink = !!href;
+  const isDisabled = disabled || (loading && !isLink); // ignore loading for links
 
   const base =
-    "rounded-sm text-sm font-medium transition disabled:opacity-60 flex items-center justify-center hover:opacity-90";
+    "inline-flex items-center justify-center gap-2 rounded-sm text-sm font-medium transition hover:opacity-90";
+  const disabledCls = isDisabled ? "pointer-events-none opacity-60" : "";
 
   let variantStyles = "";
   if (variant === "primary") {
     variantStyles = "px-4 py-2 bg-[var(--color-primary)] text-white";
-  }
-  if (variant === "ghost") {
+  } else if (variant === "ghost") {
     variantStyles =
       "px-4 py-2 text-[var(--color-text-primary)] hover:bg-[var(--color-bg3)] border-2 border-[var(--color-bg4)]";
-  }
-  if (variant === "error") {
+  } else if (variant === "error") {
     variantStyles = "px-4 py-2 bg-[var(--color-error)] text-white";
-  }
-  if (variant === "small") {
+  } else if (variant === "small") {
     variantStyles =
       "text-xs px-3 py-1 bg-[var(--color-bg3)] w-auto h-auto font-normal";
+  } else if (variant === "error") {
+    variantStyles = "px-4 py-2 bg-[var(--color-error)] text-white";
   }
 
+  const classes = [base, variantStyles, disabledCls, className ?? ""].join(" ");
+
+  if (isLink) {
+    // Render as link (keeps proper navigation semantics)
+    return (
+      <Link
+        href={href!}
+        prefetch={prefetch}
+        className={classes}
+        title={title}
+        target={target}
+        rel={rel}
+      >
+        {children}
+      </Link>
+    );
+  }
+
+  // Render as button
   return (
     <button
       type={type}
       disabled={isDisabled}
       onClick={onClick}
-      className={[base, variantStyles, className ?? ""].join(" ")}
+      className={classes}
       title={title}
     >
       {loading ? (

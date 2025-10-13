@@ -45,7 +45,6 @@ export function SelectTrigger({
   text,
   placeholder,
   onToggle,
-  // NEW
   showColor,
   colorHex,
 }: {
@@ -83,7 +82,6 @@ export function SelectTrigger({
         >
           {showColor && hasValue && (
             <span
-              aria-hidden
               className="inline-block h-2.5 w-2.5 rounded-full ring-1 ring-black/10"
               style={{ backgroundColor: colorHex ?? "#ffffff" }}
             />

@@ -11,7 +11,6 @@
  *   - Tabs are defined in a local `tabs` array with { label, href }.
  *   - Active tab detection:
  *       • Active if pathname matches exactly or starts with tab href + "/".
- *   - Adds `aria-current="page"` to active tab for accessibility.
  *
  * UI:
  *   - Horizontal nav bar (`<ul>`) with tab links styled as buttons.
@@ -49,7 +48,6 @@ export default function SettingsTopNav() {
                     ? "bg-[var(--color-bg3)] text-[var(--color-text-primary)]"
                     : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg4)]",
                 ].join(" ")}
-                aria-current={active ? "page" : undefined}
               >
                 {t.label}
               </Link>

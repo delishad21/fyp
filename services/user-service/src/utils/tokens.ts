@@ -1,10 +1,10 @@
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions, type Secret } from "jsonwebtoken";
 import crypto from "node:crypto";
 import {
-  WebAppAuthToken,
-  WebAppAuthTokenModel,
-  WebAppAuthTokenPurpose,
-} from "../model/webapp-auth-token-model";
+  TeacherAuthToken,
+  TeacherAuthTokenModel,
+  TeacherAuthTokenPurpose,
+} from "../model/teacher-auth-token-model";
 import { Types } from "mongoose";
 
 export function generateEmailToken(
@@ -28,10 +28,40 @@ export const generateForgetPasswordToken = (
   );
 };
 
-export const generateAccessToken = (userId: string): string => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET!, { expiresIn: "1d" });
+export type Role = "admin" | "teacher" | "student";
+
+export type OptionalClaims = {
+  teacherId?: string;
+  mustChangePassword?: boolean;
+  tokenVersion?: number; // if you ever want server-side invalidation
 };
 
+export type AccessTokenPayload = {
+  id: string; // REQUIRED
+  role: Role; // REQUIRED
+  teacherId?: string; // optional (on student tokens)
+  mustChangePassword?: boolean;
+  iat: number;
+  exp: number;
+};
+
+type IssueOpts = { expiresIn?: SignOptions["expiresIn"] };
+
+export function generateAccessToken(
+  userId: string,
+  role: Role, // REQUIRED
+  extra: OptionalClaims = {}, // optional extras
+  opts: IssueOpts = {} // optional sign options
+): string {
+  const secret: Secret = process.env.JWT_SECRET as Secret;
+  if (!secret) throw new Error("JWT_SECRET not configured");
+
+  const payload = { id: userId, role, ...extra }; // keep `id` for FE, add role
+
+  return jwt.sign(payload, secret, {
+    expiresIn: opts.expiresIn ?? "1d",
+  });
+}
 const SELECTOR_BYTES = 9; // ~12 chars base64url
 const VALIDATOR_BYTES = 32; // 256-bit secret
 
@@ -60,7 +90,7 @@ export function timingSafeEqual(a: string, b: string) {
  */
 export async function issueAuthToken(opts: {
   userId: Types.ObjectId;
-  purpose: WebAppAuthTokenPurpose;
+  purpose: TeacherAuthTokenPurpose;
   ttlSeconds: number;
   meta?: Record<string, any>;
 }) {
@@ -71,12 +101,12 @@ export async function issueAuthToken(opts: {
   const expiresAt = new Date(now.getTime() + opts.ttlSeconds * 1000);
 
   // Invalidate any outstanding tokens for this user+purpose
-  await WebAppAuthTokenModel.updateMany(
+  await TeacherAuthTokenModel.updateMany(
     { userId: opts.userId, purpose: opts.purpose, usedAt: null },
     { $set: { usedAt: now } }
   );
 
-  await WebAppAuthTokenModel.create({
+  await TeacherAuthTokenModel.create({
     selector,
     validatorHash,
     userId: opts.userId,
@@ -95,16 +125,16 @@ export async function issueAuthToken(opts: {
  * Caller should check purpose; then mark used when applying the action.
  */
 export type ValidationResult =
-  | { ok: true; doc: WebAppAuthToken }
+  | { ok: true; doc: TeacherAuthToken }
   | { ok: false; reason: "not_found" | "used" | "expired" | "mismatch" };
 
 export async function validateAuthToken(
   selector: string,
   validator: string
 ): Promise<ValidationResult> {
-  const doc = await WebAppAuthTokenModel.findOne({
+  const doc = await TeacherAuthTokenModel.findOne({
     selector,
-  }).lean<WebAppAuthToken>();
+  }).lean<TeacherAuthToken>();
   if (!doc) return { ok: false, reason: "not_found" };
 
   const now = Date.now();
@@ -121,7 +151,7 @@ export async function validateAuthToken(
 
 /* Mark a token consumed */
 export async function consumeAuthToken(selector: string) {
-  await WebAppAuthTokenModel.updateOne(
+  await TeacherAuthTokenModel.updateOne(
     { selector, usedAt: null },
     { $set: { usedAt: new Date() } }
   );

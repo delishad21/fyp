@@ -42,16 +42,15 @@
  */
 
 import Button from "@/components/ui/buttons/Button";
-import {
-  OpenAnswer,
-  ImageMeta,
-} from "../../../../../services/quiz/types/quizTypes";
+import { OpenAnswer } from "../../../../../services/quiz/types/quizTypes";
 import TimerField from "../TimerField";
-import ImageUpload from "../ImageUpload";
+import ImageUpload from "../../../../ImageUpload";
 import TextArea from "@/components/ui/text-inputs/TextArea";
 import TextInput from "@/components/ui/text-inputs/TextInput";
 import ToggleButton from "@/components/ui/buttons/ToggleButton";
 import IconButton from "@/components/ui/buttons/IconButton";
+import { ImageMeta } from "@/services/images/types";
+import { uploadQuizImage } from "@/services/quiz/actions/quiz-image-upload-action";
 
 type Props = {
   text: string;
@@ -108,6 +107,7 @@ export default function OpenAnswersEditor({
 
         <div className="mt-2">
           <ImageUpload
+            uploadFn={uploadQuizImage}
             fileName={image?.filename}
             onUploaded={(meta) => onSetImage(meta)}
             initialUrl={image?.url}

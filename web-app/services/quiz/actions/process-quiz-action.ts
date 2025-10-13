@@ -1,6 +1,7 @@
 "use server";
 
-import { quizSvcUrl, getAuthHeader } from "../helpers";
+import { getAuthHeader } from "@/services/user/session-definitions";
+import { quizSvcUrl } from "@/utils/utils";
 import { QuizType, CreateQuizState } from "../types/quizTypes";
 
 async function createQuizJSON(

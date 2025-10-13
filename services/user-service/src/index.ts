@@ -2,8 +2,11 @@ import express from "express";
 import cors from "cors";
 import { Request, Response, NextFunction } from "express";
 
-import userRoutes from "./routes/webapp-user-routes";
-import authRoutes from "./routes/webapp-auth-routes";
+import authRoutes from "./routes/auth-routes";
+import teacherUserRoutes from "./routes/teacher-user-routes";
+import teacherAuthRoutes from "./routes/teacher-auth-routes";
+import studentUserRoutes from "./routes/student-user-routes";
+import studentAuthRoutes from "./routes/student-auth-routes";
 
 const app = express();
 
@@ -11,8 +14,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors()); // config cors so that front-end can use
 
-app.use("/webapp/users", userRoutes);
-app.use("/webapp/auth", authRoutes);
+app.use("/auth", authRoutes);
+app.use("/teacher/users", teacherUserRoutes);
+app.use("/teacher/auth", teacherAuthRoutes);
+app.use("/student/users", studentUserRoutes);
+app.use("/student/auth", studentAuthRoutes);
 
 app.get("/", (req, res, next) => {
   console.log("Sending Greetings!");

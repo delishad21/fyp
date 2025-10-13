@@ -10,7 +10,7 @@ type Variant =
   | "ghost"
   | "pagination"
   | "borderless";
-type Size = "sm" | "md" | "lg";
+type Size = "sm" | "md" | "lg" | "xl";
 
 export type IconButtonProps = {
   icon: string;
@@ -33,6 +33,9 @@ function sizeToPx(size: Size | number | undefined): number {
     case "lg":
       return 48;
     case "md":
+      return 40;
+    case "xl":
+      return 80;
     default:
       return 40;
   }

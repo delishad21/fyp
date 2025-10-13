@@ -1,15 +1,12 @@
-// auth-resend-helpers.ts
-import { Types } from "mongoose";
 import {
-  WebAppAuthTokenModel,
-  type WebAppAuthToken,
-} from "../../model/webapp-auth-token-model";
+  TeacherAuthTokenModel,
+  type TeacherAuthToken,
+} from "../../model/teacher-auth-token-model";
 import {
   findUserById as _findUserById,
   updateUserById as _updateUserById,
-} from "../../model/webapp-user-repository";
+} from "../../model/teacher-user-repository";
 import { issueOtpToken } from "../../utils/otp";
-import { issueAuthToken } from "../../utils/tokens";
 import {
   sendVerificationEmail,
   sendVerificationEmailForEmailChange,
@@ -21,16 +18,16 @@ export const EMAIL_CHANGE_TTL_SECONDS = 10 * 60;
 export const RESEND_THROTTLE_SECONDS = 60;
 
 export type LoadedContext = {
-  token: WebAppAuthToken;
+  token: TeacherAuthToken;
   user: Awaited<ReturnType<typeof _findUserById>>;
 };
 
 export async function loadTokenAndUser(
   selector: string
 ): Promise<LoadedContext | null> {
-  const token = await WebAppAuthTokenModel.findOne({
+  const token = await TeacherAuthTokenModel.findOne({
     selector,
-  }).lean<WebAppAuthToken>();
+  }).lean<TeacherAuthToken>();
   if (!token) return null;
   const user = await _findUserById(token.userId.toString());
   if (!user) return null;
@@ -45,7 +42,7 @@ export function secondsLeft(date: Date) {
  * throttle so users can't spam resends.
  * Returns {ok:false, retryAfter} if within the cooldown window.
  */
-export function checkThrottle(token: WebAppAuthToken) {
+export function checkThrottle(token: TeacherAuthToken) {
   if (!RESEND_THROTTLE_SECONDS) return { ok: true as const };
 
   const since = Math.floor(

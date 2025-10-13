@@ -9,7 +9,7 @@ import {
   findUserByEmail as _findUserByEmail,
   findUserById as _findUserById,
   updateUserById as _updateUserById,
-} from "../../model/webapp-user-repository";
+} from "../../model/teacher-user-repository";
 
 type UpdateResult =
   | {

@@ -1,4 +1,3 @@
-// app/quizzes/page.tsx
 import CreateQuizCard from "@/components/quizzes/CreateQuizCard";
 import { QuizTypeDef } from "@/services/quiz/types/quizTypes";
 import QuizzesTable from "@/components/quizzes/QuizzesTable";

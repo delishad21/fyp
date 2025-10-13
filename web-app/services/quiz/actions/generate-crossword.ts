@@ -1,6 +1,6 @@
 "use server";
 
-import { quizSvcUrl } from "../helpers";
+import { quizSvcUrl } from "@/utils/utils";
 import { CrosswordApiEntry, Cell, Direction } from "../types/quizTypes";
 
 export type Entry = Omit<CrosswordApiEntry, "direction"> & {

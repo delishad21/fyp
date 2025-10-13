@@ -1,10 +1,9 @@
-// helpers/confirm-helpers.ts
 import jwt from "jsonwebtoken";
-import type { WebAppAuthToken } from "../../model/webapp-auth-token-model";
+import type { TeacherAuthToken } from "../../model/teacher-auth-token-model";
 import {
   findUserById as _findUserById,
   findUserByEmail as _findUserByEmail,
-} from "../../model/webapp-user-repository";
+} from "../../model/teacher-user-repository";
 import { formatUserResponse } from "../../utils/formats";
 
 // ---- Types ----
@@ -25,7 +24,7 @@ export type ConfirmErr = { status: number; message: string };
 
 // ---- Small helpers ----
 
-export async function loadUserFromTokenDoc(doc: WebAppAuthToken) {
+export async function loadUserFromTokenDoc(doc: TeacherAuthToken) {
   const user = await _findUserById(doc.userId.toString());
   if (!user) {
     return { err: <ConfirmErr>{ status: 404, message: "User not found" } };
@@ -70,7 +69,7 @@ export async function handleEmailVerify(
  */
 export async function handleEmailChange(
   user: any,
-  doc: WebAppAuthToken
+  doc: TeacherAuthToken
 ): Promise<EmailChangeOk | ConfirmErr> {
   const newEmail = String(doc.meta?.newEmail ?? "")
     .trim()

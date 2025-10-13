@@ -89,9 +89,9 @@ export const validateName = (name: string): string[] => {
   if (trimmed.length > 100) {
     errors.push("Name must be at most 100 characters long.");
   }
-  if (!/^[a-zA-Z\s.-]+$/.test(trimmed)) {
+  if (!/^[A-Za-z\s.\-\/]+$/.test(trimmed)) {
     errors.push(
-      "Name can only contain letters, spaces, '.', '-' and must not be empty."
+      "Name can only contain letters, spaces, '.', '-', '/' and must not be empty."
     );
   }
 
@@ -171,4 +171,59 @@ export const isValidName = (name: string): boolean => {
 export const isValidHonorific = (honorific: string | undefined): boolean => {
   const errors = validateHonorific(honorific);
   return errors.length === 0;
+};
+
+export const validateStudentUserData = (
+  {
+    username,
+    name,
+    email,
+    password,
+  }: { username: string; name: string; email?: string; password?: string },
+  opts: { emailRequired?: boolean; passwordRequired?: boolean } = {}
+): {
+  username: string[];
+  name: string[];
+  email: string[];
+  password: string[];
+} => {
+  const { emailRequired = false, passwordRequired = false } = opts;
+
+  const result: {
+    username: string[];
+    name: string[];
+    email: string[];
+    password: string[];
+  } = {
+    username: validateUsername(username),
+    name: validateName(name),
+    email: [],
+    password: [],
+  };
+
+  // Validate email only if required or provided
+  if (emailRequired || (email && email.trim().length > 0)) {
+    result.email = validateEmail(email ?? "");
+  }
+
+  // Validate password only if required or provided
+  if (passwordRequired || (password && password.trim().length > 0)) {
+    result.password = validatePassword(password ?? "");
+  }
+
+  return result;
+};
+
+// Optional helper, also inline-typed
+export const isValidStudentUserData = (
+  data: { username: string; name: string; email?: string; password?: string },
+  opts?: { emailRequired?: boolean; passwordRequired?: boolean }
+): boolean => {
+  const r = validateStudentUserData(data, opts);
+  return (
+    r.username.length === 0 &&
+    r.name.length === 0 &&
+    r.email.length === 0 &&
+    r.password.length === 0
+  );
 };

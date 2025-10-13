@@ -5,29 +5,21 @@ import {
 } from "../utils/crossword/crossword-algorithm";
 import { packTopLeftAndCrop } from "../utils/crossword/compact-crossword";
 
+/** Max characters allowed per answer (enforced in validateWords). */
 const WORD_MAX = 20;
 
 /**
- * validateWords
- *
- * Purpose:
- * - Validates crossword input arrays (`words` and `clues`) before generation.
- * - Enforces length, format, and presence constraints.
- *
- * Behavior:
- * - Requires at least one word, max 10 words allowed.
- * - Each answer must:
- *   • Not be empty.
- *   • Contain only A–Z letters.
- *   • Not contain spaces.
- *   • Be ≤ WORD_MAX characters.
- * - Each clue must not be empty.
- *
- * Returns:
- * - { fieldErrors, questionErrors, ok }
- *   • fieldErrors: top-level issues (e.g. "max 10 words").
- *   • questionErrors: per-word array of error messages.
- *   • ok: boolean indicating if all checks passed.
+ * @internal validateWords
+ * @purpose Validate crossword `words`/`clues` pairs before generation.
+ * @input   words: string[]; clues: string[]      // same length; words[i] ↔ clues[i]
+ * @rules   - At least 1 word; at most 10 words
+ *          - Each answer required; letters A–Z only; no spaces; length ≤ WORD_MAX
+ *          - Each clue required (non-empty)
+ * @returns { fieldErrors, questionErrors, ok }
+ *          fieldErrors: Record<string,string|string[]|undefined> // top-level issues
+ *          questionErrors: (string[]|undefined)[]                // per-row errors
+ *          ok: boolean
+ * @notes   Pure validator; does not mutate inputs.
  */
 function validateWords(words: string[], clues: string[]) {
   const fieldErrors: Record<string, string | string[] | undefined> = {};
@@ -64,31 +56,29 @@ function validateWords(words: string[], clues: string[]) {
 }
 
 /**
- * generateCrosswordHandler
- *
- * Express controller that processes a request to generate a crossword grid.
- *
- * Request body:
- * - words: string[] — list of answers.
- * - clues: string[] — corresponding clues.
- * - gridSize?: number — optional grid dimension (default 20).
- *
- * Flow:
- * - Validates inputs with `validateWords`.
- *   • If invalid → returns 400 with `fieldErrors` and `questionErrors`.
- * - Builds InputWord[] items (normalized answers, trimmed clues).
- * - Calls `generateCrossword` to build the grid.
- * - Packs/crops the grid using `packTopLeftAndCrop`.
- * - Responds with:
- *   • ok: true
- *   • grid: compact 2D cell structure
- *   • entries: placed word entries with positions/directions
- *   • packedHeight, packedWidth: dimensions of cropped grid
- *   • unplaced: any words that couldn’t fit
- *
- * Errors:
- * - On validation error → HTTP 400.
- * - On unexpected exception → HTTP 500 with generic "Server error".
+ * @route   POST /quiz/generate-crossword
+ * @auth    none
+ * @input   Body: {
+ *            words: string[],            // required; answers
+ *            clues: string[],            // required; same length as words
+ *            gridSize?: number           // optional; default 20 (square grid)
+ *          }
+ * @logic   1) Validate with validateWords; on failure → 400 with fieldErrors/questionErrors
+ *          2) Map to InputWord[] (answer UPPERCASE trimmed; clue trimmed)
+ *          3) generateCrossword(items, size, { allowIslandFallback: true })
+ *          4) packTopLeftAndCrop(grid, entries) to minimize bounding box
+ * @returns 200 {
+ *            ok: true,
+ *            grid: Cell[][],
+ *            entries: Entry[],           // id, answer, clue, direction, positions[]
+ *            packedHeight: number,
+ *            packedWidth: number,
+ *            unplaced: InputWord[]       // any answers that could not be placed
+ *          }
+ * @errors  400 validation failure
+ *          500 server error
+ * @sideEffects
+ *          - No DB writes; CPU-bound generation only.
  */
 export async function generateCrosswordHandler(req: Request, res: Response) {
   try {
@@ -119,14 +109,13 @@ export async function generateCrosswordHandler(req: Request, res: Response) {
     });
     const packed = packTopLeftAndCrop(generated.grid, generated.entries);
 
-    res.set("Cache-Control", "no-store");
     return res.json({
       ok: true,
       grid: packed.grid,
-      entries: packed.entries, // include positions[] + direction
+      entries: packed.entries,
       packedHeight: packed.height,
       packedWidth: packed.width,
-      unplaced: generated.unplaced, // optional, you can also error if non-empty
+      unplaced: generated.unplaced,
     });
   } catch (e: any) {
     console.error("[generateCrosswordHandler] error:", e);

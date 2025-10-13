@@ -30,16 +30,27 @@ export type DateCell = {
   data: { iso: string | Date; format?: string; color?: string }; // <- Date allowed
 };
 
+export type AvatarCell = {
+  variant: "avatar";
+  data: {
+    src?: string; // photo URL (optional)
+    name?: string; // used for alt + fallback initials
+    size?: number; // px, default 36
+  };
+};
+
 export type Cell =
   | NormalCell
   | LabelCell
   | TagsCell
   | ProgressBarCell
-  | DateCell;
+  | DateCell
+  | AvatarCell;
 
 export type RowData = {
   id: string;
   cells: Cell[]; // must align with columns order
+  payload?: any; // optional, can be anything
 };
 
 export type ColumnDef = {

@@ -1,12 +1,46 @@
+/**
+ * Quiz Type: RAPID
+ * Responsibilities:
+ *  - Discriminator schema for rapid MC quizzes
+ *  - Body readers/coercion/validation
+ *  - Attempt spec builder (render + grading key)
+ *  - Grader
+ *  - Scheduled-quiz aggregation
+ *
+ * Section order (keep across types):
+ *  1) Imports
+ *  2) Schemas
+ *  3) Coercion helpers
+ *  4) Validation
+ *  5) Body readers / type patch
+ *  6) Attempt spec builder
+ *  7) Grading
+ *  8) Scheduled aggregation
+ *  9) Register function
+ */
+
 import { Schema } from "mongoose";
+import crypto from "crypto";
 import { QuizBaseModel } from "../quiz-base-model";
 import { registerQuizType } from "../quiz-registry";
 import {
+  Answer,
+  AttemptSpecEnvelope,
+  AutoscoreResult,
   ImageMetaSchema,
+  ItemScore,
   MCOptionSchema,
+  RapidItem,
+  ScheduleBreakdownInput,
+  contentHash,
   isString,
+  pct100,
   toNumber,
+  toPct01,
 } from "../quiz-shared";
+import { scoreMC_StrictPartial } from "../../utils/scoring-helpers";
+
+/* ───────────────────────────── 2) SCHEMAS ──────────────────────────────── */
 
 const RapidItemSchema = new Schema(
   {
@@ -29,7 +63,8 @@ const RapidSchema = new Schema(
 
 export const RapidQuizModel = QuizBaseModel.discriminator("rapid", RapidSchema);
 
-/** coercion */
+/* ─────────────────────────── 3) COERCION HELPERS ───────────────────────── */
+
 function coerceRapidItem(raw: any) {
   if (raw?.type !== "mc") return null;
   return {
@@ -48,7 +83,8 @@ function coerceRapidItem(raw: any) {
   };
 }
 
-/** validation (exactly one correct if you want — enforced here) */
+/* ───────────────────────────── 4) VALIDATION ───────────────────────────── */
+
 function validateRapid(body: any, items: any[]) {
   const fieldErrors: Record<string, string | string[] | undefined> = {};
   if (!body?.name?.trim()) fieldErrors.name = "Name is required";
@@ -73,6 +109,8 @@ function validateRapid(body: any, items: any[]) {
   return { fieldErrors, questionErrors };
 }
 
+/* ─────────────────────── 5) BODY READER / TYPE PATCH ────────────────────── */
+
 function readItemsFromBody(body: any) {
   try {
     const src = body.itemsJson ?? body.questionsJson ?? "[]";
@@ -86,10 +124,266 @@ function readItemsFromBody(body: any) {
 function buildTypePatch(
   _body: any,
   items: any[],
-  fileMap?: Record<string, any>
+  _fileMap?: Record<string, any>
 ) {
   return { items };
 }
+
+/* ─────────────────────── 6) ATTEMPT SPEC BUILDER ───────────────────────── */
+
+function buildAttemptSpecRapid(quizDoc: any): AttemptSpecEnvelope {
+  const renderItems: AttemptSpecEnvelope["renderSpec"]["items"] = [];
+  const gradingItems: AttemptSpecEnvelope["gradingKey"]["items"] = [];
+
+  for (const it of quizDoc.items ?? []) {
+    renderItems.push({
+      kind: "mc",
+      id: it.id,
+      text: it.text ?? "",
+      timeLimit: Number(it.timeLimit),
+      image: it.image ?? null,
+      options: (it.options ?? []).map((o: any) => ({
+        id: o.id,
+        text: o.text ?? "",
+      })),
+    });
+    gradingItems.push({
+      kind: "mc",
+      id: it.id,
+      correctOptionIds: (it.options ?? [])
+        .filter((o: any) => !!o.correct)
+        .map((o: any) => o.id),
+      maxScore: 1,
+    });
+  }
+
+  return {
+    quizId: String(quizDoc._id),
+    quizType: quizDoc.quizType,
+    contentHash: contentHash({ items: quizDoc.items }),
+    renderSpec: { items: renderItems },
+    gradingKey: { items: gradingItems },
+    meta: {
+      name: quizDoc.name,
+      subject: quizDoc.subject,
+      subjectColorHex: quizDoc.subjectColorHex,
+      topic: quizDoc.topic,
+      owner: String(quizDoc.owner),
+    },
+  };
+}
+
+/* ─────────────────────────────── 7) GRADING ─────────────────────────────── */
+
+function gradeAttemptRapid(
+  spec: AttemptSpecEnvelope,
+  answers: Answer[]
+): AutoscoreResult {
+  const ansById = new Map(answers.map((a) => [(a.id ?? a.itemId)!, a]));
+  const itemScores: ItemScore[] = [];
+  let total = 0,
+    max = 0;
+
+  for (const k of spec.gradingKey.items) {
+    if (k.kind !== "mc") continue;
+
+    const itemMax = Number(k.maxScore ?? 1);
+    const ans = ansById.get(k.id);
+    const selected = Array.isArray(ans?.value)
+      ? (ans!.value as string[])
+      : typeof ans?.value === "string"
+      ? [String(ans!.value)]
+      : [];
+
+    const out = scoreMC_StrictPartial(
+      selected,
+      k.correctOptionIds ?? [],
+      itemMax
+    );
+
+    const final = out.score;
+    itemScores.push({
+      itemId: k.id,
+      max: itemMax,
+      auto: { score: out.score, correct: out.correct, details: out.details },
+      final,
+    });
+    total += final;
+    max += itemMax;
+  }
+
+  return { itemScores, total, max };
+}
+
+/* ──────────────────────── 8) SCHEDULED AGGREGATION ─────────────────────── */
+
+function getCorrectOptionIdsFromItem(it: any): string[] {
+  if (Array.isArray(it?.correctOptionIds))
+    return it.correctOptionIds.map(String);
+  if (it?.correctOptionId) return [String(it.correctOptionId)];
+  if (it?.correct) return [String(it.correct)];
+  const opts = Array.isArray(it?.options) ? it.options : [];
+  const truthy = (v: any) => v === true || v === 1 || v === "1" || v === "true";
+  return opts
+    .filter(
+      (o: any) =>
+        truthy(o?.correct) ||
+        truthy(o?.isCorrect) ||
+        truthy(o?.answer) ||
+        truthy(o?.isAnswer)
+    )
+    .map((o: any) => String(o.id));
+}
+
+export function aggregateScheduledRapid({
+  quizDoc,
+  attempts,
+}: ScheduleBreakdownInput): {
+  kind: "rapid";
+  data: {
+    attemptsCount: number;
+    overallAvgScore: number | null;
+    overallAvgScorePct: number | null;
+    overallAvgScoreRaw?: { meanScore: number; meanMax: number };
+    items: Array<{
+      itemId: string;
+      type: "mc";
+      text: string;
+      timeLimit: number | null;
+      totalAnswers: number;
+      perQuestionAvg: number | null;
+      perQuestionAvgPct: number | null;
+      correctOptionIds: string[];
+      correctOptions: { id: string; text: string }[];
+      options: {
+        id: string;
+        text: string;
+        count: number;
+        percentageSelected: number;
+        percentageSelectedPct: number;
+      }[];
+    }>;
+  };
+} {
+  const itemsArr: RapidItem[] = Array.isArray(quizDoc?.items)
+    ? quizDoc.items
+    : [];
+  const itemById = new Map<string, RapidItem>();
+  for (const it of itemsArr) itemById.set(String(it.id), it);
+
+  // Overall averages
+  const attemptsCount = attempts.length;
+  const scored = attempts.filter(
+    (a) =>
+      typeof a.score === "number" &&
+      typeof a.maxScore === "number" &&
+      Number(a.maxScore) > 0
+  );
+  const sumScore = scored.reduce((s, a) => s + Number(a.score || 0), 0);
+  const sumMax = scored.reduce((s, a) => s + Number(a.maxScore || 0), 0);
+  const overallAvgScore = scored.length ? sumScore / sumMax : null;
+
+  // Per-question scoring from breakdown
+  const qScoreSum = new Map<string, number>();
+  const qMaxSum = new Map<string, number>();
+
+  // MC tallies
+  const mcCounts = new Map<string, Map<string, number>>();
+  const mcTotals = new Map<string, number>();
+
+  for (const a of attempts) {
+    if (Array.isArray(a.breakdown)) {
+      for (const b of a.breakdown) {
+        const itemId = String(b.itemId ?? "");
+        const scr = Number(b.awarded ?? 0);
+        const mx = Number(b.max ?? 0);
+        if (!itemId || !(mx >= 0)) continue;
+        qScoreSum.set(itemId, (qScoreSum.get(itemId) || 0) + scr);
+        qMaxSum.set(itemId, (qMaxSum.get(itemId) || 0) + mx);
+      }
+    }
+
+    const ans = (a.answers as Record<string, unknown>) || {};
+    for (const [itemId, value] of Object.entries(ans)) {
+      const it = itemById.get(itemId);
+      if (!it || it.type !== "mc") continue;
+
+      const selected: string[] = Array.isArray(value)
+        ? (value as string[])
+        : typeof value === "string"
+        ? [String(value)]
+        : [];
+
+      if (!mcCounts.has(itemId)) mcCounts.set(itemId, new Map());
+      const m = mcCounts.get(itemId)!;
+      mcTotals.set(itemId, (mcTotals.get(itemId) || 0) + 1);
+      for (const optId of selected)
+        m.set(String(optId), (m.get(String(optId)) || 0) + 1);
+    }
+  }
+
+  const items = itemsArr
+    .filter((it) => it.type === "mc")
+    .map((it) => {
+      const itemId = String(it.id);
+      const counts = mcCounts.get(itemId) ?? new Map<string, number>();
+      const totalAnswers = mcTotals.get(itemId) || 0;
+
+      const qMax = qMaxSum.get(itemId) || 0;
+      const qSum = qScoreSum.get(itemId) || 0;
+      const perQuestionAvg = qMax > 0 ? qSum / qMax : null;
+
+      const options = (it.options ?? []).map((o) => {
+        const count = counts.get(String(o.id)) || 0;
+        const p01 = toPct01(count, totalAnswers);
+        return {
+          id: String(o.id),
+          text: o.text ?? "",
+          count,
+          percentageSelected: p01,
+          percentageSelectedPct: p01 * 100,
+        };
+      });
+
+      const correctOptionIds = getCorrectOptionIdsFromItem(it);
+      const correctOptions = (it.options ?? [])
+        .filter((o: any) => correctOptionIds.includes(String(o.id)))
+        .map((o: any) => ({ id: String(o.id), text: o.text ?? "" }));
+
+      return {
+        itemId,
+        type: "mc" as const,
+        text: it.text ?? "",
+        timeLimit: Number.isFinite(Number(it.timeLimit))
+          ? Number(it.timeLimit)
+          : null,
+        totalAnswers,
+        perQuestionAvg,
+        perQuestionAvgPct: pct100(perQuestionAvg),
+        correctOptionIds,
+        correctOptions,
+        options,
+      };
+    });
+
+  return {
+    kind: "rapid",
+    data: {
+      attemptsCount,
+      overallAvgScore,
+      overallAvgScorePct: pct100(overallAvgScore),
+      overallAvgScoreRaw: scored.length
+        ? {
+            meanScore: sumScore / scored.length,
+            meanMax: sumMax / scored.length,
+          }
+        : undefined,
+      items,
+    },
+  };
+}
+
+/* ─────────────────────────── 9) REGISTER TYPE ───────────────────────────── */
 
 export function registerRapidQuiz() {
   registerQuizType({
@@ -99,5 +393,8 @@ export function registerRapidQuiz() {
     coerceItems: (raw) => raw.map(coerceRapidItem).filter(Boolean) as any[],
     validate: validateRapid,
     buildTypePatch,
+    buildAttemptSpec: buildAttemptSpecRapid,
+    gradeAttempt: gradeAttemptRapid,
+    aggregateScheduledQuiz: aggregateScheduledRapid,
   });
 }

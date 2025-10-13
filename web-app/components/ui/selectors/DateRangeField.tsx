@@ -96,7 +96,7 @@ export default function DateRangeField({
 }) {
   const [open, setOpen] = useState(false);
 
-  // Controlled → local draft for the calendar UI while open
+  // Controlled -> local draft for the calendar UI while open
   const controlled: RDDateRange | undefined = useMemo(() => {
     const from = parseYMD(start);
     const to = parseYMD(end);

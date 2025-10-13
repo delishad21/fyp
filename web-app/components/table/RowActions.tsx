@@ -33,20 +33,23 @@ export default function RowActions({
   editLoading,
   deleteLoading,
 }: {
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onEdit?: (e?: React.MouseEvent) => void; // allow event (optional)
+  onDelete?: (e?: React.MouseEvent) => void; // allow event (optional)
   editLoading?: boolean;
   deleteLoading?: boolean;
 }) {
   return (
-    <div className="flex items-center mr-2">
+    <div className="flex items-center justify-end mr-2">
       {onEdit && (
         <IconButton
           icon="mingcute:edit-line"
           title="Edit"
           variant="borderless"
           size="md"
-          onClick={onEdit}
+          onClick={(e) => {
+            e.stopPropagation(); // prevent row onClick
+            onEdit?.(e);
+          }}
           loading={editLoading}
         />
       )}
@@ -56,7 +59,10 @@ export default function RowActions({
           title="Delete"
           variant="borderless"
           size="md"
-          onClick={onDelete}
+          onClick={(e) => {
+            e.stopPropagation(); // prevent row onClick
+            onDelete?.(e);
+          }}
           className="text-[var(--color-error)]"
           loading={deleteLoading}
         />

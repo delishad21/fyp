@@ -8,6 +8,12 @@
  *   - Manages quiz metadata (name, subject, topic) and a fixed set of MC-only questions.
  *   - Submits quiz data to the backend via a server action.
  *
+ *     (Edit-mode safeguard):
+ *   - Detects *question content* changes (not metadata) by normalizing the items
+ *     and comparing to the initial snapshot. If changed, a WarningModal appears
+ *     on submit indicating that previous attempts will be invalidated.
+ *   - Backend remains the source of truth for invalidation (e.g., `contentHash`).
+ *
  * Props:
  *   @param {FilterMeta} meta
  *     - Metadata containing available subjects and topics.
@@ -52,18 +58,25 @@
  */
 
 import * as React from "react";
-import { useActionState, useEffect } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useCallback,
+} from "react";
 import Button from "@/components/ui/buttons/Button";
-import { useBaseQuizFormItems } from "@/services/quiz/quiz-form-helpers/useBaseQuizFormItems";
+import { useBaseQuizFormItems } from "@/services/quiz/quiz-form-helpers/hooks/useBaseQuizFormItems";
 import {
   useFieldErrorMask,
   useIndexedErrorMask,
-} from "@/services/quiz/quiz-form-helpers/useFieldErrorMask";
+} from "@/services/quiz/quiz-form-helpers/hooks/useFieldErrorMask";
 import {
   useRedirectOnSuccess,
   useEnterSubmitGuard,
-} from "@/services/quiz/quiz-form-helpers/useFormUtils";
-import { useMetaAdders } from "@/services/quiz/quiz-form-helpers/useMetaAdders";
+} from "@/services/quiz/quiz-form-helpers/hooks/useFormUtils";
+import { useMetaAdders } from "@/services/quiz/quiz-form-helpers/hooks/useMetaAdders";
 import { FilterMeta } from "@/services/quiz/types/quiz-table-types";
 import {
   CreateQuizState,
@@ -76,6 +89,7 @@ import QuestionSelector from "./quiz-form-helper-components/question-selector/Qu
 import { processQuiz } from "@/services/quiz/actions/process-quiz-action";
 import { REDIRECT_TIMEOUT } from "@/utils/utils";
 import { useToast } from "@/components/ui/toast/ToastProvider";
+import WarningModal from "@/components/ui/WarningModal";
 
 type Props = {
   meta: FilterMeta;
@@ -113,7 +127,7 @@ export default function RapidQuizForm({ meta, mode, initialData }: Props) {
   const onFormKeyDown = useEnterSubmitGuard();
   const { addSubject, addTopic } = useMetaAdders();
 
-  // top field error masking (new names)
+  // top field error masking
   const { clearFieldError, getVisibleFieldError } =
     useFieldErrorMask<RapidTopFields>(state.fieldErrors);
 
@@ -136,10 +150,66 @@ export default function RapidQuizForm({ meta, mode, initialData }: Props) {
     toggleCorrect,
   } = useBaseQuizFormItems(initialItems, { initialNumMCOptions: 4 });
 
-  // Per-question errors (new names)
+  // Per-question errors
   const { visibleErrors, clearErrorAtIndex, erroredIndexes } =
     useIndexedErrorMask(state.questionErrors);
   const currentQuestionErrors = visibleErrors[currentIndex];
+
+  /** ---------------------------------------------------------------
+   * Edit-mode safeguard: detect QUESTION CONTENT changes
+   * (NOT metadata). If changed, show WarningModal on submit.
+   * -------------------------------------------------------------- */
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  function normalizeRapidItems(raw: any[]) {
+    return (raw || []).map((it) => ({
+      type: "mc",
+      text: it.text ?? "",
+      timeLimit: it.timeLimit ?? null,
+      image: it.image?.url ?? null,
+      options: (it.options ?? []).map((o: any) => ({
+        text: o.text ?? "",
+        correct: !!o.correct,
+      })),
+    }));
+  }
+
+  const initialItemsNormJson = useMemo(() => {
+    const initialItemsRaw = initialData?.items ?? [];
+    return JSON.stringify(normalizeRapidItems(initialItemsRaw));
+  }, [initialData?.items]);
+
+  const currentItemsNormJson = useMemo(
+    () => JSON.stringify(normalizeRapidItems(items)),
+    [items]
+  );
+
+  const contentChanged =
+    mode === "edit" && initialData?.id
+      ? initialItemsNormJson !== currentItemsNormJson
+      : false;
+
+  const handleSubmitGuard = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      if (mode !== "edit") return;
+      if (!contentChanged) return;
+      if (!confirmed) {
+        e.preventDefault();
+        setConfirmOpen(true);
+      }
+    },
+    [mode, contentChanged, confirmed]
+  );
+
+  const onContinue = useCallback(() => {
+    setConfirmOpen(false);
+    setConfirmed(true);
+    formRef.current?.requestSubmit();
+  }, []);
+
+  const onCancel = useCallback(() => setConfirmOpen(false), []);
 
   const topDefaults = React.useMemo(
     () => ({
@@ -159,6 +229,8 @@ export default function RapidQuizForm({ meta, mode, initialData }: Props) {
 
   return (
     <form
+      ref={formRef}
+      onSubmit={handleSubmitGuard}
       onKeyDown={onFormKeyDown}
       noValidate
       action={formAction}
@@ -270,6 +342,21 @@ export default function RapidQuizForm({ meta, mode, initialData }: Props) {
           </Button>
         </div>
       </div>
+
+      {/* Warning modal for content changes in edit mode */}
+      <WarningModal
+        open={confirmOpen}
+        title="Update will invalidate previous attempts"
+        message={
+          <>
+            You changed one or more questions. Continue and invalidate attempts?
+          </>
+        }
+        cancelLabel="Cancel"
+        continueLabel="Continue"
+        onCancel={onCancel}
+        onContinue={onContinue}
+      />
     </form>
   );
 }

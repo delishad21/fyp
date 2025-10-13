@@ -131,3 +131,9 @@ export const getEmailChangeTimeToExpire = async () => {
 
   return session.expiry;
 };
+
+export async function getAuthHeader() {
+  const session = await getSession();
+  const token = (session as any)?.accessToken as string | undefined;
+  return token ? `Bearer ${token}` : undefined;
+}

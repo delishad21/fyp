@@ -64,7 +64,7 @@ export async function signUpAction(
   if (Object.keys(next.fieldErrors).length > 0) return next;
 
   try {
-    const response = await fetch(`${USER_SVC_URL}/webapp/users`, {
+    const response = await fetch(`${USER_SVC_URL}/teacher/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
@@ -125,7 +125,7 @@ export async function confirmEmail(
     return { ok: false, error: "Missing verification parameters." };
   }
 
-  const response = await fetch(`${USER_SVC_URL}/webapp/auth/verify-email`, {
+  const response = await fetch(`${USER_SVC_URL}/teacher/auth/verify-email`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ selector, code }),
@@ -178,7 +178,7 @@ export async function resendCode(selector: string): Promise<{
   if (!selector) return { ok: false, error: "Missing selector." };
 
   const response = await fetch(
-    `${USER_SVC_URL}/webapp/auth/verify-email/resend`,
+    `${USER_SVC_URL}/teacher/auth/verify-email/resend`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -209,7 +209,7 @@ export async function checkValidSelector(selector: string): Promise<boolean> {
 
   try {
     const response = await fetch(
-      `${USER_SVC_URL}/webapp/auth/verify-email/status?selector=${encodeURIComponent(
+      `${USER_SVC_URL}/teacher/auth/verify-email/status?selector=${encodeURIComponent(
         selector
       )}`,
       { cache: "no-store" }

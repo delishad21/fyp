@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
-import { RESET_TTL_SECONDS } from "../controller/webapp-auth-controller";
 import { VERIFY_TTL_SECONDS } from "../controller/helpers/email-resend-helpers";
+import { RESET_TTL_SECONDS } from "./teacher-auth-utils";
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",

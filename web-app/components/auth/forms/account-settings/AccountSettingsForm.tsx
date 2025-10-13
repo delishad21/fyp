@@ -5,7 +5,7 @@
  *
  * Purpose:
  *   - Manages user account settings (honorific, name, email, password change) in a single form.
- *   - Uses a lock→verify→edit workflow for sensitive fields (password-gated edits).
+ *   - Uses a lock->verify->edit workflow for sensitive fields (password-gated edits).
  *   - Coordinates three flows: unlock (password verify), email change (OTP), and password change.
  *
  * Props:
@@ -30,7 +30,7 @@
  *       - unlock.request(target: "name"|"honorific"|"email"|"password") prompts password verification.
  *       - onVerified callback unlocks the target or opens password change modal.
  *   - useEmailChangeFlow:
- *       - start(newEmail) → opens OTP modal; confirm/resend handled inside the flow.
+ *       - start(newEmail) -> opens OTP modal; confirm/resend handled inside the flow.
  *       - onConfirmed(newEmail) updates origEmail and re-locks email.
  *       - Toast helpers for success/error feedback.
  *   - usePasswordChangeFlow:
@@ -50,7 +50,7 @@
  *   - EditableField rows for Honorific (Select), Name (TextInput), Email (TextInput).
  *       • Locked state shows "Edit"; unlocked shows "Save/Cancel".
  *       • Field-level error messages displayed below inputs.
- *   - "Change Password" button triggers unlock.request("password") to open Verify→Change flow.
+ *   - "Change Password" button triggers unlock.request("password") to open Verify->Change flow.
  *   - Modals:
  *       • VerifyPasswordModal for password verification (unlock flow).
  *       • ConfirmEmailChangeModal for OTP confirmation during email change (email flow).
@@ -77,14 +77,14 @@ import {
   updateHonorificAction,
   updateNameAction,
 } from "@/services/user/edit-user-actions";
-import { useEmailChangeFlow } from "@/services/user/account-settings-helpers/useEmailChangeFlow";
-import { usePasswordChangeFlow } from "@/services/user/account-settings-helpers/usePasswordChangeFlow";
-import { useUnlockFlow } from "@/services/user/account-settings-helpers/useUnlockFlow";
+import { useEmailChangeFlow } from "@/services/user/account-settings-helpers/hooks/useEmailChangeFlow";
+import { usePasswordChangeFlow } from "@/services/user/account-settings-helpers/hooks/usePasswordChangeFlow";
+import { useUnlockFlow } from "@/services/user/account-settings-helpers/hooks/useUnlockFlow";
 import ChangePasswordModal from "../../form-components/ChangePasswordModal";
 import ConfirmEmailChangeModal from "../../form-components/ConfirmEmailChangeModal";
 import VerifyPasswordModal from "../../form-components/VerifyPasswordModal";
-import EditableField from "./components/EditableField";
-import ReadOnlyField from "./components/ReadOnlyField";
+import EditableField from "./fields/EditableField";
+import ReadOnlyField from "./fields/ReadOnlyField";
 
 type Props = {
   userId: string;
@@ -275,7 +275,7 @@ export default function AccountSettingsForm({
 
       {/* Username (read-only) */}
       <ReadOnlyField label="Username">
-        <TextInput id="username" value={username} readOnly aria-readonly />
+        <TextInput id="username" value={username} readOnly />
       </ReadOnlyField>
 
       {/* Honorific */}

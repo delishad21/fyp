@@ -161,9 +161,7 @@ function Toaster() {
   return (
     <div
       className="pointer-events-none fixed right-4 top-4 z-[1000] flex w-[min(92vw,26rem)] flex-col gap-3"
-      aria-live="polite"
       role="region"
-      aria-label="Notifications"
     >
       {toasts.map((t) => {
         const leftAccent =
@@ -208,7 +206,6 @@ function Toaster() {
                 <button
                   onClick={() => dismiss(t.id)}
                   className="rounded-md p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg3)] hover:text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  aria-label="Dismiss notification"
                 >
                   ×
                 </button>

@@ -3,26 +3,19 @@ import { Response } from "express";
 import { UserQuizMetaModel } from "../model/quiz-meta-model";
 import { QuizBaseModel } from "../model/quiz-base-model";
 import { stringToColorHex } from "../utils/color";
-import { MetaDoc, toPayload, sameLabel } from "./quiz-meta-helpers";
+import { MetaDoc, toPayload, sameLabel } from "../utils/quiz-meta-utils";
 
-/** GET /quiz/meta
- *
- * Purpose:
- * - Fetches the current user’s quiz metadata (subjects, topics, types).
- *
- * Params:
- * - @param {CustomRequest} req — Express request with `user` field.
- * - @param {Response} res — Express response.
- *
- * Behavior:
- * - Requires authentication (`req.user.id`).
- * - Loads `UserQuizMetaModel` for the owner if it exists.
- * - Always includes static quiz types (`basic`, `rapid`, `crossword`) with colors.
- *
- * Responses:
- * - 200 { ok: true, subjects, topics, types } on success.
- * - 401 if unauthorized.
- * - 500 on server error.
+/**
+ * @route  GET /quiz/meta
+ * @auth   verifyAccessToken
+ * @input  none (owner is derived from req.user.id)
+ * @logic  Retrieve (or implicitly synthesize) the owner’s quiz metadata:
+ *         - subjects: [{ label, colorHex }]
+ *         - topics:   [{ label }]
+ *         - types:    static registry-derived { label, value, colorHex }
+ * @returns 200 { ok: true, subjects, topics, types }
+ * @errors  401 if unauthenticated
+ *          500 on server error
  */
 export async function getMyMeta(req: CustomRequest, res: Response) {
   try {
@@ -42,32 +35,21 @@ export async function getMyMeta(req: CustomRequest, res: Response) {
   }
 }
 
-/** POST /quiz/meta
- *
- * Purpose:
- * - Adds or updates a subject/topic in the user’s quiz metadata.
- *
- * Params:
- * - @param {CustomRequest} req — Express request with body { kind, label, colorHex? }.
- * - @param {Response} res — Express response.
- *
- * Behavior:
- * - Requires authentication.
- * - Body: { kind: "subject" | "topic", label: string, colorHex?: string }.
- * - Subjects:
- *   • If subject exists, updates its color if provided.
- *   • If new, inserts with colorHex or fallback from `stringToColorHex`.
- * - Topics:
- *   • If topic exists, no-op.
- *   • If new, inserts as { label }.
- * - Creates new `UserQuizMetaModel` doc if none exists yet.
- *
- * Responses:
- * - 201 { ok: true, subjects, topics, types } when new doc created.
- * - 200 { ok: true, subjects, topics, types } when updated.
- * - 400 if missing kind/label.
- * - 401 if unauthorized.
- * - 500 on server error.
+/**
+ * @route  POST /quiz/meta
+ * @auth   verifyAccessToken
+ * @input  Body: { kind: "subject" | "topic", label: string, colorHex?: string }
+ * @logic  Upsert owner’s metadata:
+ *         - kind = "subject":
+ *           • If subject exists (case-insensitive), update its color when provided.
+ *           • Else insert with provided colorHex (normalizing "#" if missing) or hash color.
+ *         - kind = "topic":
+ *           • Insert if not present (case-insensitive); no additional fields.
+ *         - If user has no meta doc, create it populated with the item.
+ * @returns 201 on first creation, 200 otherwise; payload { ok, subjects, topics, types }
+ * @errors  400 if missing kind/label
+ *          401 if unauthenticated
+ *          500 on server error
  */
 export async function addMeta(req: CustomRequest, res: Response) {
   try {
@@ -151,34 +133,26 @@ export async function addMeta(req: CustomRequest, res: Response) {
   }
 }
 
-/** PATCH /quiz/meta/:kind/:value
- *
- * Purpose:
- * - Edits an existing subject/topic in the user’s metadata.
- * - Optionally cascades renames to user’s quizzes.
- *
- * Params:
- * - @param {CustomRequest} req — Express request with params { kind, value } and body { label?, colorHex? }.
- * - @param {Response} res — Express response.
- *
- * Behavior:
- * - Requires authentication.
- * - Subjects:
- *   • Can rename label (de-duped, case-insensitive).
- *   • Can update colorHex.
- *   • Renames all quizzes referencing old subject → new subject.
- * - Topics:
- *   • Can rename label (de-duped).
- *   • Renames all quizzes referencing old topic → new topic.
- * - Returns updated meta payload.
- *
- * Responses:
- * - 200 { ok: true, subjects, topics, types } on success.
- * - 400 if nothing to update or invalid params.
- * - 401 if unauthorized.
- * - 404 if meta doc/item not found.
- * - 409 if duplicate label exists.
- * - 500 on server error.
+/**
+ * @route  PATCH /quiz/meta/:kind/:value
+ * @auth   verifyAccessToken
+ * @input  Params: { kind: "subject" | "topic", value: string }  // current label
+ *         Body:   { label?: string, colorHex?: string }
+ * @logic  Edit an existing subject/topic (case-insensitive lookup):
+ *         - Subjects:
+ *           • Rename label (reject if duplicate would result).
+ *           • Update colorHex (normalizes leading '#'; does not validate full hex spec here).
+ *           • Cascade rename to all owner quizzes referencing old subject.
+ *         - Topics:
+ *           • Rename label (reject if duplicate would result).
+ *           • Cascade rename to all owner quizzes referencing old topic.
+ *         - If neither `label` nor `colorHex` provided => 400.
+ * @returns 200 { ok, subjects, topics, types }
+ * @errors  400 missing/invalid params or empty patch
+ *          401 unauthenticated
+ *          404 meta doc/item not found
+ *          409 duplicate label conflict
+ *          500 server error
  */
 export async function editMeta(req: CustomRequest, res: Response) {
   try {
@@ -297,26 +271,18 @@ export async function editMeta(req: CustomRequest, res: Response) {
   }
 }
 
-/** DELETE /quiz/meta/:kind/:value
- *
- * Purpose:
- * - Deletes a subject/topic from the user’s metadata.
- *
- * Params:
- * - @param {CustomRequest} req — Express request with params { kind, value }.
- * - @param {Response} res — Express response.
- *
- * Behavior:
- * - Requires authentication.
- * - Prevents deletion if any quiz owned by user still references the subject/topic.
- * - Uses `$pull` to remove the entry from `UserQuizMetaModel`.
- *
- * Responses:
- * - 200 { ok: true, subjects, topics, types } on success.
- * - 400 if missing params.
- * - 401 if unauthorized.
- * - 409 if subject/topic is still in use by quizzes (returns count).
- * - 500 on server error.
+/**
+ * @route  DELETE /quiz/meta/:kind/:value
+ * @auth   verifyAccessToken
+ * @input  Params: { kind: "subject" | "topic", value: string } // label to remove
+ * @logic  Remove a subject/topic from the user’s metadata AFTER ensuring it is not
+ *         referenced by any of the user’s quizzes. If referenced, reject with 409
+ *         and return the number of referencing quizzes.
+ * @returns 200 { ok: true, subjects, topics, types }
+ * @errors  400 missing params
+ *          401 unauthenticated
+ *          409 cannot delete while referenced (includes `count`)
+ *          500 server error
  */
 export async function deleteMeta(req: CustomRequest, res: Response) {
   try {

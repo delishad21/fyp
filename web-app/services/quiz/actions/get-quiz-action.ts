@@ -8,8 +8,8 @@ import {
   QuizType,
   RapidInitial,
 } from "@/services/quiz/types/quizTypes";
-import { getAuthHeader, quizSvcUrl } from "../helpers";
-
+import { getAuthHeader } from "@/services/user/session-definitions";
+import { quizSvcUrl } from "@/utils/utils";
 export type GetQuizResult =
   | { ok: true; data: BasicInitial | RapidInitial | CrosswordInitial }
   | { ok: false; message: string; status?: number };

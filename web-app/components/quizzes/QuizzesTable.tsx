@@ -38,9 +38,13 @@ import { deleteQuizAction } from "@/services/quiz/actions/delete-quiz-action";
 export default function QuizzesTable({
   initial,
   columns,
+  draggable = false,
+  editable = true,
 }: {
   initial: InitialPayload;
   columns: ColumnDef[];
+  draggable?: boolean;
+  editable?: boolean;
 }) {
   const router = useRouter();
 
@@ -69,6 +73,8 @@ export default function QuizzesTable({
       onQuery={onQuery}
       onEdit={onEdit}
       onDelete={onDelete}
+      draggable={draggable}
+      editable={editable}
     />
   );
 }

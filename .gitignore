@@ -4,3 +4,4 @@ setup-project.sh
 .env
 mongo
 uploads
+.code-workspace

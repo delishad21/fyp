@@ -1,8 +1,8 @@
 "use server";
 
 import { Query, RowData } from "@/services/quiz/types/quiz-table-types";
-import { quizSvcUrl, getAuthHeader } from "../helpers";
-
+import { getAuthHeader } from "@/services/user/session-definitions";
+import { quizSvcUrl } from "@/utils/utils";
 function toSearchParams(q: Query) {
   const sp = new URLSearchParams();
   if (q.name) sp.set("name", q.name);
@@ -16,11 +16,31 @@ function toSearchParams(q: Query) {
   return sp;
 }
 
+export type QuizLite = {
+  id: string;
+  title: string;
+  subject?: string;
+  subjectColorHex?: string;
+  topic?: string;
+  type?: string;
+  createdAt?: string | Date;
+};
+
 function toRowData(doc: any): RowData {
   const id = String(doc._id);
 
-  const subjectDotColor =
+  const subjectColorHex =
     typeof doc.subjectColorHex === "string" ? doc.subjectColorHex : undefined;
+
+  const payload: QuizLite = {
+    id,
+    title: doc.name ?? "",
+    subject: doc.subject ?? "",
+    subjectColorHex: subjectColorHex,
+    topic: doc.topic ?? "",
+    type: String(doc.quizType ?? ""),
+    createdAt: doc.createdAt,
+  };
 
   return {
     id,
@@ -30,7 +50,7 @@ function toRowData(doc: any): RowData {
         variant: "label",
         data: {
           text: doc.subject ?? "",
-          dotColor: subjectDotColor, // <- use backend-provided subject color
+          dotColor: subjectColorHex,
         },
       }, // Subject
       { variant: "normal", data: { text: doc.topic ?? "" } }, // Topic
@@ -47,6 +67,7 @@ function toRowData(doc: any): RowData {
         },
       },
     ],
+    payload,
   };
 }
 

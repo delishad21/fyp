@@ -1,7 +1,7 @@
 import http from "http";
 import index from "./index";
 import "dotenv/config";
-import { connectToDB } from "./model/webapp-user-repository";
+import { connectToDB } from "./model/teacher-user-repository";
 
 const port = process.env.USER_PORT || 7202;
 

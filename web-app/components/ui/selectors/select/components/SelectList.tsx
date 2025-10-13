@@ -50,11 +50,7 @@ export function SelectList({
   showColor?: boolean;
 }) {
   return (
-    <ul
-      role="listbox"
-      aria-labelledby={id}
-      className="max-h-60 overflow-auto rounded-md"
-    >
+    <ul role="listbox" className="max-h-60 overflow-auto rounded-md">
       {placeholder !== undefined && (
         <li>
           <button
@@ -75,14 +71,12 @@ export function SelectList({
             <button
               type="button"
               role="option"
-              aria-selected={selected}
               onClick={() => onSelect(opt.value)}
               className={itemCls(selected)}
             >
               <span className="flex min-w-0 items-center gap-2 truncate">
                 {showColor && (
                   <span
-                    aria-hidden
                     className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10"
                     style={{ backgroundColor: color }}
                   />

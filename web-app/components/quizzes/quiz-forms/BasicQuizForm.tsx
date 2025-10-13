@@ -8,6 +8,13 @@
  *   - Manages quiz metadata (name, subject, topic), question items, and submission.
  *   - Integrates multiple child editors (MC, Open Ended, Context).
  *
+ *     (Edit-mode safeguard):
+ *   - Detects *question content* changes (not metadata) by normalizing the items
+ *     and comparing to the initial snapshot. If changed, a WarningModal appears
+ *     on submit indicating that previous attempts will be invalidated.
+ *   - The modal is purely UX; the backend remains the source of truth
+ *     (e.g., via `contentHash`) to actually invalidate attempts.
+ *
  * Props:
  *   @param {FilterMeta} meta
  *     - Metadata for available subjects and topics (used in <MetaFields>).
@@ -51,11 +58,17 @@
  *   - Up to MAX_QUESTIONS (20).
  *   - MC questions limited to MAX_OPTIONS (6).
  *   - Minimum one question required.
- *
  */
 
 import * as React from "react";
-import { useActionState, useEffect } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useCallback,
+} from "react";
 import Button from "@/components/ui/buttons/Button";
 import type { FilterMeta } from "@/services/quiz/types/quiz-table-types";
 import QuestionSelector from "./quiz-form-helper-components/question-selector/QuestionSelector";
@@ -70,18 +83,19 @@ import {
   CreateQuizState,
 } from "@/services/quiz/types/quizTypes";
 import { processQuiz } from "@/services/quiz/actions/process-quiz-action";
-import { useBaseQuizFormItems } from "@/services/quiz/quiz-form-helpers/useBaseQuizFormItems";
+import { useBaseQuizFormItems } from "@/services/quiz/quiz-form-helpers/hooks/useBaseQuizFormItems";
 import {
   useFieldErrorMask,
   useIndexedErrorMask,
-} from "@/services/quiz/quiz-form-helpers/useFieldErrorMask";
+} from "@/services/quiz/quiz-form-helpers/hooks/useFieldErrorMask";
 import {
   useRedirectOnSuccess,
   useEnterSubmitGuard,
-} from "@/services/quiz/quiz-form-helpers/useFormUtils";
-import { useMetaAdders } from "@/services/quiz/quiz-form-helpers/useMetaAdders";
+} from "@/services/quiz/quiz-form-helpers/hooks/useFormUtils";
+import { useMetaAdders } from "@/services/quiz/quiz-form-helpers/hooks/useMetaAdders";
 import { REDIRECT_TIMEOUT } from "@/utils/utils";
 import { useToast } from "@/components/ui/toast/ToastProvider";
+import WarningModal from "@/components/ui/WarningModal";
 
 type Props = {
   meta: FilterMeta;
@@ -205,6 +219,89 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
   const { addSubject, addTopic } = useMetaAdders();
 
   /** ---------------------------------------------------------------
+   * Edit-mode safeguard: detect QUESTION CONTENT changes
+   * (NOT metadata). If changed, show WarningModal on submit.
+   * -------------------------------------------------------------- */
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  // Normalize the items to compare only question content
+  function normalizeBasicItems(raw: any[]) {
+    return (raw || []).map((it) => {
+      if (it.type === "mc") {
+        return {
+          type: "mc",
+          text: it.text ?? "",
+          timeLimit: it.timeLimit ?? null,
+          image: it.image?.url ?? null, // or omit if images shouldn't trigger invalidation
+          options: (it.options ?? []).map((o: any) => ({
+            text: o.text ?? "",
+            correct: !!o.correct,
+          })),
+        };
+      }
+      if (it.type === "open") {
+        return {
+          type: "open",
+          text: it.text ?? "",
+          timeLimit: it.timeLimit ?? null,
+          image: it.image?.url ?? null,
+          answers: (it.answers ?? []).map((a: any) => ({
+            text: a.text ?? "",
+            caseSensitive: !!a.caseSensitive,
+          })),
+        };
+      }
+      if (it.type === "context") {
+        return {
+          type: "context",
+          text: it.text ?? "",
+          image: it.image?.url ?? null,
+        };
+      }
+      return null;
+    });
+  }
+
+  const initialItemsNormJson = useMemo(() => {
+    const initialItemsRaw = initialData?.items ?? [];
+    return JSON.stringify(normalizeBasicItems(initialItemsRaw));
+  }, [initialData?.items]);
+
+  const currentItemsNormJson = useMemo(
+    () => JSON.stringify(normalizeBasicItems(items)),
+    [items]
+  );
+
+  const contentChanged =
+    mode === "edit" && initialData?.id
+      ? initialItemsNormJson !== currentItemsNormJson
+      : false;
+
+  const handleSubmitGuard = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      if (mode !== "edit") return; // only warn on edit
+      if (!contentChanged) return; // no content change
+      if (!confirmed) {
+        e.preventDefault();
+        setConfirmOpen(true);
+      }
+      // if confirmed is true, fall-through to normal action submit
+    },
+    [mode, contentChanged, confirmed]
+  );
+
+  const onContinue = useCallback(() => {
+    setConfirmOpen(false);
+    setConfirmed(true);
+    // submit programmatically after confirmation
+    formRef.current?.requestSubmit();
+  }, []);
+
+  const onCancel = useCallback(() => setConfirmOpen(false), []);
+
+  /** ---------------------------------------------------------------
    * Labels / Submit texts
    * -------------------------------------------------------------- */
   const headerLabel = "Basic Quiz";
@@ -212,6 +309,8 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
 
   return (
     <form
+      ref={formRef}
+      onSubmit={handleSubmitGuard}
       onKeyDown={onFormKeyDown}
       noValidate
       action={formAction}
@@ -401,6 +500,22 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
           </Button>
         </div>
       </div>
+
+      {/* Warning modal for content changes in edit mode */}
+      <WarningModal
+        open={confirmOpen}
+        title="Update will invalidate previous attempts"
+        message={
+          <>
+            You changed one or more questions. Submitting will invalidate all
+            previous attempts for this quiz. Do you want to continue?
+          </>
+        }
+        cancelLabel="Cancel"
+        continueLabel="Continue"
+        onCancel={onCancel}
+        onContinue={onContinue}
+      />
     </form>
   );
 }

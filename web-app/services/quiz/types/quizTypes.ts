@@ -1,3 +1,5 @@
+import { ImageMeta } from "@/services/images/types";
+
 export type QuizType = "basic" | "rapid" | "crossword";
 
 export type QuizTypeDef = {
@@ -15,14 +17,6 @@ export type CreateQuizBase = {
   subject: string;
   topic: string;
   quizType: QuizType;
-};
-
-/** Image metadata sent from client (after separate upload) */
-export type ImageMeta = {
-  url: string; // required: where to fetch it from
-  filename?: string;
-  mimetype?: string;
-  size?: number;
 };
 
 /** MC option (used by basic & rapid) */
@@ -46,7 +40,7 @@ export type MCItem = {
   type: "mc";
   text: string;
   timeLimit: number | null; // seconds
-  image?: ImageMeta | null; // ← use ImageMeta instead of File/imageName
+  image?: ImageMeta | null; // use ImageMeta instead of File/imageName
   options: MCOption[]; // >= 1 correct allowed
 };
 
@@ -128,12 +122,12 @@ export type Direction = "across" | "down" | null;
 /** ---------------- Payloads -------------- */
 export type BasicQuizPayload = CreateQuizBase & {
   quizType: "basic";
-  items: BasicItem[]; // ← no File augmentation needed
+  items: BasicItem[]; // no File augmentation needed
 };
 
 export type RapidQuizPayload = CreateQuizBase & {
   quizType: "rapid";
-  items: RapidItem[]; // ← no File augmentation needed
+  items: RapidItem[]; // no File augmentation needed
 };
 
 export type CrosswordQuizPayload = CreateQuizBase & {

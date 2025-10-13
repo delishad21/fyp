@@ -22,8 +22,9 @@ import TextArea from "@/components/ui/text-inputs/TextArea";
  *
  */
 
-import { ImageMeta } from "../../../../../services/quiz/types/quizTypes";
-import ImageUpload from "../ImageUpload";
+import { ImageMeta } from "@/services/images/types";
+import ImageUpload from "../../../../ImageUpload";
+import { uploadQuizImage } from "@/services/quiz/actions/quiz-image-upload-action";
 
 export default function ContextEditor({
   text,
@@ -52,6 +53,7 @@ export default function ContextEditor({
       />
       <div className="mt-2">
         <ImageUpload
+          uploadFn={uploadQuizImage}
           fileName={image?.filename}
           onUploaded={(meta) => onSetImage(meta)}
           initialUrl={image?.url}

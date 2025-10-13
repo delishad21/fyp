@@ -1,4 +1,3 @@
-// src/utils/crossword/pack-top-left.ts
 import type { Cell, Entry } from "./crossword-algorithm";
 
 /**

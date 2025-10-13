@@ -1,57 +1,20 @@
+// components/table/DataTable.tsx
 "use client";
 
-/**
- * DataTable Component
- *
- * Purpose:
- *   - A full-featured, paginated, filterable, and editable/deletable table
- *     for displaying quiz rows (or similar entities).
- *   - Orchestrates filters, pagination, querying, and row-level actions.
- *
- * Props:
- *   @param {ColumnDef[]} columns
- *     - Column definitions (headers, widths, alignments, etc.).
- *
- *   @param {InitialPayload} initial
- *     - Initial server-side payload (rows, pagination, filter metadata, and query).
- *
- *   @param {(q: InitialPayload["query"]) => Promise<{ rows: RowData[], page: number, pageCount: number, total: number }>} onQuery
- *     - Function to fetch rows given a query object (server action or API call).
- *
- *   @param {(row: RowData) => Promise<void> | void} [onEdit]
- *     - Optional callback for editing a row.
- *
- *   @param {(row: RowData) => Promise<{ ok: boolean; message?: string }>} [onDelete]
- *     - Optional callback for deleting a row (should return a boolean success flag).
- *
- * Behavior:
- *   - Maintains filter state (debounced for name) via `useTableFilters`.
- *   - Promotes draft filters into committed queries with automatic fetch.
- *   - Uses `usePagedQuery` to manage pagination, refetching, and cancellation.
- *   - Provides reset functionality to clear filters and restart queries.
- *   - Handles row deletion and auto-adjusts pagination if last row is deleted.
- *   - Shows toasts to indicate successful deletion or errors.
- *
- * Integration:
- *   - Composes `Filters`, `Pagination`, and `CardTable` into one data table.
- *   - Displays loading overlay when queries are pending.
- *   - Flexible for quizzes or other entities that share the same query shape.
- */
-
-import { useMemo, useEffect, useCallback } from "react";
+import { useMemo, useEffect, useCallback, useState } from "react";
 import CardTable from "./CardTable";
 import Filters, { FiltersValue } from "./Filters";
 import Pagination from "./Pagination";
 import type {
   ColumnDef,
-  FilterMeta,
   InitialPayload,
   RowData,
 } from "../../services/quiz/types/quiz-table-types";
-import { useDebounced } from "@/services/quiz/quiz-table-helpers/useDebounced";
-import { usePagedQuery } from "@/services/quiz/quiz-table-helpers/usePagedQuery";
-import { useTableFilters } from "@/services/quiz/quiz-table-helpers/useTableFilters";
+import { useDebounced } from "@/services/quiz/quiz-table-helpers/hooks/useDebounced";
+import { usePagedQuery } from "@/services/quiz/quiz-table-helpers/hooks/usePagedQuery";
+import { useTableFilters } from "@/services/quiz/quiz-table-helpers/hooks/useTableFilters";
 import { useToast } from "../ui/toast/ToastProvider";
+import WarningModal from "../ui/WarningModal";
 
 export default function DataTable({
   columns,
@@ -59,6 +22,8 @@ export default function DataTable({
   onQuery,
   onEdit,
   onDelete,
+  draggable = false,
+  editable = true,
 }: {
   columns: ColumnDef[];
   initial: InitialPayload;
@@ -70,6 +35,8 @@ export default function DataTable({
   }>;
   onEdit?: (row: RowData) => Promise<void> | void;
   onDelete?: (row: RowData) => Promise<{ ok: boolean; message?: string }>;
+  draggable?: boolean;
+  editable?: boolean;
 }) {
   const filters = useTableFilters({
     name: initial.query.name,
@@ -85,6 +52,13 @@ export default function DataTable({
 
   const { q, setQ, data, isPending, fetchWith, setPage, refetch, bumpSeq } =
     usePagedQuery(initial.query, onQuery);
+
+  // ⚠️ Modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [rowPendingDelete, setRowPendingDelete] = useState<RowData | null>(
+    null
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Initial population of table
   useEffect(() => {
@@ -144,36 +118,62 @@ export default function DataTable({
 
   const onPageChange = useCallback((page: number) => setPage(page), [setPage]);
 
-  const handleDelete = useCallback(
-    async (row: RowData) => {
+  // Step 1: when a delete is requested from CardTable, open the modal
+  const requestDelete = useCallback(
+    (row: RowData) => {
       if (!onDelete) return;
-      try {
-        const { ok, message } = await onDelete(row);
-        if (ok) {
-          const shouldStepBack = data.rows.length <= 1 && data.page > 1;
-          refetch(shouldStepBack ? q.page - 1 : q.page);
-          showToast({
-            title: "Success",
-            description: `Quiz has successfully been deleted.`,
-            variant: "success",
-          });
-        } else {
-          showToast({
-            title: "Failed to delete quiz.",
-            description: message || "Failed to delete row.",
-            variant: "error",
-          });
-        }
-      } catch {
+      setRowPendingDelete(row);
+      setConfirmOpen(true);
+    },
+    [onDelete]
+  );
+
+  // Step 2: if user confirms, actually delete
+  const confirmDelete = useCallback(async () => {
+    if (!onDelete || !rowPendingDelete) return;
+    setIsDeleting(true);
+    try {
+      const { ok, message } = await onDelete(rowPendingDelete);
+      if (ok) {
+        const shouldStepBack = data.rows.length <= 1 && data.page > 1;
+        refetch(shouldStepBack ? q.page - 1 : q.page);
         showToast({
-          title: "Error",
-          description: "Failed to delete row.",
+          title: "Success",
+          description: `Quiz has successfully been deleted.`,
+          variant: "success",
+        });
+      } else {
+        showToast({
+          title: "Failed to delete quiz.",
+          description: message || "Failed to delete row.",
           variant: "error",
         });
       }
-    },
-    [onDelete, refetch, data.rows.length, data.page, q.page]
-  );
+    } catch {
+      showToast({
+        title: "Error",
+        description: "Failed to delete row.",
+        variant: "error",
+      });
+    } finally {
+      setIsDeleting(false);
+      setConfirmOpen(false);
+      setRowPendingDelete(null);
+    }
+  }, [
+    onDelete,
+    rowPendingDelete,
+    data.rows.length,
+    data.page,
+    q.page,
+    refetch,
+    showToast,
+  ]);
+
+  const cancelDelete = useCallback(() => {
+    setConfirmOpen(false);
+    setRowPendingDelete(null);
+  }, []);
 
   const filtersValue = useMemo<FiltersValue>(
     () => filters.value,
@@ -201,8 +201,10 @@ export default function DataTable({
         <CardTable
           columns={columns}
           rows={data.rows}
-          onEdit={onEdit}
-          onDelete={handleDelete}
+          onEdit={editable ? onEdit : undefined}
+          // 👇 intercept deletion with our confirmation modal
+          onDelete={editable ? requestDelete : undefined}
+          draggable={draggable}
         />
         {isPending && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -210,6 +212,26 @@ export default function DataTable({
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      <WarningModal
+        open={confirmOpen}
+        title="Delete this quiz?"
+        message={
+          <>
+            This action cannot be undone. The quiz and its data will be removed.
+            All attempts related to quiz will also be deleted and invalidated.
+            <br />
+            <span className="text-[var(--color-text-secondary)]">
+              Proceed with deletion?
+            </span>
+          </>
+        }
+        cancelLabel="Cancel"
+        continueLabel={isDeleting ? "Deleting..." : "Continue"}
+        onCancel={cancelDelete}
+        onContinue={isDeleting ? () => {} : confirmDelete}
+      />
     </div>
   );
 }

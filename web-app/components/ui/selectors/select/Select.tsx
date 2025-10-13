@@ -35,26 +35,26 @@
  *     - Disables interaction.
  *   @param {(label: string, meta?: {colorHex?: string}) => Promise<AddResult>|AddResult} [handleAdd]
  *     - Server callback for adding new options. Supports:
- *         • `string` → error message
- *         • `{value,label,colorHex?}` → canonical option
- *         • `void` → parent will refresh options externally
+ *         • `string` -> error message
+ *         • `{value,label,colorHex?}` -> canonical option
+ *         • `void` -> parent will refresh options externally
  *   @param {boolean} [allowAdd]
  *     - If true and `handleAdd` is undefined, allows local-only adding.
  *   @param {"auto"|"always"|"never"} [colorMode="auto"]
  *     - Controls display of color chips:
- *         • `auto` → only if any option has color
- *         • `always` → force show
- *         • `never` → hide all
+ *         • `auto` -> only if any option has color
+ *         • `always` -> force show
+ *         • `never` -> hide all
  *
  * Behavior / Logic:
  *   - Normalizes options into consistent {label,value,colorHex}.
  *   - Merges canonical options with locally added ones.
  *   - Tracks open/close state, closes on outside click or Escape key.
  *   - Supports hidden inputs for form submissions:
- *       • `name` → selected value
- *       • `name__label` → selected label
- *       • `name__color` → selected color (if enabled)
- *       • `name__isNew` → marker if value not in normalized list
+ *       • `name` -> selected value
+ *       • `name__label` -> selected label
+ *       • `name__color` -> selected color (if enabled)
+ *       • `name__isNew` -> marker if value not in normalized list
  *   - Add flow:
  *       • Opens modal via "Add new…" row.
  *       • Validates and submits to `handleAdd` or local insert.

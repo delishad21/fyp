@@ -60,13 +60,13 @@ async function callApi<T = any>(
 
 /**
  * Verify the user's current password (auth required)
- * Backend: POST /webapp/auth/verify-password  { password }
+ * Backend: POST /teacher/auth/verify-password  { password }
  */
 export async function verifyPasswordAction(params: {
   password: string;
 }): Promise<Ok<void> | Err> {
   const { password } = params;
-  return callApi<void>("/webapp/auth/verify-password", {
+  return callApi<void>("/teacher/auth/verify-password", {
     auth: true,
     body: { password },
   });
@@ -74,7 +74,7 @@ export async function verifyPasswordAction(params: {
 
 /**
  * Patch current user (auth required). Accepts exactly one field.
- * Backend: PATCH /webapp/user/me  { name? | honorific? | password? }
+ * Backend: PATCH /teacher/user/me  { name? | honorific? | password? }
  */
 type UpdatePatch = {
   name?: string;
@@ -96,8 +96,8 @@ type UserResponse = {
 export async function updateMeAction(
   patch: UpdatePatch
 ): Promise<Ok<{ name?: string; honorific?: string }> | Err> {
-  // Backend path per your controller: /webapp/users/me
-  const resp = await callApi<UserResponse>("/webapp/users/me", {
+  // Backend path per your controller: /teacher/users/me
+  const resp = await callApi<UserResponse>("/teacher/users/me", {
     method: "PATCH",
     auth: true,
     body: patch,
@@ -127,7 +127,7 @@ export async function updateMeAction(
 
 /**
  * Thin wrappers (optional) to keep your UI calls unchanged.
- * Backend: PATCH /webapp/user/me  { name }
+ * Backend: PATCH /teacher/user/me  { name }
  */
 export async function updateNameAction(params: {
   name: string;
@@ -138,7 +138,7 @@ export async function updateNameAction(params: {
 }
 
 /**
- * Backend: PATCH /webapp/user/me  { honorific }
+ * Backend: PATCH /teacher/user/me  { honorific }
  */
 export async function updateHonorificAction(params: {
   honorific: string;
@@ -150,7 +150,7 @@ export async function updateHonorificAction(params: {
 
 /**
  * Update user password (auth required)
- * Backend: PATCH /webapp/user/me  { password }
+ * Backend: PATCH /teacher/user/me  { password }
  * Returns: 200 { message: "Updated password" }
  */
 export async function updatePasswordAction(params: {
@@ -176,7 +176,7 @@ export async function updatePasswordAction(params: {
 }
 /**
  * Request email change (sends OTP to NEW email) (auth required)
- * Backend: POST /webapp/users/me/email-change/request  { email }
+ * Backend: POST /teacher/users/me/email-change/request  { email }
  * Returns: { selector, ttl, cooldownSeconds }
  */
 export async function requestEmailChangeAction(params: {
@@ -186,7 +186,7 @@ export async function requestEmailChangeAction(params: {
 > {
   const { email } = params;
   return callApi<{ selector: string; ttl: number; cooldownSeconds: number }>(
-    "/webapp/users/me/email-change/request",
+    "/teacher/users/me/email-change/request",
     {
       auth: true,
       body: { email },
@@ -196,7 +196,7 @@ export async function requestEmailChangeAction(params: {
 
 /**
  * Confirm email change via OTP (no auth required — selector+code)
- * Backend: PATCH /webapp/auth/verify-email  { selector, code }
+ * Backend: PATCH /teacher/auth/verify-email  { selector, code }
  * Returns: { id, username, email }
  */
 export async function confirmEmailChangeAction(params: {
@@ -206,7 +206,7 @@ export async function confirmEmailChangeAction(params: {
   const { selector, code } = params;
 
   const apiRes = await callApi<{ id: string; username: string; email: string }>(
-    "/webapp/auth/verify-email",
+    "/teacher/auth/verify-email",
     { method: "PATCH", auth: false, body: { selector, code } }
   );
 
@@ -226,7 +226,7 @@ export async function confirmEmailChangeAction(params: {
 
 /**
  * Resend email-change code (no auth required — selector)
- * Backend: POST /webapp/auth/email-change/resend  { selector }
+ * Backend: POST /teacher/auth/email-change/resend  { selector }
  * Returns: { ttl }
  */
 export async function resendEmailChangeCodeAction(params: {
@@ -239,7 +239,7 @@ export async function resendEmailChangeCodeAction(params: {
     ttl: number;
     selector: string;
     cooldownSeconds: number;
-  }>("/webapp/auth/email-change/resend", {
+  }>("/teacher/auth/email-change/resend", {
     auth: false,
     body: { selector },
   });

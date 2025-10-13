@@ -22,11 +22,11 @@
  *
  * Behavior:
  *   - Renders a row of circular buttons (1 per item).
- *   - Current item → primary color.
- *   - Items with errors → error color.
- *   - Others → neutral background with hover highlight.
- *   - Left-click → select item.
- *   - Right-click (context menu) → delete item (if `onDelete` provided).
+ *   - Current item -> primary color.
+ *   - Items with errors -> error color.
+ *   - Others -> neutral background with hover highlight.
+ *   - Left-click -> select item.
+ *   - Right-click (context menu) -> delete item (if `onDelete` provided).
  *   - Add button (+) appears if under max limit.
  *   - Dedicated delete button (trash icon) deletes the current item,
  *     disabled if count <= min.
@@ -62,7 +62,7 @@ export default function QuestionSelector({
   onDelete?: (index: number) => void;
   confirmDelete?: (index: number) => boolean | Promise<boolean>;
   errorIndexes?: number[];
-  labels?: (string | React.ReactNode)[]; // NEW
+  labels?: (string | React.ReactNode)[];
 }) {
   const canAdd = max === undefined || count < max;
   const canDelete = !!onDelete && count > min;

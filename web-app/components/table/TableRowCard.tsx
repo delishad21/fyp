@@ -1,46 +1,5 @@
 "use client";
 
-/**
- * TableRowCard Component
- *
- * Purpose:
- *   - Renders a single row in a card-style grid layout.
- *   - Displays data cells according to their variant (normal, label, tags, progress bar, date).
- *   - Optionally includes inline action buttons (Edit/Delete) with loading states.
- *
- * Props:
- *   @param {ColumnDef[]} columns
- *     - Column definitions (headers, alignment, width, etc.).
- *
- *   @param {RowData} row
- *     - Row object containing cell values and metadata.
- *
- *   @param {string} gridTemplate
- *     - CSS grid-template-columns string, usually computed by the parent table.
- *
- *   @param {(row: RowData) => void | Promise<void>} [onEdit]
- *     - Optional callback when Edit is triggered. Supports async.
- *
- *   @param {(row: RowData) => void | Promise<void>} [onDelete]
- *     - Optional callback when Delete is triggered. Supports async.
- *
- * Behavior / Logic:
- *   - `renderCell` maps each cell variant to a specialized cell component:
- *       • NormalCell, LabelCell, TagsCell, ProgressBarCell, DateCell.
- *   - Tracks `editLoading` and `deleteLoading` states to show spinners while actions are in progress.
- *   - Calls `onEdit` and `onDelete` safely inside `handleEdit` / `handleDelete` with loading state management.
- *
- * UI:
- *   - Grid layout with `gridTemplateColumns` matching the parent table’s column setup.
- *   - Each cell is wrapped in a `<div>` with padding and alignment based on column definition.
- *   - Row actions (if provided) are rendered on the right side via <RowActions>.
- *   - Styling:
- *       • Rounded corners (`rounded-xl`).
- *       • Background color (`bg-[var(--color-bg3)]`).
- *       • Text alignment per column (`left`, `center`, `right`).
- *
- */
-
 import type {
   ColumnDef,
   RowData,
@@ -52,7 +11,26 @@ import TagsCell from "./cells/TagsCell";
 import ProgressBarCell from "./cells/ProgressBarCell";
 import DateCell from "./cells/DateCell";
 import RowActions from "./RowActions";
+import AvatarCell from "./cells/AvatarCell";
 import { useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { useDraggable } from "@dnd-kit/core";
+import { Icon } from "@iconify/react";
+
+type QuizLite = {
+  id: string;
+  title: string;
+  subject?: string;
+  subjectColorHex?: string;
+  topic?: string;
+  type?: string;
+  createdAt?: string | Date;
+};
+
+type DragPayload = { kind: "quiz-row"; rowId: string; quiz?: QuizLite } | any;
+
+const HANDLE_BTN = 28; // px (button square)
+const ICON_NAME = "mdi:drag-vertical";
 
 export default function TableRowCard({
   columns,
@@ -60,14 +38,38 @@ export default function TableRowCard({
   gridTemplate,
   onEdit,
   onDelete,
+  onRowClick,
+  dragData,
+  draggable = false,
 }: {
   columns: ColumnDef[];
   row: RowData;
   gridTemplate: string;
   onEdit?: (row: RowData) => void | Promise<void>;
   onDelete?: (row: RowData) => void | Promise<void>;
+  onRowClick?: (row: RowData) => void | Promise<void>;
+  dragData?: any;
+  draggable?: boolean;
 }) {
   const hasActions = Boolean(onEdit || onDelete);
+  const isClickable = Boolean(onRowClick);
+
+  // Only treat as draggable if we actually have a payload
+  const finalDragData: DragPayload | undefined =
+    dragData ??
+    (row.payload
+      ? { kind: "quiz-row", rowId: row.id, quiz: row.payload as QuizLite }
+      : undefined);
+
+  const isDraggable = draggable && Boolean(finalDragData);
+
+  // We keep the hook unconditionally (hooks can’t be conditional),
+  // but pass disabled when not draggable.
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: `row-${row.id}`,
+    data: finalDragData,
+    disabled: !isDraggable,
+  } as any);
 
   const renderCell = (cell: Cell) => {
     switch (cell.variant) {
@@ -81,6 +83,8 @@ export default function TableRowCard({
         return <ProgressBarCell {...cell} />;
       case "date":
         return <DateCell {...cell} />;
+      case "avatar":
+        return <AvatarCell {...cell} />;
       default:
         return null;
     }
@@ -89,7 +93,8 @@ export default function TableRowCard({
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const handleEdit = async () => {
+  const handleEdit = async (e?: ReactMouseEvent) => {
+    e?.stopPropagation();
     setEditLoading(true);
     try {
       await onEdit?.(row);
@@ -97,8 +102,8 @@ export default function TableRowCard({
       setEditLoading(false);
     }
   };
-
-  const handleDelete = async () => {
+  const handleDelete = async (e?: ReactMouseEvent) => {
+    e?.stopPropagation();
     setDeleteLoading(true);
     try {
       await onDelete?.(row);
@@ -106,35 +111,90 @@ export default function TableRowCard({
       setDeleteLoading(false);
     }
   };
+  const handleRowClick = async () => {
+    if (!onRowClick) return;
+    await onRowClick(row);
+  };
+
+  // Only add the handle column when draggable
+  const template = isDraggable ? `max-content ${gridTemplate}` : gridTemplate;
 
   return (
     <div
-      className="grid items-center rounded-xl bg-[var(--color-bg3)]"
-      style={{ gridTemplateColumns: gridTemplate }}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : -1}
+      onClick={isClickable ? handleRowClick : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleRowClick();
+              }
+            }
+          : undefined
+      }
+      className={[
+        "grid items-center rounded-xl bg-[var(--color-bg3)] min-h-11 transition-all duration-200 ease-out",
+        isClickable
+          ? "hover:opacity-80 hover:scale-[1.01] hover:-translate-y-0.5 hover:shadow-[var(--drop-shadow)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          : "",
+        // Hide row while dragging so it never intercepts pointer events
+        isDragging ? "invisible pointer-events-none" : "",
+      ].join(" ")}
+      style={{ gridTemplateColumns: template }}
     >
-      {columns.map((c, idx) => (
-        <div
-          key={c.header + idx}
-          className={`px-3 py-1.5 text-sm ${
-            c.align === "right"
-              ? "text-right"
-              : c.align === "center"
-              ? "text-center"
-              : "text-left"
-          } text-[var(--color-text-primary)]`}
-        >
-          {renderCell(row.cells[idx])}
+      {/* Drag handle column (only when draggable) */}
+      {isDraggable && (
+        <div className="pl-2">
+          <button
+            ref={setNodeRef}
+            type="button"
+            className="flex items-center justify-center rounded-md cursor-grab active:cursor-grabbing hover:bg-[var(--color-bg2)]"
+            style={{ width: HANDLE_BTN, height: HANDLE_BTN }}
+            {...listeners}
+            {...attributes}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <Icon
+              icon={ICON_NAME}
+              className="pointer-events-none text-[var(--color-text-secondary)]"
+              style={{
+                width: Math.max(16, Math.round(HANDLE_BTN * 0.55)),
+                height: Math.max(16, Math.round(HANDLE_BTN * 0.55)),
+              }}
+            />
+          </button>
         </div>
-      ))}
-
-      {hasActions && (
-        <RowActions
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          editLoading={editLoading}
-          deleteLoading={deleteLoading}
-        />
       )}
+
+      {/* Row content */}
+      <>
+        {columns.map((c, idx) => (
+          <div
+            key={c.header + idx}
+            className={`px-3 py-2 text-sm ${
+              c.align === "right"
+                ? "text-right"
+                : c.align === "center"
+                ? "text-center"
+                : "text-left"
+            } text-[var(--color-text-primary)]`}
+          >
+            {renderCell(row.cells[idx])}
+          </div>
+        ))}
+        {hasActions && (
+          <RowActions
+            onEdit={onEdit ? handleEdit : undefined}
+            onDelete={onDelete ? handleDelete : undefined}
+            editLoading={editLoading}
+            deleteLoading={deleteLoading}
+          />
+        )}
+      </>
     </div>
   );
 }

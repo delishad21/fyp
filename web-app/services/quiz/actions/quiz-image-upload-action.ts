@@ -1,6 +1,7 @@
 "use server";
 
-import { getAuthHeader, quizSvcUrl } from "../helpers";
+import { getAuthHeader } from "@/services/user/session-definitions";
+import { quizSvcUrl } from "@/utils/utils";
 
 type UploadResp =
   | {

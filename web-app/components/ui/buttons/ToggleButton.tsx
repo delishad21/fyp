@@ -28,7 +28,6 @@ export default function ToggleButton({
     <button
       type="button"
       title={on ? titleOn : titleOff}
-      aria-pressed={on}
       onClick={onToggle}
       className={[
         "grid place-items-center rounded-sm transition-colors hover:opacity-80",

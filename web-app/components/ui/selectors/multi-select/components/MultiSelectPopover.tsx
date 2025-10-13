@@ -15,7 +15,6 @@ export function MultiSelectPopover({
       className="absolute z-10 mt-2 w-full rounded-xl border border-[var(--color-bg3)] bg-[var(--color-bg1)] p-2 shadow-lg"
       style={{ boxShadow: "var(--drop-shadow)" }}
       role="listbox"
-      aria-multiselectable="true"
     >
       {children}
     </div>

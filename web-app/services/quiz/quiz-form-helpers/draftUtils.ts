@@ -7,7 +7,7 @@ export const makeMcDraft = (
   type: "mc",
   text: "",
   timeLimit: 15,
-  image: null, // NEW
+  image: null,
   options: Array.from({ length: initialNumOptions }, () => ({
     id: crypto.randomUUID(),
     text: "",
@@ -20,7 +20,7 @@ export const makeOpenDraft = (): BaseFormItemDraft => ({
   type: "open",
   text: "",
   timeLimit: 15,
-  image: null, // NEW
+  image: null,
   answers: [{ id: crypto.randomUUID(), text: "", caseSensitive: false }],
 });
 
@@ -33,7 +33,7 @@ export function draftToPayload(d: BaseFormItemDraft): BaseFormItem {
         type: "mc",
         text: d.text,
         timeLimit: d.timeLimit,
-        image: d.image ?? null, // ← send image meta/url
+        image: d.image ?? null, // send image meta/url
         options: d.options ?? [],
       };
     case "open":
@@ -42,7 +42,7 @@ export function draftToPayload(d: BaseFormItemDraft): BaseFormItem {
         type: "open",
         text: d.text,
         timeLimit: d.timeLimit,
-        image: d.image ?? null, // ← send image meta/url
+        image: d.image ?? null, // send image meta/url
         answers: d.answers ?? [],
       };
     case "context":
@@ -50,7 +50,7 @@ export function draftToPayload(d: BaseFormItemDraft): BaseFormItem {
         id: d.id,
         type: "context",
         text: d.text,
-        image: d.image ?? null, // ← allow context image too
+        image: d.image ?? null, // allow context image too
       };
   }
 }

@@ -1,6 +1,7 @@
 "use server";
 
-import { getAuthHeader, quizSvcUrl } from "../helpers";
+import { getAuthHeader } from "@/services/user/session-definitions";
+import { quizSvcUrl } from "@/utils/utils";
 import { FilterMeta } from "../types/quiz-table-types";
 import { normalizeHex } from "./quiz-action-helpers";
 
@@ -87,7 +88,7 @@ export async function addFilterMeta(
       return { ok: false, message: json?.message || "Failed to add metadata." };
     }
 
-    // Ensure pool is always an array → keeps `found` as MetaItem | undefined.
+    // Ensure pool is always an array -> keeps `found` as MetaItem | undefined.
     const pool: { value?: string; label?: string; colorHex?: string }[] =
       Array.isArray(kind === "subject" ? json.subjects : json.topics)
         ? kind === "subject"

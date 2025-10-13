@@ -10,7 +10,6 @@ export const ALLOWED_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
 // Color Palette for adding color labeled items
 export const DEFAULT_COLOR_PALETTE = [
-  "#ffffff",
   "#ef4444",
   "#f59e0b",
   "#10b981",
@@ -21,3 +20,14 @@ export const DEFAULT_COLOR_PALETTE = [
   "#f97316",
   "#64748b",
 ];
+
+export function classSvcUrl(path: string) {
+  const base = (process.env.CLASS_SVC_URL || "").replace(/\/+$/, "");
+  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+/** Build the backend URL once. */
+export function quizSvcUrl(path: string) {
+  const base = (process.env.QUIZ_SVC_URL || "").replace(/\/+$/, "");
+  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+}

@@ -102,7 +102,6 @@ export default function ChangePasswordModal({
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-black/40"
       role="dialog"
-      aria-modal="true"
     >
       <div className="w-full max-w-sm rounded-md bg-[var(--color-bg2)] p-5 shadow-lg">
         <h3 className="mb-2 text-lg font-semibold">Change password</h3>

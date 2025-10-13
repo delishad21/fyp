@@ -8,6 +8,16 @@
  *   - Collects quiz metadata (name, subject, topic), overall timer, and word/clue entries.
  *   - Supports generating and previewing a crossword grid before submission.
  *
+ *     (Edit-mode safeguard):
+ *   - Detects *question content* changes (NOT metadata) by normalizing the crossword
+ *     content and comparing it against the initial snapshot from edit mode.
+ *     If changed, a WarningModal appears on submit indicating all previous attempts
+ *     will be invalidated (backend remains the source of truth — e.g. contentHash).
+ *   - Content considered for crossword:
+ *       • Entries (answers + clues), normalized and order-insensitive
+ *       • Generated preview when present (grid + placed entries)
+ *     Timer changes are treated as metadata and do not trigger the warning.
+ *
  * Props:
  *   @param {FilterMeta} meta
  *     - Metadata containing available subjects and topics.
@@ -56,18 +66,25 @@
  */
 
 import * as React from "react";
-import { useActionState, useEffect } from "react";
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import Button from "@/components/ui/buttons/Button";
 import { processQuiz } from "@/services/quiz/actions/process-quiz-action";
 import {
   useFieldErrorMask,
   useIndexedErrorMask,
-} from "@/services/quiz/quiz-form-helpers/useFieldErrorMask";
+} from "@/services/quiz/quiz-form-helpers/hooks/useFieldErrorMask";
 import {
   useRedirectOnSuccess,
   useEnterSubmitGuard,
-} from "@/services/quiz/quiz-form-helpers/useFormUtils";
-import { useMetaAdders } from "@/services/quiz/quiz-form-helpers/useMetaAdders";
+} from "@/services/quiz/quiz-form-helpers/hooks/useFormUtils";
+import { useMetaAdders } from "@/services/quiz/quiz-form-helpers/hooks/useMetaAdders";
 import { FilterMeta } from "@/services/quiz/types/quiz-table-types";
 import {
   Cell,
@@ -84,6 +101,7 @@ import { generateCrosswordPreview } from "@/services/quiz/actions/generate-cross
 import CrosswordAnswerEditor from "./quiz-form-helper-components/question-editors/CrosswordAnswerEditor";
 import { REDIRECT_TIMEOUT } from "@/utils/utils";
 import { useToast } from "@/components/ui/toast/ToastProvider";
+import WarningModal from "@/components/ui/WarningModal";
 
 type Props = {
   meta: FilterMeta;
@@ -289,6 +307,161 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
     setGenLoading(false);
   }
 
+  /** ──────────────────────────────────────────────────────────────────────
+   * Edit-mode safeguard: detect QUESTION CONTENT changes (NOT metadata)
+   * If changed, show WarningModal on submit.
+   * Content includes:
+   *  - Entries (answers + clues), normalized and order-insensitive
+   *  - Generated preview (grid + placed entries), when present
+   * Timer changes do NOT trigger the modal here.
+   * ───────────────────────────────────────────────────────────────────── */
+
+  // Helpers for normalization
+  const normalizeStr = (s: unknown) =>
+    String(s ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+  const normalizeAnswer = (s: unknown) =>
+    String(s ?? "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+  function normalizeEntries(
+    entriesLike: Array<{ answer: string; clue: string }>
+  ) {
+    const mapped = (entriesLike || []).map((e) => ({
+      a: normalizeAnswer(e.answer),
+      c: normalizeStr(e.clue),
+    }));
+    // order-insensitive
+    mapped.sort((x, y) => (x.a + "|" + x.c).localeCompare(y.a + "|" + y.c));
+    return mapped;
+  }
+
+  function normalizePlaced(placed: CrosswordPlacedEntry[]) {
+    const mapped =
+      (placed || []).map((p) => ({
+        a: normalizeAnswer((p as any).answer ?? ""), // some impls keep `answer` in placed
+        // positions signature (row,col) pairs stable order
+        pos: (p.positions || []).map((t) => [
+          Number(t.row || 0),
+          Number(t.col || 0),
+        ]),
+        dir:
+          p.direction === "across" ? "a" : p.direction === "down" ? "d" : null,
+      })) || [];
+    mapped.sort((x, y) =>
+      (x.a + "|" + x.dir + "|" + JSON.stringify(x.pos)).localeCompare(
+        y.a + "|" + y.dir + "|" + JSON.stringify(y.pos)
+      )
+    );
+    return mapped;
+  }
+
+  function normalizeGrid(grid: Cell[][] | null) {
+    if (!grid) return null;
+    // Only structural + visible content: blocked + letter (upper)
+    return grid.map((row) =>
+      row.map((cell) => ({
+        b: !!cell.isBlocked,
+        l:
+          cell.letter == null || cell.letter === ""
+            ? null
+            : String(cell.letter).toUpperCase(),
+      }))
+    );
+  }
+
+  function buildNormalizedCrosswordSnapshot(opts: {
+    entries: Array<{ answer: string; clue: string }>;
+    grid: Cell[][] | null;
+    placed: CrosswordPlacedEntry[] | null;
+  }) {
+    return {
+      entries: normalizeEntries(opts.entries),
+      grid: normalizeGrid(opts.grid),
+      placed: normalizePlaced(opts.placed || []),
+    };
+  }
+
+  const initialContentNormJson = useMemo(() => {
+    if (mode !== "edit" || !initialData) return "";
+    const entriesSrc =
+      (initialData.entries || []).map((e) => ({
+        answer: e.answer ?? "",
+        clue: e.clue ?? "",
+      })) ?? [];
+
+    const hasGrid =
+      Array.isArray(initialData.grid) &&
+      initialData.grid.length > 0 &&
+      Array.isArray(initialData.grid[0]);
+    const hasPlaced =
+      Array.isArray(initialData.placedEntries) &&
+      initialData.placedEntries.length > 0;
+
+    const snapshot = buildNormalizedCrosswordSnapshot({
+      entries: entriesSrc,
+      grid: hasGrid ? (initialData.grid as Cell[][]) : null,
+      placed: hasPlaced
+        ? (initialData.placedEntries as CrosswordPlacedEntry[])
+        : [],
+    });
+
+    return JSON.stringify(snapshot);
+  }, [mode, initialData]);
+
+  const currentContentNormJson = useMemo(() => {
+    // Always compare entries (answer+clue), order-insensitive
+    const nowEntries = (entries || []).map((e) => ({
+      answer: e.answer ?? "",
+      clue: e.clue ?? "",
+    }));
+
+    // If user generated, include the actual grid+placed; else omit both
+    const snapshot = buildNormalizedCrosswordSnapshot({
+      entries: nowEntries,
+      grid: generated ? genGrid : null,
+      placed: generated ? genEntries : [],
+    });
+
+    return JSON.stringify(snapshot);
+  }, [entries, generated, genGrid, genEntries]);
+
+  const contentChanged =
+    mode === "edit" && initialData?.id
+      ? initialContentNormJson !== currentContentNormJson
+      : false;
+
+  // Submission guard + modal flow
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const handleSubmitGuard = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      if (mode !== "edit") return;
+      if (!contentChanged) return; // only warn if question content changed
+      if (!confirmed) {
+        e.preventDefault();
+        setConfirmOpen(true);
+      }
+    },
+    [mode, contentChanged, confirmed]
+  );
+
+  const onContinue = useCallback(() => {
+    setConfirmOpen(false);
+    setConfirmed(true);
+    // submit programmatically after confirmation
+    formRef.current?.requestSubmit();
+  }, []);
+
+  const onCancel = useCallback(() => setConfirmOpen(false), []);
+
+  // ------------------------------------------------------------------------
+
   const headerLabel = "Crossword Quiz";
   const submitLabel = mode === "edit" ? "Save Changes" : "Create Quiz";
 
@@ -297,6 +470,8 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
 
   return (
     <form
+      ref={formRef}
+      onSubmit={handleSubmitGuard}
       onKeyDown={onFormKeyDown}
       noValidate
       action={formAction}
@@ -339,22 +514,17 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
             genFieldErrors["entries"];
           if (!e) return null;
           return Array.isArray(e) ? (
-            <ul
-              className="list-disc pl-5 text-xs text-[var(--color-error)] space-y-0.5"
-              aria-live="polite"
-            >
+            <ul className="list-disc pl-5 text-xs text-[var(--color-error)] space-y-0.5">
               {e.map((msg, i) => (
                 <li key={i}>{msg}</li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-[var(--color-error)]" aria-live="polite">
-              {e}
-            </p>
+            <p className="text-xs text-[var(--color-error)]">{e}</p>
           );
         })()}
 
-        {/* Overall timer */}
+        {/* Overall timer (does not participate in content-change detection) */}
         <div className="flex items-end justify-between">
           <label className="text-md text-[var(--color-text-primary)]">
             Overall Timer
@@ -440,6 +610,23 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
           </Button>
         </div>
       </div>
+
+      {/* Warning modal for content changes in edit mode */}
+      <WarningModal
+        open={confirmOpen}
+        title="Update will invalidate previous attempts"
+        message={
+          <>
+            You changed the crossword content (answers/clues and/or generated
+            layout). Submitting will invalidate all previous attempts for this
+            quiz. Do you want to continue?
+          </>
+        }
+        cancelLabel="Cancel"
+        continueLabel="Continue"
+        onCancel={onCancel}
+        onContinue={onContinue}
+      />
     </form>
   );
 }
