@@ -6,11 +6,7 @@ import {
   validateScheduleCreate,
   validateScheduleEdit,
 } from "../model/class/schedule-validation";
-import {
-  fetchQuizzesByIds,
-  fetchScheduledQuizStats,
-  QuizSvcBatchRow,
-} from "../utils/quiz-svc-client";
+import { fetchScheduledQuizStats } from "../utils/quiz-svc-client";
 import {
   stats_onScheduleContributionChanged,
   stats_onScheduleRemoved,
@@ -32,6 +28,8 @@ import {
   computeAggregates,
   enrichCanonicals,
   loadCanonicalAttempts,
+  AttemptableRow,
+  normalizeAllowedAttempts,
 } from "../utils/schedule-utils";
 
 /** ---------- controllers ---------- */
@@ -40,22 +38,32 @@ import {
  * @route  POST /classes/:id/schedule
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
  * @input  Params: { id }
- *         Body:   { quizId, startDate, endDate, contribution?, quizName?, subject?, subjectColor?, extra? }
- * @notes  - Uses the CLASS timezone (Class.timezone) for “past day” validation; any timezone in the body is ignored.
+ *         Body:   {
+ *           quizId, startDate, endDate,
+ *           contribution?,                 // number > 0 (default 100)
+ *           attemptsAllowed?,              // integer 1..10 (default 1)
+ *           showAnswersAfterAttempt?,      // boolean (default false)
+ *           quizName?, subject?, subjectColor?,  // optional snapshots
+ *           extra?
+ *         }
+ * @notes  - Uses the CLASS timezone (Class.timezone) for time validation; any timezone in the body is ignored.
  *         - Allows multiple entries per quizId, but rejects any **time overlap** with the same quizId.
  *         - Snapshots quiz meta (name/subject/color) best-effort at create time.
+ *         - `attemptsAllowed` is clamped to [1,10]; `showAnswersAfterAttempt` defaults to false.
  *         - Does **not** write any assigned counts; participation is derived from the schedule at read time.
  * @logic  1) Load class to obtain its timezone.
  *         2) Validate payload with validateScheduleInput(..., { timeZone: class.timezone }).
- *         3) Fetch quiz metadata once (used for both snapshot + response).
- *         4) In a TX: enforce overlap rule, push entry, save.
- *         5) Return saved entry enriched with the same fetched quiz meta.
+ *         3) Normalize contribution, attemptsAllowed, showAnswersAfterAttempt.
+ *         4) Fetch quiz metadata once (used for both snapshot + response).
+ *         5) In a TX: enforce overlap rule, push entry, save.
+ *         6) Return saved entry enriched with the same fetched quiz meta.
  * @returns 201 { ok, data: IAssignedQuizWithMeta }
  * @errors  400 invalid payload (fieldErrors included)
  *          404 class not found
  *          409 overlapping schedule for same quizId
  *          500 internal server error
  */
+
 export async function addScheduleItem(req: CustomRequest, res: Response) {
   const session = await mongoose.startSession();
   try {
@@ -78,10 +86,16 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
     const raw = Number(item.contribution);
     const contribution = Number.isFinite(raw) && raw > 0 ? raw : 100;
 
-    const quizMeta = await fetchQuizMetaOnce(
-      String(item.quizId),
-      req.headers.authorization
+    // NEW: sanitize optional fields
+    const attemptsAllowed = Math.min(
+      10,
+      Math.max(1, Number(item.attemptsAllowed ?? 1))
     );
+    const showAnswersAfterAttempt = Boolean(
+      item.showAnswersAfterAttempt ?? false
+    );
+
+    const quizMeta = await fetchQuizMetaOnce(String(item.quizId));
     if (!quizMeta)
       return res
         .status(400)
@@ -103,6 +117,7 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
         quizName: quizMeta.name,
         subject: quizMeta.subject,
         subjectColor: quizMeta.subjectColorHex,
+        topic: quizMeta.topic,
       };
 
       const newEntry: any = {
@@ -110,6 +125,8 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
         startDate,
         endDate,
         contribution,
+        attemptsAllowed,
+        showAnswersAfterAttempt,
         ...snap,
         ...(item.extra ?? {}),
       };
@@ -136,10 +153,17 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
  * @route  PATCH /classes/:id/schedule/item/:scheduleId
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
  * @input  Params: { id, scheduleId }
- *         Body:   Partial schedule item (no timezone): { startDate?, endDate?, contribution?, extra? }
+ *         Body:   Partial schedule item (no timezone):
+ *           {
+ *             startDate?, endDate?, contribution?,
+ *             attemptsAllowed?,             // integer 1..10
+ *             showAnswersAfterAttempt?,     // boolean
+ *             extra?
+ *           }
  * @notes  - Uses the CLASS timezone (Class.timezone) for all validation; **ignores** any timezone from the client.
  *         - Validates via validateScheduleEdit(patch, existing, { timeZone }).
  *         - Enforces no time overlap with *other* entries of the same quizId.
+ *         - `attemptsAllowed` is validated and clamped to [1,10] if provided.
  *         - If the contribution changes, it adjusts every affected student's overallScore
  *           **inside the SAME transaction** via stats_onScheduleContributionChanged (atomic with class save).
  * @returns 200 { ok, data: IAssignedQuizWithMeta }
@@ -148,6 +172,7 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
  *          409 overlapping schedule for same quizId
  *          500 internal server error
  */
+
 export async function editScheduleItem(req: CustomRequest, res: Response) {
   const session = await mongoose.startSession();
   let updatedItem: any;
@@ -203,13 +228,41 @@ export async function editScheduleItem(req: CustomRequest, res: Response) {
         nextContribution = raw;
       }
 
+      // NEW: attemptsAllowed & showAnswersAfterAttempt
+      if (patch.attemptsAllowed != null) {
+        const num = Number(patch.attemptsAllowed);
+        if (!Number.isFinite(num) || num < 1 || num > 10) {
+          const err = httpError(400, "Invalid input");
+          err.fieldErrors = {
+            attemptsAllowed:
+              "attemptsAllowed must be an integer between 1 and 10.",
+          };
+          throw err;
+        }
+        (target as any).attemptsAllowed = Math.trunc(num);
+      }
+      if (patch.showAnswersAfterAttempt != null) {
+        (target as any).showAnswersAfterAttempt = Boolean(
+          patch.showAnswersAfterAttempt
+        );
+      }
+
       target.startDate = nextStart;
       target.endDate = nextEnd;
       target.contribution = nextContribution;
 
       if (patch.extra && typeof patch.extra === "object") {
         for (const [k, v] of Object.entries(patch.extra)) {
-          if (["startDate", "endDate", "contribution"].includes(k)) continue;
+          if (
+            [
+              "startDate",
+              "endDate",
+              "contribution",
+              "attemptsAllowed",
+              "showAnswersAfterAttempt",
+            ].includes(k)
+          )
+            continue;
           (target as any)[k] = v;
         }
       }
@@ -230,10 +283,7 @@ export async function editScheduleItem(req: CustomRequest, res: Response) {
       updatedItem = target;
     });
 
-    const live = await fetchQuizMetaOnce(
-      String(updatedItem.quizId),
-      req.headers.authorization
-    );
+    const live = await fetchQuizMetaOnce(String(updatedItem.quizId));
     return res.json({ ok: true, data: attachQuizMeta(updatedItem, live) });
   } catch (e: any) {
     console.error("[editScheduleItem] error", e);
@@ -264,7 +314,7 @@ export async function getSchedule(req: CustomRequest, res: Response) {
     const items = c.schedule || [];
 
     const ids = Array.from(new Set(items.map((s: any) => String(s.quizId))));
-    const byId = await fetchQuizMetaBatch(ids, req.headers.authorization);
+    const byId = await fetchQuizMetaBatch(ids);
 
     const data = items.map((s: any) =>
       attachQuizMeta(s, byId[String(s.quizId)])
@@ -344,7 +394,7 @@ export async function getScheduleItemById(req: CustomRequest, res: Response) {
     const rosterByUserId = buildRosterMap(cls.students);
 
     // 2) Live meta
-    const live = await fetchQuizMetaOnce(quizId, req.headers.authorization);
+    const live = await fetchQuizMetaOnce(quizId);
     const withMeta = attachQuizMeta(item, live);
 
     // 3) Canonicals
@@ -551,6 +601,7 @@ export async function removeScheduleItem(req: CustomRequest, res: Response) {
     session.endSession();
   }
 }
+
 /**
  * @route  GET /classes/:id/schedule/available
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
@@ -559,15 +610,17 @@ export async function removeScheduleItem(req: CustomRequest, res: Response) {
  *           - now?=ISO string (optional; defaults to server time)
  *         Notes:
  *           - “Available” means startDate <= now (endDate is not checked here; add if you want open-window only).
+ *           - Response surfaces `attemptsAllowed` and `showAnswersAfterAttempt` for each item.
  * @logic  1) Load class
  *         2) Filter schedule for items with startDate <= now
  *         3) Batch fetch quiz meta for those items
  *         4) Batch fetch ScheduleStats for (classId, scheduleIds)
- *         5) Attach meta + stats to each item and return
+ *         5) Attach meta + stats + schedule config (attemptsAllowed/showAnswersAfterAttempt) and return
  * @returns 200 { ok, data: Array<AssignedQuizWithMetaAndStats> }
  * @errors  404 class not found
  *          500 internal server error
  */
+
 export async function getAvailableScheduleWithStats(
   req: CustomRequest,
   res: Response
@@ -595,10 +648,7 @@ export async function getAvailableScheduleWithStats(
     if (available.length === 0) return res.json({ ok: true, data: [] });
 
     const quizIds = Array.from(new Set(available.map((s) => String(s.quizId))));
-    const metaById = await fetchQuizMetaBatch(
-      quizIds,
-      req.headers.authorization
-    );
+    const metaById = await fetchQuizMetaBatch(quizIds);
 
     const scheduleIds = available
       .map((s: any) => String(s._id))
@@ -659,9 +709,15 @@ export async function getAvailableScheduleWithStats(
         startDate: s.startDate,
         endDate: s.endDate,
         contribution: typeof s.contribution === "number" ? s.contribution : 100,
+
+        attemptsAllowed:
+          typeof s.attemptsAllowed === "number" ? s.attemptsAllowed : 1,
+        showAnswersAfterAttempt: Boolean(s.showAnswersAfterAttempt),
+
         quizName: meta?.name ?? s.quizName ?? null,
         subject: meta?.subject ?? s.subject ?? null,
         subjectColor: meta?.subjectColorHex ?? s.subjectColor ?? null,
+        topic: meta?.topic ?? s.topic ?? null,
         quizType: meta?.quizType ?? null,
         stats: {
           participants,

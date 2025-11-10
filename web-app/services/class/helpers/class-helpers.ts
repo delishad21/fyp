@@ -162,3 +162,39 @@ export const CAPTION_H = "h-14";
 export const GOLD = "#f59e0b"; // amber-500
 export const SILVER = "#c0c0c0";
 export const BRONZE = "#b87333";
+
+export const MAX_USER_LEN = 30;
+
+/**
+ * Build an auto-username from name/email with max length 30.
+ * - If email is present → use local part (hard-cut to 30).
+ * - Else from name:
+ *    • normalize: lower, non-alnum -> ".", trim leading/trailing "."
+ *    • if <= 30 → done
+ *    • if original name has spaces → cut original to last space before 30 chars, then normalize again
+ *    • if single word → hard cut to 30 after normalization
+ */
+export function deriveUsername(name?: string, email?: string) {
+  if (email && email.includes("@")) {
+    const local = email.split("@")[0] ?? "";
+    return local.slice(0, MAX_USER_LEN);
+  }
+
+  const raw = (name ?? "").trim();
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ".")
+      .replace(/^\.+|\.+$/g, "");
+
+  let u = normalize(raw);
+  if (u.length <= MAX_USER_LEN) return u;
+
+  if (raw.includes(" ")) {
+    const cutAt = raw.lastIndexOf(" ", MAX_USER_LEN);
+    const sliced = cutAt > 0 ? raw.slice(0, cutAt) : raw.slice(0, MAX_USER_LEN);
+    return normalize(sliced);
+  }
+
+  return normalize(u.slice(0, MAX_USER_LEN));
+}

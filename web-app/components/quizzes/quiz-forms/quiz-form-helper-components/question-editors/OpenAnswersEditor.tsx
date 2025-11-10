@@ -54,10 +54,8 @@ import { uploadQuizImage } from "@/services/quiz/actions/quiz-image-upload-actio
 
 type Props = {
   text: string;
-  timeLimit: number | null;
   image: ImageMeta | null | undefined;
   onChangeText: (text: string) => void;
-  onChangeTime: (seconds: number | null) => void;
   onSetImage: (img: ImageMeta | null) => void;
   onDeleteImage: () => void;
   answers: OpenAnswer[];
@@ -65,6 +63,9 @@ type Props = {
   onRemove: (id: string) => void;
   onSetText: (id: string, text: string) => void;
   onToggleCaseSensitive: (id: string) => void;
+
+  timeLimit?: number | null;
+  onChangeTime?: (seconds: number | null) => void;
 };
 
 export default function OpenAnswersEditor({
@@ -88,14 +89,16 @@ export default function OpenAnswersEditor({
           <label className="text-md text-[var(--color-text-primary)]">
             Question Text
           </label>
-          <TimerField
-            id="open-time"
-            name="open-time"
-            value={timeLimit}
-            onChange={onChangeTime}
-            min={5}
-            max={600}
-          />
+          {onChangeTime && (
+            <TimerField
+              id="open-time"
+              name="open-time"
+              value={timeLimit || 0}
+              onChange={onChangeTime}
+              min={5}
+              max={600}
+            />
+          )}
         </div>
 
         <TextArea

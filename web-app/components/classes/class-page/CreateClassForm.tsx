@@ -19,6 +19,9 @@ import TextInput from "@/components/ui/text-inputs/TextInput";
 import { useTimezoneOptions } from "@/services/class/helpers/scheduling/hooks/useTimezoneOptions";
 import { ClassFields } from "./ClassFields";
 import IssuedCredentialsPanel from "./IssuedCredentialsPanel";
+import { StudentCsvRow } from "@/services/class/helpers/csv-utils";
+import StudentCsvProcessor from "./StudentCsvProcessor";
+import { deriveUsername } from "@/services/class/helpers/class-helpers";
 
 const initialState = {
   ok: false,
@@ -47,7 +50,6 @@ export default function CreateClassForm() {
     Array.isArray(state.issuedCredentials) &&
     state.issuedCredentials.length > 0;
 
-  // --- helpers
   const addRow = () =>
     setStudents((rows) => [...rows, { name: "", email: "", username: "" }]);
 
@@ -59,20 +61,21 @@ export default function CreateClassForm() {
       rows.map((r, i) => {
         if (i !== idx) return r;
         const next = { ...r, ...patch };
-        if (!patch.username) {
-          if (patch.email && patch.email.includes("@")) {
-            next.username = patch.email.split("@")[0];
-          } else if (patch.name) {
-            next.username = patch.name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, ".")
-              .replace(/^\.+|\.+$/g, "");
-          }
+        if (patch.username === undefined) {
+          next.username = deriveUsername(
+            patch.name ?? r.name,
+            patch.email ?? r.email
+          );
         }
         return next;
       })
     );
 
+  const handleCsvImport = async (drafts: StudentDraft[]) => {
+    setStudents(
+      drafts.length ? drafts : [{ name: "", email: "", username: "" }]
+    );
+  };
   const studentErrs = (
     Array.isArray(state.fieldErrors?.students)
       ? (state.fieldErrors.students as StudentFieldError[])
@@ -124,7 +127,12 @@ export default function CreateClassForm() {
         </div>
       </div>
 
-      {/* Students */}
+      <div className="grid gap-3">
+        <h2 className="text-base font-semibold">Import Students (CSV)</h2>
+        <StudentCsvProcessor onImport={handleCsvImport} />
+      </div>
+
+      {/* Students (manual edit after import is still possible) */}
       <div className="grid gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Add Students</h2>

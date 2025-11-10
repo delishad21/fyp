@@ -27,12 +27,37 @@ function normalizeContribution(v: any): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** NEW: attemptsAllowed must be an integer in [1, 10] */
+function normalizeAttemptsAllowed(v: any): number | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return undefined;
+  const i = Math.trunc(n);
+  if (i < 1 || i > 10) return undefined;
+  return i;
+}
+
+/** NEW: coerce common boolean-ish values; return undefined if invalid */
+function normalizeBool(v: any): boolean | undefined {
+  if (typeof v === "boolean") return v;
+  if (v === 1 || v === "1") return true;
+  if (v === 0 || v === "0") return false;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (s === "true") return true;
+    if (s === "false") return false;
+  }
+  return undefined;
+}
+
 /**
  * CREATE validator
  * - Requires quizId, startDate, endDate
  * - endDate > startDate
  * - start & end must be today-or-later (class TZ)
  * - contribution optional; if present must be >= 0
+ * - NEW: attemptsAllowed optional; if present must be integer 1..10
+ * - NEW: showAnswersAfterAttempt optional; if present must be boolean
  */
 export function validateScheduleCreate(
   body: any,
@@ -45,6 +70,8 @@ export function validateScheduleCreate(
     startDate: undefined,
     endDate: undefined,
     contribution: undefined,
+    attemptsAllowed: undefined, // NEW
+    showAnswersAfterAttempt: undefined, // NEW
   };
 
   // quizId
@@ -80,6 +107,24 @@ export function validateScheduleCreate(
     }
   }
 
+  // NEW: attemptsAllowed (optional; integer 1..10)
+  if (body?.attemptsAllowed !== undefined) {
+    const a = normalizeAttemptsAllowed(body.attemptsAllowed);
+    if (a === undefined) {
+      fieldErrors.attemptsAllowed =
+        "attemptsAllowed must be an integer between 1 and 10";
+    }
+  }
+
+  // NEW: showAnswersAfterAttempt (optional; boolean)
+  if (body?.showAnswersAfterAttempt !== undefined) {
+    const b = normalizeBool(body.showAnswersAfterAttempt);
+    if (b === undefined) {
+      fieldErrors.showAnswersAfterAttempt =
+        "showAnswersAfterAttempt must be a boolean";
+    }
+  }
+
   const isValid = !Object.values(fieldErrors).some(Boolean);
   return { isValid, fieldErrors };
 }
@@ -87,13 +132,15 @@ export function validateScheduleCreate(
 /**
  * EDIT validator
  * Inputs:
- *  - patch: { startDate?, endDate?, contribution? }
+ *  - patch: { startDate?, endDate?, contribution?, attemptsAllowed?, showAnswersAfterAttempt? }
  *  - existing: current stored schedule item (must include startDate & endDate)
  * Rules:
  *  - If quiz has already started (class TZ): startDate **cannot change** (by day).
  *  - endDate may change anytime (still must be >= merged start).
  *  - If quiz has NOT started yet: merged start/end must still be today-or-later (class TZ).
  *  - contribution allowed anytime, must be ≥ 0 if provided.
+ *  - NEW: attemptsAllowed allowed anytime; must be integer 1..10 if provided.
+ *  - NEW: showAnswersAfterAttempt allowed anytime; must be boolean if provided.
  */
 export function validateScheduleEdit(
   patch: any,
@@ -106,13 +153,14 @@ export function validateScheduleEdit(
     startDate: undefined,
     endDate: undefined,
     contribution: undefined,
+    attemptsAllowed: undefined, // NEW
+    showAnswersAfterAttempt: undefined, // NEW
   };
 
   // existing required
   const curStart = toDate(existing?.startDate);
   const curEnd = toDate(existing?.endDate);
   if (!curStart || !curEnd) {
-    // If existing is malformed, treat as invalid edit request
     return {
       isValid: false,
       fieldErrors: {
@@ -145,9 +193,7 @@ export function validateScheduleEdit(
     fieldErrors.endDate = "endDate must be after startDate";
   }
 
-  // Past-day rules:
-  //  • If NOT started yet → start & end must be today-or-later (same as create)
-  //  • If started → allow end anywhere (as long as ≥ start); start already locked above
+  // Past-day rules (when NOT started)
   if (!hasStarted) {
     if (nextStart && tzDayKey(nextStart, timeZone) < todayKey) {
       fieldErrors.startDate =
@@ -164,6 +210,24 @@ export function validateScheduleEdit(
     const c = normalizeContribution(patch.contribution);
     if (c === undefined || c < 0) {
       fieldErrors.contribution = "contribution must be a number ≥ 0";
+    }
+  }
+
+  // NEW: attemptsAllowed (optional; integer 1..10)
+  if (patch?.attemptsAllowed !== undefined) {
+    const a = normalizeAttemptsAllowed(patch.attemptsAllowed);
+    if (a === undefined) {
+      fieldErrors.attemptsAllowed =
+        "attemptsAllowed must be an integer between 1 and 10";
+    }
+  }
+
+  // NEW: showAnswersAfterAttempt (optional; boolean)
+  if (patch?.showAnswersAfterAttempt !== undefined) {
+    const b = normalizeBool(patch.showAnswersAfterAttempt);
+    if (b === undefined) {
+      fieldErrors.showAnswersAfterAttempt =
+        "showAnswersAfterAttempt must be a boolean";
     }
   }
 

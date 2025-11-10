@@ -11,6 +11,12 @@ export interface IAssignedQuiz {
   /** Weight of this schedule toward overallScore (0..∞). Defaults to 100. */
   contribution?: number;
 
+  /** Max attempts a student may make for this schedule. Defaults 1, min 1, max 10. */
+  attemptsAllowed?: number;
+
+  /** Whether students can view answers/breakdown after attempting. Defaults false. */
+  showAnswersAfterAttempt?: boolean;
+
   // Optional snapshots for reporting/UX (non-authoritative)
   quizName?: string;
   subject?: string;
@@ -44,10 +50,23 @@ const AssignedQuizSchema = new Schema<IAssignedQuiz>(
 
     contribution: { type: Number, default: 100, min: 0 },
 
+    // NEW fields
+    attemptsAllowed: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 10,
+    },
+    showAnswersAfterAttempt: {
+      type: Boolean,
+      default: false,
+    },
+
     // UX snapshots (best effort)
     quizName: { type: String },
     subject: { type: String },
     subjectColor: { type: String },
+    topic: { type: String },
   },
   { _id: true }
 );

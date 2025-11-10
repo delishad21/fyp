@@ -6,7 +6,7 @@ import { DEFAULT_IMG } from "@/services/class/helpers/class-helpers";
 export default function ClassCard({ cls }: { cls: ClassItem }) {
   const color = cls?.metadata?.color || "#3D5CFF";
   const imgUrl = cls?.image?.url || DEFAULT_IMG;
-  const studentCount = cls?.stats?.totals?.students ?? 0;
+  const studentCount = cls?.studentCount ?? 0;
 
   return (
     <Link

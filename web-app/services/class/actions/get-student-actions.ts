@@ -190,3 +190,118 @@ export async function getStudentAttempts(
   }
   return json as AttemptsResp;
 }
+
+export type ScheduleCanonical = {
+  attemptId: string;
+  score: number;
+  maxScore: number;
+  gradePct: number; // 0..100
+};
+
+export type ScheduleSummaryRow = {
+  scheduleId: string;
+  quizName: string;
+  subject: string | null;
+  subjectColorHex: string | null;
+  latestAttemptId?: string;
+  latestAt?: string; // ISO string
+  attemptsCount: number;
+  canonical?: ScheduleCanonical;
+};
+
+export type GetStudentScheduleSummaryResult = {
+  ok: boolean;
+  data?: {
+    classId: string;
+    studentId: string;
+    schedules: ScheduleSummaryRow[];
+  };
+  message?: string;
+};
+
+/** ---- Action: fetch schedule-level summary for a student in a class ---- */
+export async function getStudentScheduleSummary(
+  classId: string,
+  studentId: string
+): Promise<GetStudentScheduleSummaryResult> {
+  const auth = await getAuthHeader();
+  if (!auth) return { ok: false, message: "Not authenticated" };
+
+  try {
+    const url = classSvcUrl(
+      `/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(
+        studentId
+      )}/schedule-summary`
+    );
+
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: auth, Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    const isJson = (resp.headers.get("content-type") || "").includes(
+      "application/json"
+    );
+    const json = isJson ? await resp.json().catch(() => null) : null;
+
+    if (!resp.ok || !json?.ok || !json.data) {
+      return {
+        ok: false,
+        message:
+          json?.message ??
+          (resp.status === 401 || resp.status === 403
+            ? "Authentication failed"
+            : resp.status === 404
+            ? "Student not found in class"
+            : "Failed to load schedule summary"),
+      };
+    }
+
+    return json as GetStudentScheduleSummaryResult;
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? "Network error" };
+  }
+}
+
+export type AttemptsForScheduleResp = {
+  ok: boolean;
+  rows: AttemptRow[];
+  message?: string;
+};
+
+/**
+ * Calls: GET /attempt/schedule/:scheduleId/student/:studentId
+ */
+export async function getAttemptsForScheduleByStudent(
+  scheduleId: string,
+  studentId: string
+): Promise<AttemptsForScheduleResp> {
+  const auth = await getAuthHeader();
+  if (!auth) {
+    return { ok: false, rows: [], message: "Not authenticated" };
+  }
+
+  const url = quizSvcUrl(
+    `/attempt/schedule/${encodeURIComponent(
+      scheduleId
+    )}/student/${encodeURIComponent(studentId)}`
+  );
+
+  const resp = await fetch(url, {
+    method: "GET",
+    headers: { Authorization: auth, Accept: "application/json" },
+    cache: "no-store",
+  });
+
+  const json = await resp.json().catch(() => ({ ok: false }));
+  if (!resp.ok || !json?.ok) {
+    return {
+      ok: false,
+      rows: [],
+      message: json?.message ?? "Failed to load attempts for schedule",
+    };
+  }
+
+  return json as AttemptsForScheduleResp;
+}

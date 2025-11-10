@@ -61,6 +61,7 @@ export type RenderItem =
       options: { id: string; text: string }[];
       image?: any;
       timeLimit?: number | null;
+      multiSelect?: boolean;
     }
   | {
       kind: "open";
@@ -73,7 +74,6 @@ export type RenderItem =
   | {
       kind: "crossword";
       id: "crossword";
-      totalTimeLimit: number | null;
       grid?: any;
       entries: {
         id: string;

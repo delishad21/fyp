@@ -96,6 +96,7 @@ import { useMetaAdders } from "@/services/quiz/quiz-form-helpers/hooks/useMetaAd
 import { REDIRECT_TIMEOUT } from "@/utils/utils";
 import { useToast } from "@/components/ui/toast/ToastProvider";
 import WarningModal from "@/components/ui/WarningModal";
+import TimerField from "./quiz-form-helper-components/TimerField";
 
 type Props = {
   meta: FilterMeta;
@@ -122,6 +123,10 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
   const [state, formAction, pending] = useActionState(
     processQuiz,
     initialCreateQuizState
+  );
+
+  const [totalTime, setTotalTime] = useState<number | null>(
+    state.values.totalTimeLimit ?? initialData?.totalTimeLimit ?? null
   );
 
   const { showToast } = useToast();
@@ -233,8 +238,10 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
         return {
           type: "mc",
           text: it.text ?? "",
+          // NOTE: per-question timers are deprecated for Basic; keep in snapshot
+          // only if you still want legacy quizzes to trigger invalidation when editing.
           timeLimit: it.timeLimit ?? null,
-          image: it.image?.url ?? null, // or omit if images shouldn't trigger invalidation
+          image: it.image?.url ?? null,
           options: (it.options ?? []).map((o: any) => ({
             text: o.text ?? "",
             correct: !!o.correct,
@@ -264,19 +271,26 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
     });
   }
 
-  const initialItemsNormJson = useMemo(() => {
+  const initialContentNormJson = useMemo(() => {
     const initialItemsRaw = initialData?.items ?? [];
-    return JSON.stringify(normalizeBasicItems(initialItemsRaw));
-  }, [initialData?.items]);
+    return JSON.stringify({
+      items: normalizeBasicItems(initialItemsRaw),
+      totalTimeLimit: initialData?.totalTimeLimit ?? null,
+    });
+  }, [initialData?.items, initialData?.totalTimeLimit]);
 
-  const currentItemsNormJson = useMemo(
-    () => JSON.stringify(normalizeBasicItems(items)),
-    [items]
+  const currentContentNormJson = useMemo(
+    () =>
+      JSON.stringify({
+        items: normalizeBasicItems(items),
+        totalTimeLimit: totalTime ?? null,
+      }),
+    [items, totalTime]
   );
 
   const contentChanged =
     mode === "edit" && initialData?.id
-      ? initialItemsNormJson !== currentItemsNormJson
+      ? initialContentNormJson !== currentContentNormJson
       : false;
 
   const handleSubmitGuard = useCallback(
@@ -333,6 +347,29 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
           onAddSubject={addSubject}
           onAddTopic={addTopic}
         />
+
+        {/* Overall timer */}
+        <div className="flex items-end justify-between">
+          <label className="text-md text-[var(--color-text-primary)]">
+            Overall Timer
+          </label>
+          <TimerField
+            id="basic-total-time"
+            name="totalTimeLimit"
+            value={totalTime}
+            onChange={(v) => {
+              setTotalTime(v);
+              clearFieldError("totalTimeLimit" as any);
+            }}
+            min={60}
+            max={7200}
+          />
+        </div>
+        {getVisibleFieldError("totalTimeLimit" as any) && (
+          <p className="text-xs text-[var(--color-error)]">
+            {String(getVisibleFieldError("totalTimeLimit" as any))}
+          </p>
+        )}
 
         {/* Selector + type tabs */}
         <div className="flex flex-wrap items-center gap-3">
@@ -398,17 +435,11 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
           />
         ) : current.type === "mc" ? (
           <MCOptionsEditor
-            // shared
             text={current.text}
-            timeLimit={current.timeLimit}
             image={current.image ?? null}
             onChangeText={(v) => {
               clearErrorAtIndex(currentIndex);
               setText(v);
-            }}
-            onChangeTime={(v) => {
-              clearErrorAtIndex(currentIndex);
-              setTime(v);
             }}
             onSetImage={(meta) => {
               clearErrorAtIndex(currentIndex);
@@ -418,7 +449,6 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
               clearErrorAtIndex(currentIndex);
               setImageMeta(null);
             }}
-            // options
             options={current.options ?? []}
             onAdd={() => {
               clearErrorAtIndex(currentIndex);
@@ -440,17 +470,11 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
           />
         ) : (
           <OpenAnswersEditor
-            // shared
             text={current.text}
-            timeLimit={current.timeLimit}
             image={current.image ?? null}
             onChangeText={(v) => {
               clearErrorAtIndex(currentIndex);
               setText(v);
-            }}
-            onChangeTime={(v) => {
-              clearErrorAtIndex(currentIndex);
-              setTime(v);
             }}
             onSetImage={(meta) => {
               clearErrorAtIndex(currentIndex);
@@ -460,7 +484,6 @@ export default function BasicQuizForm({ meta, mode, initialData }: Props) {
               clearErrorAtIndex(currentIndex);
               setImageMeta(null);
             }}
-            // answers
             answers={current.answers ?? []}
             onAdd={() => {
               clearErrorAtIndex(currentIndex);

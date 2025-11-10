@@ -2,12 +2,19 @@ import "dotenv/config";
 
 /** ---------- Types returned by class-service helper endpoints ---------- */
 
+// --- types.ts (or wherever you keep these) ---
+
 export type EligibilityByScheduleResult = {
   ok: true;
   allowed: boolean;
   reason?: string;
   message?: string;
   window?: { start: string; end: string };
+
+  attemptsAllowed?: number; // from schedule (default 1, max 10)
+  attemptsCount?: number; // number of prior attempts by student
+  attemptsRemaining?: number; // max(0, attemptsAllowed - attemptsCount)
+  showAnswersAfterAttempt?: boolean; // from schedule (default false)
 };
 
 export type IsTeacherResult = {
@@ -69,15 +76,21 @@ async function svcJson<T>(
 
 /**
  * @route  POST {CLASS_SVC_URL}/helper/attempt-eligibility
- * @input  Body: { studentId, classId, scheduleId, quizId }
- * @output 200 { ok, allowed, reason?, message?, window? }
- * @logic  Server-to-server check that a student may start an attempt for a scheduled quiz.
+ * @input  Body: { studentId, classId, scheduleId, quizId, attemptsCount }
+ * @output 200 {
+ *   ok, allowed, reason?, message?, window?,
+ *   attemptsAllowed?, attemptsCount?, attemptsRemaining?, showAnswersAfterAttempt?
+ * }
+ * @logic  S2S check that a student may start an attempt for a scheduled quiz.
+ *         Quiz Service must compute attemptsCount for (studentId, scheduleId)
+ *         and include it in the request so Class Service can enforce limits.
  */
 export async function checkAttemptEligibilityBySchedule(input: {
   studentId: string;
   classId: string;
   scheduleId: string;
   quizId: string; // sanity cross-check on class svc side
+  attemptsCount: number; // NEW: attempts already made by this student for this schedule
 }): Promise<EligibilityByScheduleResult> {
   return svcJson<EligibilityByScheduleResult>("/helper/attempt-eligibility", {
     method: "POST",
@@ -197,4 +210,76 @@ export function sharedSecret(): string {
 /** Convenience boolean check for header validation in controllers/middleware. */
 export function isValidSharedSecret(header?: string | null): boolean {
   return !!SECRET && header === SECRET;
+}
+
+/** ---------- Types returned by class-service helper endpoints ---------- */
+
+export type CanShowAnswersReason =
+  | "flag_set"
+  | "after_end"
+  | "before_end"
+  | "quiz_mismatch"
+  | "invalid_window"
+  | "not_found";
+
+export type CanShowAnswersResult = {
+  ok: true;
+  canShowAnswers: boolean;
+  reason?: CanShowAnswersReason;
+  classId?: string;
+  timezone?: string;
+  now?: string;
+  schedule?: {
+    startDate: string | null; // null if invalid
+    endDate: string | null; // null if invalid
+    showAnswersAfterAttempt: boolean;
+  };
+};
+
+/**
+ * @route  POST {CLASS_SVC_URL}/helper/can-show-answers
+ * @input  Body: {
+ *   scheduleId: string(ObjectId),        // required
+ *   classId?: string(ObjectId),          // optional; narrows lookup
+ *   quizId?: string                      // optional; sanity check
+ * }
+ * @output 200 { ok, canShowAnswers, reason?, classId?, timezone?, now?, schedule? }
+ * @logic  Returns whether a student may see answers for a scheduled quiz:
+ *         canShowAnswers = showAnswersAfterAttempt || (now > endDate)
+ */
+export async function canShowAnswersForSchedule(input: {
+  scheduleId: string;
+  classId?: string;
+  quizId?: string;
+}): Promise<CanShowAnswersResult> {
+  return svcJson<CanShowAnswersResult>("/helper/can-show-answers", {
+    method: "POST",
+    headers: defaultHeaders(true),
+    body: JSON.stringify(input),
+  });
+}
+
+// Small helper to query class-service for show-answers decision.
+// Falls back to false if scheduleId is missing or the S2S call fails.
+export async function shouldShowAnswersForAttempt(
+  attempt: any,
+  isPrivileged: boolean
+): Promise<boolean> {
+  if (isPrivileged) return true; // teachers/admins always see
+  const scheduleId = attempt?.scheduleId ? String(attempt.scheduleId) : null;
+  const classId = attempt?.classId ? String(attempt.classId) : undefined;
+  const quizId = attempt?.quizId ? String(attempt.quizId) : undefined;
+
+  if (!scheduleId) return false; // conservative default
+
+  try {
+    const res = await canShowAnswersForSchedule({
+      scheduleId,
+      classId,
+      quizId,
+    });
+    return !!res?.canShowAnswers;
+  } catch {
+    return false; // network/timeout ⇒ conservative
+  }
 }

@@ -36,7 +36,7 @@ import React from "react";
 type Props = {
   label: string;
   locked: boolean;
-  readOnly?: boolean; 
+  readOnly?: boolean;
   saving?: boolean;
   error?: string | string[];
   onEdit: () => void;

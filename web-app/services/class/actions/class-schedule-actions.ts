@@ -9,10 +9,13 @@ export type ApiScheduleItem = {
   quizId: string;
   startDate: string; // ISO
   endDate: string; // ISO
-  quizName?: string; // optional
-  subject?: string; // optional
-  subjectColor?: string; // optional
+  quizName?: string;
+  subject?: string;
+  subjectColor?: string;
   contribution?: number;
+  attemptsAllowed?: number; // default 1 (max 10, server-enforced)
+  showAnswersAfterAttempt?: boolean; // default false (server-enforced)
+
   [k: string]: any;
 };
 
@@ -21,7 +24,7 @@ type Err = {
   ok: false;
   message?: string;
   status?: number;
-  fieldErrors?: Record<string, any>; // surface server-side validation errors
+  fieldErrors?: Record<string, any>;
 };
 type R<T> = Ok<T> | Err;
 
@@ -42,6 +45,7 @@ function toIso(d: string | Date | undefined | null) {
 // Notes
 //  - Server validates against the CLASS timezone (Class.timezone); any client tz is ignored.
 //  - Allows multiple entries per quizId; server rejects overlapping time ranges for the same quizId.
+//  - attemptsAllowed defaults to 1 (max 10), showAnswersAfterAttempt defaults to false.
 // ======================================================================
 export async function addClassQuizSchedule(
   classId: string,
@@ -50,17 +54,29 @@ export async function addClassQuizSchedule(
     startDate: string | Date;
     endDate: string | Date;
     contribution?: number;
+
+    // NEW optional policy fields
+    attemptsAllowed?: number;
+    showAnswersAfterAttempt?: boolean;
+
     extra?: Record<string, any>;
   }
 ): Promise<R<ApiScheduleItem>> {
   const token = await getAuthHeader();
   const url = classSvcUrl(`/classes/${encodeURIComponent(classId)}/schedule`);
+
   const body = JSON.stringify({
     quizId: item.quizId,
     startDate: toIso(item.startDate),
     endDate: toIso(item.endDate),
     ...(typeof item.contribution === "number"
       ? { contribution: item.contribution }
+      : {}),
+    ...(typeof item.attemptsAllowed === "number"
+      ? { attemptsAllowed: item.attemptsAllowed }
+      : {}),
+    ...(typeof item.showAnswersAfterAttempt === "boolean"
+      ? { showAnswersAfterAttempt: item.showAnswersAfterAttempt }
       : {}),
     ...(item.extra ? { extra: item.extra } : {}),
   });
@@ -78,14 +94,16 @@ export async function addClassQuizSchedule(
       ok: false,
       message: json?.message || `Failed (${res.status})`,
       status: res.status,
-      fieldErrors: json?.fieldErrors, // pass through per-field validation
+      fieldErrors: json?.fieldErrors,
     };
   }
   return json as Ok<ApiScheduleItem>;
 }
 
 // ======================================================================
+//
 // LIST (GET /classes/:id/schedule)
+//
 // ======================================================================
 export async function getClassSchedule(
   classId: string
@@ -156,6 +174,7 @@ export async function getClassScheduleItemById(
 // Notes
 //  - Send only fields you intend to change.
 //  - Server validates against the CLASS timezone; client-sent timezone is ignored.
+//  - attemptsAllowed (1..10) & showAnswersAfterAttempt are validated server-side.
 // ======================================================================
 export async function editClassScheduleItem(
   classId: string,
@@ -163,8 +182,11 @@ export async function editClassScheduleItem(
   patch: {
     startDate?: string | Date;
     endDate?: string | Date;
-    extra?: Record<string, any>;
     contribution?: number;
+    attemptsAllowed?: number;
+    showAnswersAfterAttempt?: boolean;
+
+    extra?: Record<string, any>;
   }
 ): Promise<R<ApiScheduleItem>> {
   const token = await getAuthHeader();
@@ -177,10 +199,16 @@ export async function editClassScheduleItem(
   const body = JSON.stringify({
     ...(patch.startDate ? { startDate: toIso(patch.startDate) } : {}),
     ...(patch.endDate ? { endDate: toIso(patch.endDate) } : {}),
-    ...(patch.extra ? { extra: patch.extra } : {}),
     ...(typeof patch.contribution === "number"
       ? { contribution: patch.contribution }
       : {}),
+    ...(typeof patch.attemptsAllowed === "number"
+      ? { attemptsAllowed: patch.attemptsAllowed }
+      : {}),
+    ...(typeof patch.showAnswersAfterAttempt === "boolean"
+      ? { showAnswersAfterAttempt: patch.showAnswersAfterAttempt }
+      : {}),
+    ...(patch.extra ? { extra: patch.extra } : {}),
   });
 
   const res = await fetch(url, {

@@ -205,5 +205,6 @@ export type BasicInitial = {
   subject: string;
   topic: string;
   quizType: "basic";
+  totalTimeLimit?: number | null;
   items: BaseFormItemDraft[];
 };

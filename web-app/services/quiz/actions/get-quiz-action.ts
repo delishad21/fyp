@@ -44,7 +44,6 @@ function normalizeBasic(doc: any): BasicInitial {
           id,
           type: "mc" as const,
           text: String(it?.text ?? ""),
-          timeLimit: normalizeNullableSeconds(it?.timeLimit), // <-- changed
           image: pickImageMeta(it?.image),
           options: Array.isArray(it?.options)
             ? it.options.map((o: any) => ({
@@ -61,7 +60,6 @@ function normalizeBasic(doc: any): BasicInitial {
           id,
           type: "open" as const,
           text: String(it?.text ?? ""),
-          timeLimit: normalizeNullableSeconds(it?.timeLimit), // <-- changed
           image: pickImageMeta(it?.image),
           answers: Array.isArray(it?.answers)
             ? it.answers.map((a: any) => ({
@@ -91,6 +89,7 @@ function normalizeBasic(doc: any): BasicInitial {
     subject: String(doc.subject ?? ""),
     topic: String(doc.topic ?? ""),
     quizType: "basic",
+    totalTimeLimit: normalizeNullableSeconds(doc?.totalTimeLimit),
     items: normItems,
   };
 }

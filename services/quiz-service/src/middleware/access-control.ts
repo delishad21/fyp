@@ -244,6 +244,7 @@ export async function verifyAttemptOwnerOrPrivileged(
 ) {
   try {
     // Step 1: ensure auth
+    console.log("User in verifyAttemptOwnerOrPrivileged:", req.user);
     const user = req.user;
     if (!user?.id) {
       return res.status(401).json({ ok: false, message: "Unauthorized" });
@@ -259,7 +260,7 @@ export async function verifyAttemptOwnerOrPrivileged(
     const attempt = await AttemptModel.findById(attemptId)
       .select({
         studentId: 1,
-        scheduleId: 1, // <-- we now need scheduleId, not quiz owner
+        scheduleId: 1,
       })
       .lean<{ studentId?: any; scheduleId?: any } | null>();
 
@@ -437,6 +438,65 @@ export async function verifyTeacherOfAttemptStudent(
     }
   } catch (e) {
     console.error("[verifyTeacherOfAttemptStudent] error", e);
+    return res
+      .status(500)
+      .json({ ok: false, message: "Internal server error" });
+  }
+}
+
+/**
+ * Guard: verifyTeacherOfStudentOrSelf
+ * Allows: the student themself, a teacher of that student, or an admin.
+ * Expects: :studentId param (supports "me") or body.studentId fallback.
+ */
+export async function verifyTeacherOfStudentOrSelf(
+  req: CustomRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = req.user;
+    if (!user?.id) return unauth(res);
+
+    // normalize studentId from params/body, support "me"
+    let studentId =
+      (req.params?.studentId as string) ||
+      (req.body?.studentId as string) ||
+      "";
+
+    if (studentId === "me") {
+      studentId = String(user.id);
+      // keep params in sync in case downstream reads from params
+      if (req.params) req.params.studentId = studentId;
+    }
+
+    if (!studentId) return badreq(res, "Missing studentId");
+    if (!Types.ObjectId.isValid(studentId)) {
+      return badreq(res, "Invalid studentId");
+    }
+
+    // Admin shortcut
+    if (isAdmin(user)) return next();
+
+    // Self-access shortcut
+    if (String(user.id) === String(studentId)) return next();
+
+    // Teacher-of-student via class-svc
+    try {
+      const check = await checkTeacherOfStudent({
+        userId: user.id,
+        studentId,
+      });
+      if (check.ok && check.isTeacher) return next();
+      return forbid(res);
+    } catch (e: any) {
+      // Fail closed if class-svc errors (consistent with your other guards)
+      return res
+        .status(typeof e?.status === "number" ? e.status : 502)
+        .json({ ok: false, message: e?.message || "Class service error" });
+    }
+  } catch (e) {
+    console.error("[verifyTeacherOfStudentOrSelf] error", e);
     return res
       .status(500)
       .json({ ok: false, message: "Internal server error" });

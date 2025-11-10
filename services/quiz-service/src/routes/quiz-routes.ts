@@ -6,7 +6,7 @@ import {
 } from "../middleware/access-control";
 import { uploadQuizImages } from "../middleware/uploads";
 import {
-  batchGetQuizzes,
+  batchGetQuizzesInternal,
   createQuiz,
   deleteQuiz,
   getQuiz,
@@ -30,9 +30,6 @@ router.get("/admin/all", verifyAccessToken, verifyIsAdmin, listAllQuizzes);
 
 /** GET /quiz — List my quizzes (owner=auth user) with filters/pagination */
 router.get("/", verifyAccessToken, listMyQuizzes);
-
-/** POST /quiz/batch — Batch fetch quiz metadata by IDs (forbidden → missing) */
-router.post("/batch", verifyAccessToken, batchGetQuizzes);
 
 /** POST /quiz — Create a quiz (any registered quiz type via discriminator) */
 router.post("/", verifyAccessToken, createQuiz);
@@ -73,5 +70,8 @@ router.patch("/:id", verifyAccessToken, verifyQuizOwnerOrAdmin, updateQuiz);
 
 /** DELETE /quiz/:id — Delete quiz (owner/admin). Emits QuizDeleted event. */
 router.delete("/:id", verifyAccessToken, verifyQuizOwnerOrAdmin, deleteQuiz);
+
+// New internal route guarded by shared secret
+router.post("/internal/batch", batchGetQuizzesInternal);
 
 export default router;

@@ -78,10 +78,8 @@ export default function MCOptionsEditor({
   blockTimerDisable = false,
 }: {
   text: string;
-  timeLimit: number | null;
   image: ImageMeta | null | undefined;
   onChangeText: (text: string) => void;
-  onChangeTime: (seconds: number | null) => void;
   onSetImage: (img: ImageMeta | null) => void;
   onDeleteImage: () => void;
 
@@ -93,7 +91,10 @@ export default function MCOptionsEditor({
 
   lockCount?: boolean;
   maxOptions?: number;
+
+  timeLimit?: number | null;
   blockTimerDisable?: boolean;
+  onChangeTime?: (seconds: number | null) => void;
 }) {
   const showDelete = !lockCount;
   const showAdd =
@@ -112,15 +113,18 @@ export default function MCOptionsEditor({
           <label className="text-md text-[var(--color-text-primary)]">
             Question Text
           </label>
-          <TimerField
-            id="mc-time"
-            name="mc-time"
-            value={timeLimit}
-            onChange={onChangeTime}
-            min={5}
-            max={600}
-            blockDisable={blockTimerDisable}
-          />
+
+          {onChangeTime && (
+            <TimerField
+              id="mc-time"
+              name="mc-time"
+              value={timeLimit || 0}
+              onChange={onChangeTime}
+              min={5}
+              max={600}
+              blockDisable={blockTimerDisable}
+            />
+          )}
         </div>
 
         <TextArea

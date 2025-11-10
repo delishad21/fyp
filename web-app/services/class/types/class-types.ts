@@ -13,10 +13,10 @@ export type ClassItem = {
   name: string;
   level: string;
   image?: ImgMeta | null;
+  studentCount?: number;
   metadata?: { color?: string };
   stats?: {
     totals?: {
-      students?: number;
       assigned?: number;
       attempts?: number;
       sumScore?: number;
@@ -186,6 +186,8 @@ export type BasicOrRapidAttemptType = {
 
 export type CrosswordAttemptType = {
   answers: Record<string, any>;
+  maxScore?: number;
+  score?: number;
   breakdown?: { itemId: string; awarded: number; max: number; meta?: any }[];
   quizVersionSnapshot: {
     renderSpec: {
@@ -235,6 +237,8 @@ export type ScheduleItem = {
   subject?: string;
   subjectColor?: string;
   contribution?: number;
+  attemptsAllowed?: number;
+  showAnswersAfterAttempt?: boolean;
   [k: string]: any;
 };
 
@@ -249,6 +253,8 @@ export type ScheduleItemLike = {
   startDate: string; // ISO
   endDate: string; // ISO
   contribution?: number;
+  attemptsAllowed?: number;
+  showAnswersAfterAttempt?: boolean;
 };
 
 export type SaveResult = {

@@ -24,19 +24,21 @@ export function attachQuizMeta(
   quizId: string;
   quizName?: string;
   subject?: string;
-  subjectColor?: string; // from subjectColorHex
-  topic?: string; // NEW
-  quizType?: string; // NEW
-  typeColorHex?: string; // NEW (from quiz svc)
+  subjectColor?: string;
+  topic?: string;
+  quizType?: string;
+  typeColorHex?: string;
   startDate: string;
   endDate: string;
   contribution?: number;
+  showAnswersAfterAttempt: boolean;
+  attemptsAllowed: number;
 } {
   const quizName = q?.name ?? it.quizName;
   const subject = q?.subject ?? it.subject;
   const subjectColor = q?.subjectColorHex ?? it.subjectColor;
 
-  // extras from quiz svc (fallback to stored snapshot if you keep it there)
+  // extras from quiz svc (fallback to stored snapshot)
   const topic = q?.topic ?? it.topic;
   const quizType = q?.quizType ?? it.quizType;
   const typeColorHex = (q as any)?.typeColorHex ?? it.typeColorHex;
@@ -53,6 +55,9 @@ export function attachQuizMeta(
     startDate: new Date(it.startDate).toISOString(),
     endDate: new Date(it.endDate).toISOString(),
     contribution: Number(it?.contribution ?? 100),
+    showAnswersAfterAttempt: Boolean(it?.showAnswersAfterAttempt),
+    attemptsAllowed:
+      typeof it?.attemptsAllowed === "number" ? it.attemptsAllowed : 1,
   };
 }
 
@@ -83,10 +88,9 @@ export function extractClassTimezone(c: any): string {
 }
 
 /** Fetch a single quiz’s live metadata, best-effort */
-export async function fetchQuizMetaOnce(quizId: string, authHeader?: string) {
-  const auth = authHeader || "";
+export async function fetchQuizMetaOnce(quizId: string) {
   try {
-    const { byId } = await fetchQuizzesByIds([quizId], String(auth));
+    const { byId } = await fetchQuizzesByIds([quizId]);
     return byId[String(quizId)];
   } catch {
     return undefined;
@@ -95,12 +99,11 @@ export async function fetchQuizMetaOnce(quizId: string, authHeader?: string) {
 
 /** Batch fetch quiz metadata for multiple quizIds */
 export async function fetchQuizMetaBatch(
-  quizIds: string[],
-  authHeader?: string
+  quizIds: string[]
 ): Promise<Record<string, QuizSvcBatchRow>> {
   if (!quizIds.length) return {};
   try {
-    const { byId } = await fetchQuizzesByIds(quizIds, String(authHeader || ""));
+    const { byId } = await fetchQuizzesByIds(quizIds);
     return byId;
   } catch {
     return {};
@@ -223,4 +226,25 @@ export function httpError(status: number, message: string): any {
 /** Convert schedule doc to lean output with meta */
 export function enrichScheduleItem(item: any, quizMeta?: QuizSvcBatchRow) {
   return attachQuizMeta(item, quizMeta);
+}
+
+/** for getAttemptableSchedulesForMe */
+export type AttemptableRow = {
+  scheduleId: string;
+  quizId: string;
+  startDate: string;
+  endDate: string;
+  attemptsAllowed: number; // effective (1..10)
+  showAnswersAfterAttempt: boolean; // effective
+  attemptsCount: number; // current (non-invalidated)
+  attemptsRemaining: number; // max(0, allowed - count)
+  quizName?: string | null;
+  subject?: string | null;
+  subjectColor?: string | null;
+};
+
+export function normalizeAllowedAttempts(v: any): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(10, Math.round(n)));
 }

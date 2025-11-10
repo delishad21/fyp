@@ -2,6 +2,14 @@ import { useCallback, useState } from "react";
 import type { ScheduleItem } from "@/services/class/types/class-types";
 import { editClassScheduleItem } from "@/services/class/actions/class-schedule-actions";
 
+type Patch = {
+  startDate?: Date;
+  endDate?: Date;
+  contribution?: number;
+  attemptsAllowed?: number; // NEW
+  showAnswersAfterAttempt?: boolean; // NEW
+};
+
 export function useScheduleEditModal(
   classId: string,
   showToast: (o: {
@@ -24,7 +32,7 @@ export function useScheduleEditModal(
 
   const handleSaveEdit = useCallback(
     async (
-      patch: { startDate?: Date; endDate?: Date; contribution?: number },
+      patch: Patch,
       schedule: ScheduleItem[],
       setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>,
       pendingCreateRef: React.MutableRefObject<Record<string, Promise<string>>>
@@ -36,6 +44,10 @@ export function useScheduleEditModal(
       if (patch.endDate) apiPatch.endDate = patch.endDate;
       if (typeof patch.contribution === "number")
         apiPatch.contribution = patch.contribution;
+      if (typeof patch.attemptsAllowed === "number")
+        apiPatch.attemptsAllowed = patch.attemptsAllowed;
+      if (typeof patch.showAnswersAfterAttempt === "boolean")
+        apiPatch.showAnswersAfterAttempt = patch.showAnswersAfterAttempt;
 
       try {
         const scheduleId =
@@ -65,6 +77,12 @@ export function useScheduleEditModal(
                     : {}),
                   ...(typeof patch.contribution === "number"
                     ? { contribution: patch.contribution }
+                    : {}),
+                  ...(typeof patch.attemptsAllowed === "number"
+                    ? { attemptsAllowed: patch.attemptsAllowed }
+                    : {}),
+                  ...(typeof patch.showAnswersAfterAttempt === "boolean"
+                    ? { showAnswersAfterAttempt: patch.showAnswersAfterAttempt }
                     : {}),
                 }
               : it

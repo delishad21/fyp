@@ -520,21 +520,39 @@ export async function getClasses(_req: CustomRequest, res: Response) {
  * @route  GET /classes/my
  * @auth   verifyAccessToken
  * @logic  1) Resolve userId
- *         2) Query by owner/teachers
- *         3) Return classes (no stats)
+ *         2) Match by owner/teachers
+ *         3) Project fields + computed studentCount (omit students/schedule)
  * @returns 200 { ok, data[] }
  */
 export async function getMyClasses(req: CustomRequest, res: Response) {
   try {
     const userId = req.user?.id;
-    if (!userId)
+    if (!userId) {
       return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
 
-    const docs = await ClassModel.find({
-      $or: [{ owner: userId }, { teachers: userId }],
-    })
-      .select({ students: 0, schedule: 0 })
-      .lean();
+    const docs = await ClassModel.aggregate([
+      {
+        $match: {
+          $or: [{ owner: userId }, { teachers: userId }],
+        },
+      },
+      {
+        $project: {
+          // include the fields you want to return
+          name: 1,
+          level: 1,
+          image: 1,
+          owner: 1,
+          teachers: 1,
+          metadata: 1,
+          timezone: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          studentCount: { $size: { $ifNull: ["$students", []] } },
+        },
+      },
+    ]);
 
     return res.json({ ok: true, data: docs });
   } catch (e) {

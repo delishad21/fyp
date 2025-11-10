@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  canShowAnswersForSchedule,
   checkAttemptEligibilityBySchedule,
   checkIfTeacherOfClass,
   checkIfTeacherOfSchedule,
@@ -40,5 +41,8 @@ router.post(
   verifySharedSecret,
   checkIfTeacherOfStudent
 );
+
+/** POST /helper/can-show-answers — Decide if answers can be shown for a schedule */
+router.post("/can-show-answers", verifySharedSecret, canShowAnswersForSchedule);
 
 export default router;

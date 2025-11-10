@@ -1,52 +1,47 @@
+// routes/student-routes.ts
 import { Router } from "express";
 import {
-  addStudents,
-  getStudentById,
-  getStudents,
-  removeStudent,
-} from "../controller/student-controller";
-import {
   verifyAccessToken,
-  verifyClassOwnerOrAdmin,
+  verifyTeacherOfStudentOrSelf,
 } from "../middleware/access-control";
+import {
+  getAttemptableSchedulesForStudent,
+  getStudentAttemptsScheduleSummary,
+  getStudentProfile,
+} from "../controller/students-controller";
 
 const router = Router();
 
-/**
- * Routes under prefix: /classes  (mounted in index.ts)
- * Only class owner/admin can manage students.
+/** GET /students/:studentId/attemptable-schedules — teacher/admin or the student
+ * /me is supported via middleware
  */
-
-/** POST /classes/:id/students — Add students to a class */
-router.post(
-  "/:id/students",
-  verifyAccessToken,
-  verifyClassOwnerOrAdmin,
-  addStudents
-);
-
-/** GET /classes/:id/students — List students in a class */
 router.get(
-  "/:id/students",
+  "/:studentId/attemptable-schedules",
   verifyAccessToken,
-  verifyClassOwnerOrAdmin,
-  getStudents
+  verifyTeacherOfStudentOrSelf,
+  getAttemptableSchedulesForStudent
 );
 
-/** GET /classes/:id/students/:studentId — Get one student record in the class */
+/**
+ * GET /students/:studentId/profile — class-agnostic student profile
+ * Auth: student themself OR a teacher of the student (or admin via middleware)
+ */
 router.get(
-  "/:id/students/:studentId",
+  "/:studentId/profile",
   verifyAccessToken,
-  verifyClassOwnerOrAdmin,
-  getStudentById
+  verifyTeacherOfStudentOrSelf,
+  getStudentProfile
 );
 
-/** DELETE /classes/:id/students/:studentId — Remove a student from the class */
-router.delete(
-  "/:id/students/:studentId",
+/**
+ * GET /students/:studentId/schedule-summary
+ * Supports ":studentId" = "me"
+ */
+router.get(
+  "/:studentId/schedule-summary",
   verifyAccessToken,
-  verifyClassOwnerOrAdmin,
-  removeStudent
+  verifyTeacherOfStudentOrSelf,
+  getStudentAttemptsScheduleSummary
 );
 
 export default router;

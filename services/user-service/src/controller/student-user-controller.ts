@@ -24,7 +24,7 @@ import { generateTempPassword } from "../utils/student-user-utils";
  *          4) Create student with temp password (hashed)
  *          5) Return formatted student + temporaryPassword
  * @returns 201 { message, data: { _id, name, username, email?, isDisabled, mustChangePassword, ... , temporaryPassword } }
- * @errors  400 missing/invalid fields
+ * @errors  400 missing/invalid fields (field errors returned for name/username/email)
  *          403 forbidden (not teacher/admin)
  *          409 username already exists
  *          500 internal server error
@@ -36,6 +36,14 @@ export async function createStudent(req: CustomRequest, res: Response) {
 
   const teacherId = req.user.id;
   const { name, username, email } = req.body ?? {};
+
+  const fe = validateStudentUserData({ name, username, email });
+  if (fe.name.length || fe.username.length || fe.email.length) {
+    return res.status(400).json({
+      message: "Validation failed",
+      errors: fe,
+    });
+  }
 
   if (!name || !username)
     return res.status(400).json({ message: "Missing name/username" });

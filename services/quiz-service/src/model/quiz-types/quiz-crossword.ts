@@ -182,7 +182,6 @@ function buildAttemptSpecCrossword(quizDoc: any): AttemptSpecEnvelope {
   const renderCrossword: RenderItem = {
     kind: "crossword",
     id: "crossword",
-    totalTimeLimit: quizDoc.totalTimeLimit ?? null,
     grid: quizDoc.grid ?? undefined,
     entries: (quizDoc.entries ?? []).map((e: any) => ({
       id: e.id,
@@ -207,7 +206,10 @@ function buildAttemptSpecCrossword(quizDoc: any): AttemptSpecEnvelope {
       grid: quizDoc.grid,
       totalTimeLimit: quizDoc.totalTimeLimit,
     }),
-    renderSpec: { items: [renderCrossword] },
+    renderSpec: {
+      totalTimeLimit: quizDoc.totalTimeLimit,
+      items: [renderCrossword],
+    },
     gradingKey: { items: gradingItems },
     meta: {
       name: quizDoc.name,

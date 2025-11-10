@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ScheduleItem } from "@/services/class/types/class-types";
 import {
-  addClassQuizSchedule,
   deleteClassScheduleItemById,
   editClassScheduleItem,
 } from "@/services/class/actions/class-schedule-actions";
+
+type QueuedEditPatch = {
+  startDate?: Date;
+  endDate?: Date;
+  attemptsAllowed?: number; // NEW
+  showAnswersAfterAttempt?: boolean; // NEW
+};
 
 export function useScheduleQueues(
   classId: string,
@@ -20,9 +26,7 @@ export function useScheduleQueues(
 
   // queues + snapshots
   const pendingCreateRef = useRef<Record<string, Promise<string>>>({});
-  const pendingEditRef = useRef<
-    Record<string, { startDate: Date; endDate: Date }>
-  >({});
+  const pendingEditRef = useRef<Record<string, QueuedEditPatch>>({}); // UPDATED
   const pendingDeleteRef = useRef<Record<string, true>>({});
   const editSnapshotRef = useRef<Record<string, ScheduleItem[]>>({});
   const deleteSnapshotRef = useRef<Record<string, ScheduleItem[]>>({});
@@ -47,10 +51,12 @@ export function useScheduleQueues(
         const exists = schedule.some((s) => s.clientId === clientId);
         const wantsDelete = !!pendingDeleteRef.current[clientId];
 
-        // --- DELETE path (verbatim) ---
+        // --- DELETE path (unchanged) ---
         if (wantsDelete) {
           try {
+            console.log("Draining delete for", clientId);
             const scheduleId = await ensureScheduleId(clientId);
+            console.log("Ensured schedule ID:", scheduleId);
             const del = await deleteClassScheduleItemById(classId, scheduleId);
             if (!del.ok) {
               const snap = deleteSnapshotRef.current[clientId];
@@ -83,7 +89,7 @@ export function useScheduleQueues(
 
         if (!exists) return;
 
-        // --- EDIT path (verbatim) ---
+        // --- EDIT path (generalized) ---
         const edit = pendingEditRef.current[clientId];
         if (!edit) return;
 
@@ -93,8 +99,14 @@ export function useScheduleQueues(
           if (!latest) return;
 
           const upsert = await editClassScheduleItem(classId, scheduleId, {
-            startDate: latest.startDate,
-            endDate: latest.endDate,
+            ...(latest.startDate ? { startDate: latest.startDate } : {}),
+            ...(latest.endDate ? { endDate: latest.endDate } : {}),
+            ...(typeof latest.attemptsAllowed === "number"
+              ? { attemptsAllowed: latest.attemptsAllowed }
+              : {}),
+            ...(typeof latest.showAnswersAfterAttempt === "boolean"
+              ? { showAnswersAfterAttempt: latest.showAnswersAfterAttempt }
+              : {}),
           });
 
           if (!upsert.ok) {
@@ -103,14 +115,14 @@ export function useScheduleQueues(
             showToast({
               title: "Failed",
               description:
-                (upsert.message || "Could not update quiz dates.") +
+                (upsert.message || "Could not update schedule.") +
                 formatFieldErrors((upsert as any).fieldErrors),
               variant: "error",
             });
           } else {
             showToast({
               title: "Updated",
-              description: "Quiz duration updated.",
+              description: "Schedule updated.",
               variant: "success",
             });
           }
@@ -127,7 +139,7 @@ export function useScheduleQueues(
     [classId, schedule, showToast, formatFieldErrors, ensureScheduleId]
   );
 
-  // seen id watcher (verbatim)
+  // seen id watcher (unchanged)
   const seenIdRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
     for (const it of schedule) {
@@ -145,7 +157,6 @@ export function useScheduleQueues(
     }
   }, [schedule, drainQueuesFor]);
 
-  // expose the exact refs so callers can use *same logic*
   return {
     schedule,
     setSchedule,

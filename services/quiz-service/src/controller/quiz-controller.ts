@@ -24,6 +24,7 @@ import {
   buildQuizMetaUpdatedEvent,
 } from "../utils/events/quiz-events";
 import { AttemptModel } from "../model/quiz-attempt-model";
+import { sharedSecret } from "../utils/class-svc-client";
 
 /**
  * @route   POST /quiz
@@ -553,30 +554,26 @@ type QuizMeta = {
 };
 
 /**
- * @route   POST /quiz/batch
- * @auth    verifyAccessToken
+ * INTERNAL: Batch fetch quiz metadata by IDs
+ *
+ * @route   POST /quiz/internal/batch
+ * @auth    shared-secret header
  * @input   Body: { ids: string[] }
- * @notes   - Returns quiz metadata for all provided IDs that the user is authorized to access.
- *           - Non-existent or unauthorized quiz IDs appear in `missing`.
- *           - Includes `typeColorHex` (from QUIZ_TYPE_COLORS) for UI color mapping.
- *           - Does not expose existence of unauthorized quizzes (no information leak).
- * @logic   1) Normalize and dedupe IDs
- *           2) Split into valid vs invalid ObjectIds
- *           3) Fetch all valid quiz metadata
- *           4) Include only quizzes owned by user or accessible by admin
- *           5) Build `byId` map and `missing` array
- * @returns 200 {
- *            ok,
- *            data: { byId, missing },
- *            partial?: boolean,
- *            invalid?: string[]
- *          }
- * @errors  400 missing ids
- *          500 internal server error
+ * @notes   - Returns metadata for provided IDs (no per-user owner checks).
+ *           - Non-existent IDs are returned in `missing`.
+ *           - Only metadata fields, no content exposure.
  */
-
-export async function batchGetQuizzes(req: CustomRequest, res: Response) {
+export async function batchGetQuizzesInternal(
+  req: CustomRequest,
+  res: Response
+) {
   try {
+    // ── Shared-secret guard (no user token)
+    const secret = sharedSecret();
+    if (!secret || req.header("x-quiz-secret") !== secret) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
+
     // ── 1) normalize ids
     const raw = (req.body?.ids ?? []) as unknown[];
     const ids: string[] = Array.from(
@@ -592,11 +589,11 @@ export async function batchGetQuizzes(req: CustomRequest, res: Response) {
         .json({ ok: false, message: "Provide body: { ids: string[] }" });
     }
 
-    // ── 2) split valid/invalid
-    const invalid: string[] = ids.filter((id) => !isValidObjectId(id));
-    const validIds: string[] = ids.filter((id) => isValidObjectId(id));
+    // ── 2) split valid/invalid ObjectIds
+    const validIds = ids.filter((id) => isValidObjectId(id));
+    const invalid = ids.filter((id) => !isValidObjectId(id));
 
-    // ── 3) fetch metadata
+    // ── 3) fetch metadata for valid ids (no owner/admin check)
     const docs =
       validIds.length > 0
         ? await QuizBaseModel.find({ _id: { $in: validIds } })
@@ -604,29 +601,26 @@ export async function batchGetQuizzes(req: CustomRequest, res: Response) {
             .lean<QuizMeta[]>()
         : [];
 
-    // ── 4) assemble byId for authorized docs only (owner or admin) + topicColorHex
+    // ── 4) assemble byId (+typeColorHex)
     const byId: Record<string, QuizMeta & { typeColorHex?: string }> = {};
-
     for (const doc of docs) {
       const id = String((doc as any)._id);
-      const authorized =
-        req.user?.isAdmin ||
-        String((doc as any).owner) === String(req.user?.id);
+      const quizType = String((doc as any).quizType) as QuizTypeKey;
+      const typeColorHex = QUIZ_TYPE_COLORS[quizType] || undefined;
 
-      if (authorized) {
-        const quizType = String((doc as any).quizType) as QuizTypeKey;
-        const typeColorHex = QUIZ_TYPE_COLORS[quizType] || undefined;
-
-        byId[id] = {
-          ...(doc as any),
-          _id: id,
-          typeColorHex,
-        };
-      }
+      byId[id] = {
+        ...(doc as any),
+        _id: id,
+        typeColorHex,
+      };
     }
 
-    // ── 5) compute missing (includes invalid, not-found, forbidden)
-    const missing: string[] = ids.filter((id) => !(id in byId));
+    // ── 5) missing = invalid + valid-not-found
+    const missingSet = new Set<string>([
+      ...invalid,
+      ...validIds.filter((id) => !(id in byId)),
+    ]);
+    const missing = ids.filter((id) => missingSet.has(id));
 
     // ── 6) respond
     return res.json({
@@ -636,7 +630,7 @@ export async function batchGetQuizzes(req: CustomRequest, res: Response) {
       ...(invalid.length ? { invalid } : {}),
     });
   } catch (e) {
-    console.error("[batchGetQuizzes] error", e);
+    console.error("[batchGetQuizzesInternal] error", e);
     return res
       .status(500)
       .json({ ok: false, message: "Internal server error" });

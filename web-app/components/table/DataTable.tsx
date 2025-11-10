@@ -53,7 +53,6 @@ export default function DataTable({
   const { q, setQ, data, isPending, fetchWith, setPage, refetch, bumpSeq } =
     usePagedQuery(initial.query, onQuery);
 
-  // ⚠️ Modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rowPendingDelete, setRowPendingDelete] = useState<RowData | null>(
     null

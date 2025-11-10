@@ -6,6 +6,7 @@ import {
   verifyTeacherOfAttemptStudent,
   verifyTeacherOfSchedule,
   verifyTeacherOfStudent,
+  verifyTeacherOfStudentOrSelf,
 } from "../middleware/access-control";
 import {
   postAttemptSpec,
@@ -18,6 +19,9 @@ import {
   deleteAttempt,
   getScheduledQuizStatsInternal,
   listAttemptsForSchedule,
+  listAttemptsForScheduleByStudent,
+  getStudentAttemptsInternal,
+  getAttemptsForScheduleByStudentInternal,
 } from "../controller/quiz-attempt-controller";
 
 const router = Router();
@@ -60,7 +64,7 @@ router.get(
   getAttemptById
 );
 
-/// GET /attempt/quiz/:quizId/:scheduleId — Attempts for a quiz+schedule (teacher/admin)
+/// GET /attempt/quiz/schedule/:scheduleId — Attempts for a schedule (teacher/admin)
 router.get(
   "/quiz/schedule/:scheduleId",
   verifyAccessToken,
@@ -74,6 +78,14 @@ router.get(
   verifyAccessToken,
   verifyTeacherOfStudent,
   listAttemptsForStudent
+);
+
+/** GET /attempt/schedule/:scheduleId/student/:studentId — Attempts for a student within a schedule (teacher or self) */
+router.get(
+  "/schedule/:scheduleId/student/:studentId",
+  verifyAccessToken,
+  verifyTeacherOfStudentOrSelf,
+  listAttemptsForScheduleByStudent
 );
 
 /** DELETE /attempt/:attemptId — Soft-invalidate attempt (teacher/admin) */
@@ -90,5 +102,22 @@ router.delete(
  * Guarded by x-quiz-secret header in controller.
  */
 router.post("/internal/scheduled-quiz-stats", getScheduledQuizStatsInternal);
+
+/**
+ * POST /attempt/internal/student
+ * Purpose: S2S endpoint to fetch all attempts for a given student (no pagination).
+ * Guarded by x-quiz-secret header in controller.
+ */
+router.post("/internal/student", getStudentAttemptsInternal);
+
+/**
+ * POST /attempt/internal/schedule-student
+ * Purpose: S2S endpoint to fetch all attempts for a given (scheduleId, studentId).
+ * Guarded by x-quiz-secret header in controller.
+ */
+router.post(
+  "/internal/schedule-student",
+  getAttemptsForScheduleByStudentInternal
+);
 
 export default router;

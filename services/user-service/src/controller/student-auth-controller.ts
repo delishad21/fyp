@@ -18,7 +18,7 @@ import {
  * @logic   1) Validate presence of username/password
  *          2) Look up student by username (include password hash)
  *          3) Verify account is active and bcrypt-compare password
- *          4) Generate access token (exp configurable; currently 1d)
+ *          4) Generate access token (exp configurable; currently 30d)
  *          5) Return token + formatted student profile
  * @returns 200 { message, data: { accessToken, ...student } }
  * @errors  400 missing username/password
@@ -49,7 +49,7 @@ export async function studentSignIn(req: Request, res: Response) {
       teacherId: student.teacherId.toString(),
       mustChangePassword: student.mustChangePassword,
     },
-    { expiresIn: "1d" } // optional
+    { expiresIn: "30d" }
   );
 
   return res.status(200).json({
@@ -83,29 +83,38 @@ export async function studentSignIn(req: Request, res: Response) {
  */
 
 export async function studentChangePassword(req: any, res: Response) {
-  if (req.user?.role !== "student")
-    return res.status(403).json({ message: "Forbidden" });
+  try {
+    console.log(req.body);
 
-  const { currentPassword, newPassword } = req.body ?? {};
-  if (!currentPassword || !newPassword)
-    return res.status(400).json({ message: "Missing parameters" });
+    if (req.user?.role !== "student")
+      return res.status(403).json({ message: "Forbidden" });
 
-  const errors = validatePassword(newPassword);
-  if (errors.length)
-    return res
-      .status(400)
-      .json({ message: "Password validation failed", errors });
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ message: "Missing parameters" });
 
-  const student = await StudentModel.findById(req.user.sub).select("+password");
-  if (!student) return res.status(404).json({ message: "Student not found" });
+    const errors = validatePassword(newPassword);
+    if (errors.length)
+      return res
+        .status(400)
+        .json({ message: "Password validation failed", errors });
 
-  const ok = await bcrypt.compare(currentPassword, student.password);
-  if (!ok) return res.status(401).json({ message: "Wrong password" });
+    const student = await StudentModel.findById(req.user.id).select(
+      "+password"
+    );
+    if (!student) return res.status(404).json({ message: "Student not found" });
 
-  student.password = bcrypt.hashSync(newPassword, bcrypt.genSaltSync(10));
-  student.mustChangePassword = false;
-  student.lastPasswordResetAt = new Date();
-  await student.save();
+    const ok = await bcrypt.compare(currentPassword, student.password);
+    if (!ok) return res.status(401).json({ message: "Wrong password" });
 
-  return res.status(200).json({ message: "Password updated" });
+    student.password = bcrypt.hashSync(newPassword, bcrypt.genSaltSync(10));
+    student.mustChangePassword = false;
+    student.lastPasswordResetAt = new Date();
+    await student.save();
+
+    return res.status(200).json({ message: "Password updated" });
+  } catch (error) {
+    console.error("Error in studentChangePassword:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
 }

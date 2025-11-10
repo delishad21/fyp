@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { ClassModel } from "../model/class/class-model";
+import { Types } from "mongoose";
 
 /** ---------- Types exposed to the rest of the class service ---------- */
 
@@ -197,4 +198,90 @@ export function verifySharedSecret(
   }
 
   return next();
+}
+
+/**
+ * Returns true if `userId` is an owner or teacher of any class that includes `studentId`.
+ * Assumes roster stores student.userId as string.
+ */
+export async function isTeacherOfStudent(
+  userId: string,
+  studentId: string
+): Promise<boolean> {
+  if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(studentId))
+    return false;
+  const uid = String(userId);
+  const sid = String(studentId);
+  const exists = await ClassModel.exists({
+    "students.userId": sid,
+    $or: [{ owner: uid }, { teachers: uid }],
+  });
+  return !!exists;
+}
+
+export async function verifyTeacherOfStudent(
+  req: Request & { user?: any },
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const viewer = req.user;
+    const viewerId = viewer?.id;
+    const studentId = req.params.studentId || req.body?.studentId;
+
+    if (!viewerId)
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    if (!studentId)
+      return res.status(400).json({ ok: false, message: "Missing studentId" });
+
+    // ✅ Admin bypass
+    if (viewer.isAdmin || viewer.role === "admin") return next();
+
+    const ok = await isTeacherOfStudent(String(viewerId), String(studentId));
+    if (!ok) return res.status(403).json({ ok: false, message: "Forbidden" });
+
+    return next();
+  } catch {
+    return res
+      .status(500)
+      .json({ ok: false, message: "Internal server error" });
+  }
+}
+
+export async function verifyTeacherOfStudentOrSelf(
+  req: Request & { user?: any },
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const viewer = req.user;
+    const viewerId = String(viewer?.id || "");
+    let studentId = String(req.params.studentId || req.body?.studentId || "");
+
+    if (!viewerId)
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+
+    // support :studentId = "me"
+    if (studentId === "me") studentId = viewerId;
+    (req.params as any).studentId = studentId;
+
+    if (!studentId)
+      return res.status(400).json({ ok: false, message: "Missing studentId" });
+
+    // ✅ Admin bypass
+    if (viewer.isAdmin || viewer.role === "admin") return next();
+
+    // Self
+    if (viewerId === studentId) return next();
+
+    // Teacher of the student
+    const ok = await isTeacherOfStudent(viewerId, studentId);
+    if (!ok) return res.status(403).json({ ok: false, message: "Forbidden" });
+
+    return next();
+  } catch {
+    return res
+      .status(500)
+      .json({ ok: false, message: "Internal server error" });
+  }
 }

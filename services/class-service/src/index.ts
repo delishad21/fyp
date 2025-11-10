@@ -4,10 +4,11 @@ import { Request, Response, NextFunction } from "express";
 import path from "path";
 import classRoutes from "./routes/class-routes";
 import scheduleRoutes from "./routes/schedule-routes";
-import studentRoutes from "./routes/student-routes";
+import classStudentRoutes from "./routes/class-student-routes";
 import imageRoutes from "./routes/image-routes";
 import quizEventRoutes from "./routes/quiz-events-routes";
 import helperRoutes from "./routes/helper-routes";
+import studentsRoutes from "./routes/student-routes";
 
 const app = express();
 
@@ -26,12 +27,14 @@ app.use(cors());
  * - /uploads               → static files
  * - /upload                → imageRoutes (mounted at "/")
  */
+
 app.use(quizEventRoutes);
 app.use("/classes", classRoutes);
-app.use("/classes", studentRoutes);
+app.use("/classes", classStudentRoutes);
 app.use("/classes", scheduleRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/helper", helperRoutes);
+app.use("/students", studentsRoutes);
 app.use("/", imageRoutes);
 
 /** GET / — simple health check */

@@ -17,6 +17,9 @@ import {
   StudentDraft,
   StudentFieldError,
 } from "@/services/class/types/student-types";
+import { StudentCsvRow } from "@/services/class/helpers/csv-utils";
+import StudentCsvProcessor from "./StudentCsvProcessor";
+import { deriveUsername } from "@/services/class/helpers/class-helpers";
 
 const initialState: AddStudentsState = {
   ok: false,
@@ -56,18 +59,20 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
         if (i !== idx) return r;
         const next = { ...r, ...patch };
         if (patch.username === undefined) {
-          if (patch.email && patch.email.includes("@")) {
-            next.username = patch.email.split("@")[0];
-          } else if (patch.name) {
-            next.username = patch.name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, ".")
-              .replace(/^\.+|\.+$/g, "");
-          }
+          next.username = deriveUsername(
+            patch.name ?? r.name,
+            patch.email ?? r.email
+          );
         }
         return next;
       })
     );
+
+  const handleCsvImport = async (drafts: StudentDraft[]) => {
+    setStudents(
+      drafts.length ? drafts : [{ name: "", email: "", username: "" }]
+    );
+  };
 
   const studentErrs = (
     Array.isArray(state.fieldErrors?.students)
@@ -101,6 +106,11 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-6 max-w-[1000px]">
+      <div className="grid gap-3">
+        <h2 className="text-base font-semibold">Import Students (CSV)</h2>
+        <StudentCsvProcessor onImport={handleCsvImport} />
+      </div>
+
       <div className="grid gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Students</h2>

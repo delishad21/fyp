@@ -3,7 +3,7 @@ import BasicOrRapidAttempt from "@/components/classes/attempt-page/BasicOrRapidA
 import CrosswordAttempt from "@/components/classes/attempt-page/CrosswordAttempt";
 import { getQuizAttempt } from "@/services/quiz/actions/get-quiz-attempt";
 import {
-  getStudentAttempts,
+  getAttemptsForScheduleByStudent,
   getStudentInClass,
 } from "@/services/class/actions/get-student-actions";
 import { notFound } from "next/navigation";
@@ -17,6 +17,7 @@ export default async function AttemptPage({
 
   // Current attempt
   const resp = await getQuizAttempt(attemptId);
+  console.log("AttemptPage: got attempt", resp);
   if (!resp?.ok || !resp.data) return notFound();
   const attempt = resp.data;
 
@@ -28,22 +29,13 @@ export default async function AttemptPage({
     return notFound();
   }
 
-  // Build switcher options for attempts in THIS schedule
-  const listRes = await getStudentAttempts(studentId, 1, 100);
+  // Build switcher options for attempts in THIS schedule (server already filters by schedule+student)
   const scheduleId = String(attempt.scheduleId ?? "");
-  const allForSchedule = (listRes.rows ?? [])
-    .filter((r) => String(r.scheduleId) === scheduleId)
-    .sort((a, b) => {
-      const at = new Date(
-        a.finishedAt ?? a.startedAt ?? a.createdAt ?? 0
-      ).getTime();
-      const bt = new Date(
-        b.finishedAt ?? b.startedAt ?? b.createdAt ?? 0
-      ).getTime();
-      return bt - at;
-    });
+  const listRes = await getAttemptsForScheduleByStudent(scheduleId, studentId);
+  if (!listRes.ok) return notFound();
 
-  const switcherOptions = allForSchedule.map((r) => {
+  // Server sorts by recency; keep that. If you want, you can sort again here.
+  const switcherOptions = (listRes.rows ?? []).map((r) => {
     const ts = r.finishedAt ?? r.startedAt ?? r.createdAt;
     const when = ts
       ? new Date(ts).toLocaleString(undefined, {

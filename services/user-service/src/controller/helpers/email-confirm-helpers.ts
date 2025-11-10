@@ -46,7 +46,7 @@ export async function handleEmailVerify(
     await user.save();
 
     const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET!, {
-      expiresIn: "1d",
+      expiresIn: "30d",
     });
 
     console.log(

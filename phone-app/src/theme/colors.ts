@@ -1,0 +1,31 @@
+export const light = {
+  textPrimary: "#1A1A1A",
+  textSecondary: "#555555",
+  icon: "#2B4A66",
+  bg1: "#F5F5F5",
+  bg2: "#F1F1F1",
+  bg3: "#E5E5E5",
+  bg4: "#D9D9D9",
+  primary: "#3D5CFF",
+  primaryLight: "#6D85FF",
+  primaryDark: "#2A47CC",
+  error: "#EF5350",
+  success: "#059669",
+  warning: "#D97706",
+};
+export const dark = {
+  textPrimary: "#F0F0F0",
+  textSecondary: "#9A9A9A",
+  icon: "#E8F4FF",
+  bg1: "#161616",
+  bg2: "#212121",
+  bg3: "#303030",
+  bg4: "#464646",
+  primary: "#3D5CFF",
+  primaryLight: "#6D85FF",
+  primaryDark: "#2A47CC",
+  error: "#EF5350",
+  success: "#059669",
+  warning: "#D97706",
+};
+export type Colors = typeof light;

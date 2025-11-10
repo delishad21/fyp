@@ -1,8 +1,10 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/buttons/Button";
 import TextInput from "@/components/ui/text-inputs/TextInput";
 import DateField from "@/components/ui/selectors/DateField";
+import ToggleButton from "@/components/ui/buttons/ToggleButton";
 import {
   SaveResult,
   ScheduleItemLike,
@@ -13,15 +15,6 @@ import {
   endOfLocalDate,
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
 
-/**
- * Modal is non-optimistic:
- * - Calls onSave(patch) and waits.
- * - Shows inline errors via DateField/TextInput `error` props.
- * - Shows loading state on the Save button.
- * - Only closes when onSave resolves { ok: true }.
- *
- * Contribution: must be a number > 0 (no upper bound). Empty = omit from patch.
- */
 export default function ScheduleItemEditModal({
   open,
   item,
@@ -35,22 +28,29 @@ export default function ScheduleItemEditModal({
     startDate?: Date;
     endDate?: Date;
     contribution?: number;
+    // NEW
+    attemptsAllowed?: number;
+    showAnswersAfterAttempt?: boolean;
   }) => Promise<SaveResult>;
 }) {
   const visible = open && !!item;
   const initial = item;
 
-  // Controlled local fields
+  // Controlled fields
   const [startYMD, setStartYMD] = useState<string>("");
   const [endYMD, setEndYMD] = useState<string>("");
   const [contribStr, setContribStr] = useState<string>("");
+
+  // NEW policy fields (controlled)
+  const [attemptsAllowedStr, setAttemptsAllowedStr] = useState<string>("");
+  const [showAnswersAfterAttempt, setShowAnswersAfterAttempt] =
+    useState<boolean>(false);
+
   const [saving, setSaving] = useState(false);
 
-  // inline field errors (from backend)
   const [fieldErrors, setFieldErrors] = useState<
     Record<string, string | string[] | undefined>
   >({});
-  // top-level local error (pre-submit)
   const [localErr, setLocalErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,6 +64,15 @@ export default function ScheduleItemEditModal({
         ? String(initial.contribution)
         : ""
     );
+
+    // NEW: hydrate policy fields
+    setAttemptsAllowedStr(
+      typeof initial.attemptsAllowed === "number"
+        ? String(initial.attemptsAllowed)
+        : ""
+    );
+    setShowAnswersAfterAttempt(Boolean(initial.showAnswersAfterAttempt));
+
     setFieldErrors({});
     setLocalErr(null);
     setSaving(false);
@@ -80,7 +89,7 @@ export default function ScheduleItemEditModal({
     setLocalErr(null);
     setFieldErrors({});
 
-    // Local validation: dates required and end >= start (full-day inclusive)
+    // Date validation
     if (!startYMD || !endYMD) {
       setLocalErr("Start and end dates are required.");
       return;
@@ -92,26 +101,49 @@ export default function ScheduleItemEditModal({
       return;
     }
 
-    // Contribution: empty -> omit; else must be > 0
-    let c: number | undefined;
-    const trimmed = contribStr.trim();
-    if (trimmed === "") {
-      c = undefined;
-    } else {
-      const parsed = Number(trimmed);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        setFieldErrors({ contribution: "Must be a number greater than 0." });
-        return;
+    // Contribution
+    let contribution: number | undefined;
+    {
+      const t = contribStr.trim();
+      if (t !== "") {
+        const n = Number(t);
+        if (!Number.isFinite(n) || n <= 0) {
+          setFieldErrors({ contribution: "Must be a number greater than 0." });
+          return;
+        }
+        contribution = n;
       }
-      c = parsed;
     }
 
+    // NEW: attemptsAllowed (optional; must be 1..10 when provided)
+    let attemptsAllowed: number | undefined;
+    {
+      const t = attemptsAllowedStr.trim();
+      if (t !== "") {
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 1 || n > 10) {
+          setFieldErrors({
+            attemptsAllowed: "Must be an integer between 1 and 10.",
+          });
+          return;
+        }
+        attemptsAllowed = Math.floor(n);
+      }
+    }
+
+    // NEW: showAnswersAfterAttempt (boolean already controlled)
+
     setSaving(true);
-    const res = await onSave({ startDate: s, endDate: e, contribution: c });
+    const res = await onSave({
+      startDate: s,
+      endDate: e,
+      contribution,
+      attemptsAllowed, // only sent if defined
+      showAnswersAfterAttempt,
+    });
     setSaving(false);
 
     if (!res.ok) {
-      // stay open; surface fieldErrors inline (if any)
       if (res.fieldErrors && typeof res.fieldErrors === "object") {
         setFieldErrors(res.fieldErrors);
       }
@@ -119,7 +151,6 @@ export default function ScheduleItemEditModal({
       return;
     }
 
-    // success
     onClose();
   };
 
@@ -129,15 +160,9 @@ export default function ScheduleItemEditModal({
       role="dialog"
     >
       <div className="w-full max-w-md rounded-2xl bg-[var(--color-bg1)] p-4 shadow">
-        <h3
-          id="edit-schedule-modal-title"
-          className="text-lg font-semibold mb-3"
-        >
-          {title}
-        </h3>
+        <h3 className="text-lg font-semibold mb-3">{title}</h3>
 
         <div className="space-y-3">
-          {/* Start date */}
           <DateField
             label="Start date"
             value={startYMD}
@@ -145,7 +170,6 @@ export default function ScheduleItemEditModal({
             error={fieldErrors.startDate as any}
           />
 
-          {/* End date */}
           <DateField
             label="End date"
             value={endYMD}
@@ -153,7 +177,6 @@ export default function ScheduleItemEditModal({
             error={fieldErrors.endDate as any}
           />
 
-          {/* Contribution (spinner-less text input) */}
           <TextInput
             id="contribution"
             label="Contribution"
@@ -163,6 +186,28 @@ export default function ScheduleItemEditModal({
             inputMode="decimal"
             pattern="[0-9]*"
             error={fieldErrors.contribution as any}
+          />
+
+          {/* NEW: Attempts allowed (1..10) */}
+          <TextInput
+            id="attemptsAllowed"
+            label="Attempts allowed (1–10)"
+            placeholder="Leave blank to keep current/default (1)"
+            value={attemptsAllowedStr}
+            onValueChange={setAttemptsAllowedStr}
+            inputMode="numeric"
+            pattern="[0-9]*"
+            error={fieldErrors.attemptsAllowed as any}
+          />
+
+          {/* NEW: Show answers after each attempt */}
+          <ToggleButton
+            id="show-answers-after-attempt"
+            label="Show answers after each attempt"
+            description="If on, students see the correct answers instantly after submitting."
+            on={showAnswersAfterAttempt}
+            onToggle={() => setShowAnswersAfterAttempt((v) => !v)}
+            error={fieldErrors.showAnswersAfterAttempt as string}
           />
 
           {localErr ? (

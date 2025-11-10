@@ -5,13 +5,14 @@ import { contentHash } from "../model/quiz-shared";
 /**
  * Compute a content hash using only the fields that define the quiz content
  * for each type (used to detect content changes vs metadata-only updates).
- * If you add a new quiz type, update this switch OR expose a `contentShape(doc)`
- * on the type def and delegate to it.
  */
 export function computeContentHashForDoc(quizType: string, doc: any): string {
   switch (quizType) {
     case "basic":
-      return contentHash({ items: doc.items });
+      return contentHash({
+        items: doc.items,
+        totalTimeLimit: doc.totalTimeLimit,
+      });
     case "rapid":
       return contentHash({ items: doc.items });
     case "crossword":
@@ -180,4 +181,22 @@ export function buildMongoFilter(ownerId?: string, q?: Partial<ListFilters>) {
   }
 
   return query;
+}
+
+// Redact gradingKey from a snapshot object
+export function redactGradingKey<T extends Record<string, any>>(snap: T): T {
+  if (!snap || typeof snap !== "object") return snap;
+  const strip = (obj: any): any => {
+    if (Array.isArray(obj)) return obj.map(strip);
+    if (obj && typeof obj === "object") {
+      const out: any = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (k === "gradingKey") continue; // drop whole key
+        out[k] = strip(v);
+      }
+      return out;
+    }
+    return obj;
+  };
+  return strip(snap);
 }

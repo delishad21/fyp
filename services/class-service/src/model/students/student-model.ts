@@ -6,7 +6,7 @@ export interface IStudent extends Document {
   displayName: string;
   photoUrl?: string;
   // virtual:
-  // statsDoc?: IStudentClassStats; // (for TS, define an interface if you want)
+  // statsDoc?: IStudentClassStats;
 }
 
 export const StudentSchema = new Schema<IStudent>(

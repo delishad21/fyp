@@ -19,11 +19,7 @@ import SevenDayCalendar from "./calendar/SevenDayCalendar";
 import ScheduleItemEditModal from "./calendar/ScheduleItemEditModal";
 
 import { useToast } from "@/components/ui/toast/ToastProvider";
-import {
-  addClassQuizSchedule,
-  deleteClassScheduleItemById,
-  editClassScheduleItem,
-} from "@/services/class/actions/class-schedule-actions";
+import { addClassQuizSchedule } from "@/services/class/actions/class-schedule-actions";
 import type { ApiScheduleItem } from "@/services/class/actions/class-schedule-actions";
 import type { InitialPayload } from "@/services/quiz/types/quiz-table-types";
 import type {
@@ -192,7 +188,7 @@ export default function SchedulerBoard({
         if (overId < todayYMD_TZ) {
           showToast({
             title: "Not allowed",
-            description: "You can’t schedule on a past date.",
+            description: "You can't schedule on a past date.",
             variant: "error",
           });
           setActiveDrag(null);
@@ -233,6 +229,8 @@ export default function SchedulerBoard({
           subject: drag.quiz.subject,
           subjectColor: drag.quiz.subjectColorHex,
           contribution: 100, // default
+          attemptsAllowed: 1,
+          showAnswersAfterAttempt: false,
         };
         const prev = schedule.map((x) => ({ ...x }));
         setSchedule((s) => s.concat(optimistic));
@@ -246,6 +244,9 @@ export default function SchedulerBoard({
             quizId: drag.quiz!.id,
             startDate: start,
             endDate: end,
+            contribution: 100,
+            attemptsAllowed: 1,
+            showAnswersAfterAttempt: false,
           });
           if (!res.ok || !res.data?._id) {
             const err: any = new Error(res.message || "Create failed");
@@ -416,22 +417,11 @@ export default function SchedulerBoard({
           return;
         }
 
-        // If quiz already started, moving changes start date -> block
-        if (hasStarted(currentItem, classTimezone)) {
-          setActiveDrag(null);
-          setPreviewById({});
-          showToast({
-            title: "Not allowed",
-            description:
-              "The start date can’t be changed after the quiz has started.",
-            variant: "error",
-          });
-          return;
-        }
-
         const prev = schedule.map((x) => ({ ...x })); // snapshot for rollback
 
-        // DELETE / REVERT decision when no droppable target
+        // --- DELETE PATHS FIRST (allowed even if quiz has started) ---
+
+        // 1) No droppable target (likely outside calendar): delete if outside; revert if past-cell
         if (!overId) {
           const zone = lastPointerZoneRef.current;
 
@@ -441,7 +431,7 @@ export default function SchedulerBoard({
             setPreviewById({});
             showToast({
               title: "Not allowed",
-              description: "You can’t move a quiz to a past date.",
+              description: "You can't move a quiz to a past date.",
               variant: "error",
             });
             return;
@@ -459,7 +449,7 @@ export default function SchedulerBoard({
           return;
         }
 
-        // Explicit trash still deletes
+        // 2) Explicit trash drop → delete (Deprecated)
         if (overId === "trash") {
           setSchedule((s) => s.filter((x) => x.clientId !== drag.clientId));
           setActiveDrag(null);
@@ -472,13 +462,28 @@ export default function SchedulerBoard({
           return;
         }
 
+        // --- MOVE PATHS (changing start date) ---
+
         if (!/^\d{4}-\d{2}-\d{2}$/.test(overId)) {
           setActiveDrag(null);
           setPreviewById({});
           return;
         }
 
-        // Target day we dropped on — disallow move to past (based on new start)
+        // If quiz already started, block moves (moves shift start date)
+        if (hasStarted(currentItem, classTimezone)) {
+          setActiveDrag(null);
+          setPreviewById({});
+          showToast({
+            title: "Not allowed",
+            description:
+              "The start date can’t be changed after the quiz has started.",
+            variant: "error",
+          });
+          return;
+        }
+
+        const todayYMD_TZ = tzDayKey(new Date(), classTimezone);
         const dropDay = ymdToLocalDate(overId);
 
         // Original normalized local range and day-span
@@ -596,6 +601,7 @@ export default function SchedulerBoard({
           onEditRequest={(clientId) => {
             const it = schedule.find((s) => s.clientId === clientId);
             if (!it) return;
+            console.log("edit request for", clientId, it);
             handleOpenEdit(it);
           }}
         />

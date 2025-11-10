@@ -76,23 +76,42 @@ export const validatePassword = (password: string): string[] => {
 export const validateName = (name: string): string[] => {
   const errors: string[] = [];
 
+  // Empty / whitespace only
   if (!name || name.trim().length === 0) {
     errors.push("Name is required.");
     return errors;
   }
 
-  const trimmed = name.trim();
+  // Normalize to NFC for consistent Unicode comparison
+  const trimmed = name.trim().normalize("NFC");
 
+  // Length
   if (trimmed.length < 2) {
     errors.push("Name must be at least 2 characters long.");
   }
   if (trimmed.length > 100) {
     errors.push("Name must be at most 100 characters long.");
   }
-  if (!/^[A-Za-z\s.\-\/]+$/.test(trimmed)) {
+
+  // Allow:
+  //  - Unicode letters: \p{L}
+  //  - Combining marks (accents attached to letters): \p{M}
+  //  - spaces
+  //  - apostrophes ' and ’
+  //  - hyphen -, period ., slash /, ampersand &, comma , and parentheses ().
+  //  - digits 0-9 (for suffixes like II, III, 2nd) — OPTIONAL but commonly needed.
+  const allowedCharsRE = /^[\p{L}\p{M}0-9\s.'’\-\/&,()]+$/u;
+
+  // Require at least one letter (prevents inputs like "----" or "123")
+  const hasLetterRE = /[\p{L}]/u;
+
+  if (!allowedCharsRE.test(trimmed)) {
     errors.push(
-      "Name can only contain letters, spaces, '.', '-', '/' and must not be empty."
+      "Name can contain letters (any language), spaces, apostrophes (’ or '), hyphens (-), periods (.), slashes (/), ampersands (&), commas (,), parentheses, and digits."
     );
+  }
+  if (!hasLetterRE.test(trimmed)) {
+    errors.push("Name must include at least one letter.");
   }
 
   return errors;

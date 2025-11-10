@@ -29,25 +29,27 @@ function normalizeBearer(token?: string) {
 }
 
 /**
- * Batch-fetch quizzes by IDs from Quiz Service.
- * - POST { ids: string[] } to /quiz/batch in chunks (default 100).
+ * Batch-fetch quizzes by IDs from Quiz Service (INTERNAL, shared-secret).
+ * - POST { ids: string[] } to /quiz/internal/batch in chunks (default 100).
  * - Dedupes request IDs, merges `byId`, and treats `invalid` as `missing`.
  * - Throws on non-2xx with an attached `status` and `body` (if JSON).
  *
  * @param quizIds Array of quiz ids (strings/anything stringable).
- * @param auth    Raw auth header value; normalized to "Bearer ...".
  * @param opts    chunkSize?: number (default 100)
  *
  * @returns { byId, missing }
  */
 export async function fetchQuizzesByIds(
   quizIds: string[],
-  auth: string,
   opts: { chunkSize?: number } = {}
 ): Promise<{ byId: Record<string, QuizSvcBatchRow>; missing: string[] }> {
   // 1) Build base URL
   const base = String(process.env.QUIZ_SVC_URL || "").replace(/\/+$/, "");
   if (!base) throw new Error("QUIZ_SVC_URL env var is required");
+
+  // 1a) Shared secret (same env var you used elsewhere)
+  const secret = process.env.QUIZ_WEBHOOK_SECRET;
+  if (!secret) throw new Error("QUIZ_WEBHOOK_SECRET not set");
 
   // 2) Canonicalize and short-circuit empty
   const uniqueIds = Array.from(new Set((quizIds || []).map(String))).filter(
@@ -62,21 +64,20 @@ export async function fetchQuizzesByIds(
     chunks.push(uniqueIds.slice(i, i + chunkSize));
   }
 
-  // 4) Prepare headers (Bearer normalization)
-  const authHeader = normalizeBearer(auth);
   const aggregateById: Record<string, QuizSvcBatchRow> = {};
   const aggregateMissing = new Set<string>();
 
-  // 5) Fetch each chunk and merge results
+  // 4) Fetch each chunk and merge results
   for (const ids of chunks) {
-    const url = `${base}/quiz/batch`;
+    // NOTE: internal path + shared-secret header
+    const url = `${base}/quiz/internal/batch`;
 
     const res = await fetch(url, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        ...(authHeader ? { Authorization: authHeader } : {}),
+        "x-quiz-secret": secret,
       },
       body: JSON.stringify({ ids }),
     });
@@ -85,7 +86,7 @@ export async function fetchQuizzesByIds(
     const isJson = ct.includes("application/json");
     const body = isJson ? await res.json().catch(() => null) : await res.text();
 
-    // 5a) Surface non-2xx with details
+    // 4a) Surface non-2xx with details
     if (!res.ok) {
       const msg =
         (isJson && body && typeof body === "object" && body.message) ||
@@ -96,26 +97,26 @@ export async function fetchQuizzesByIds(
       throw err;
     }
 
-    // 5b) Runtime shape check
+    // 4b) Runtime shape check
     const payload = body as QuizSvcBatchResponse | null;
     const data = payload?.data;
     if (!data || typeof data !== "object" || !data.byId || !data.missing) {
       throw new Error("Quiz Service returned unexpected payload shape");
     }
 
-    // 5c) Merge byId
+    // 4c) Merge byId
     for (const [k, v] of Object.entries(data.byId)) {
       aggregateById[String(k)] = v as QuizSvcBatchRow;
     }
 
-    // 5d) Merge missing + invalid
+    // 4d) Merge missing + invalid (treat invalid as missing)
     for (const m of data.missing) aggregateMissing.add(String(m));
     if (Array.isArray(payload?.invalid)) {
       for (const inv of payload!.invalid!) aggregateMissing.add(String(inv));
     }
   }
 
-  // 6) Any ID present in byId must not be marked missing
+  // 5) Any ID present in byId must not be marked missing
   for (const id of Object.keys(aggregateById)) {
     aggregateMissing.delete(id);
   }
@@ -138,6 +139,7 @@ export function mergeScheduleWithQuizzes<T extends { quizId: string }>(
   quizName?: string;
   subject?: string;
   subjectColorHex?: string;
+  topic?: string;
   /** Back-compat with code that expects `subjectColor` in the schedule. */
   subjectColor?: string;
 })[] {
@@ -153,6 +155,7 @@ export function mergeScheduleWithQuizzes<T extends { quizId: string }>(
       subjectColorHex: mergedColorHex,
       // Back-compat: mirror to `subjectColor` if callers read that
       subjectColor: mergedColorHex ?? (s as any).subjectColor,
+      topic: q.topic ?? (s as any).topic,
     };
   });
 }
@@ -255,4 +258,143 @@ export async function fetchScheduledQuizStats(payload: {
   }
 
   return body ?? { ok: true };
+}
+
+/** Attempt row shape returned by quiz-svc list endpoints. */
+export type QuizSvcAttemptRow = {
+  _id: string;
+  scheduleId: string;
+  quizId: string;
+  studentId: string;
+  classId: string;
+  state: "in_progress" | "finalized" | "invalidated";
+  startedAt?: string;
+  lastSavedAt?: string;
+  finishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  attemptVersion: number;
+  score?: number;
+  maxScore?: number;
+  quiz: {
+    quizId: string;
+    name?: string | null;
+    subject?: string | null;
+    subjectColorHex?: string | null;
+    topic?: string | null;
+    quizType?: string | null;
+    typeColorHex?: string | undefined;
+    contentHash?: string | null;
+  };
+};
+
+/** Shared response shapes */
+type OkRows = { ok: true; rows: QuizSvcAttemptRow[] };
+type OkRowsWithMeta = OkRows & { total: number; truncated: boolean };
+
+/**
+ * INTERNAL (S2S): Fetch all attempts for a student (no pagination).
+ * Delegates to quiz-svc: POST /attempt/internal/student
+ * Uses `x-quiz-secret` header with QUIZ_WEBHOOK_SECRET.
+ *
+ * @param studentId ObjectId string
+ * @returns { ok, rows, total, truncated }
+ * @throws Error with `status` on non-2xx, `body` when JSON is present
+ */
+export async function fetchStudentAttemptsInternal(
+  studentId: string
+): Promise<OkRowsWithMeta> {
+  const base = String(process.env.QUIZ_SVC_URL || "").replace(/\/+$/, "");
+  if (!base) throw new Error("QUIZ_SVC_URL env var is required");
+
+  const secret = process.env.QUIZ_WEBHOOK_SECRET;
+  if (!secret) throw new Error("QUIZ_WEBHOOK_SECRET not set");
+
+  const url = `${base}/attempt/internal/student`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "x-quiz-secret": secret,
+    },
+    body: JSON.stringify({ studentId }),
+  });
+
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  const body = isJson ? await res.json().catch(() => null) : await res.text();
+
+  if (!res.ok) {
+    const err: any = new Error(
+      (isJson && body && typeof body === "object" && body.message) ||
+        `Quiz Service error: ${res.status}`
+    );
+    err.status = res.status >= 400 && res.status < 600 ? res.status : 502;
+    err.body = body;
+    throw err;
+  }
+
+  const payload = (isJson ? body : null) as OkRowsWithMeta | null;
+  if (
+    !payload ||
+    payload.ok !== true ||
+    !Array.isArray(payload.rows) ||
+    typeof payload.total !== "number" ||
+    typeof payload.truncated !== "boolean"
+  ) {
+    throw new Error("Quiz Service returned unexpected payload shape");
+  }
+  return payload;
+}
+
+/** INTERNAL (S2S): Fetch attempts for a student within a schedule.
+ *  Delegates to quiz-svc: POST /attempt/internal/schedule-student
+ *  Uses `x-quiz-secret` header with QUIZ_WEBHOOK_SECRET.
+ *
+ *  @param scheduleId ObjectId string
+ *  @param studentId  ObjectId string
+ *  @returns { ok, rows }
+ *  @throws Error with `status` on non-2xx, `body` when JSON is present
+ */
+export async function fetchAttemptsForScheduleByStudentInternal(
+  scheduleId: string,
+  studentId: string
+): Promise<OkRows> {
+  const base = String(process.env.QUIZ_SVC_URL || "").replace(/\/+$/, "");
+  if (!base) throw new Error("QUIZ_SVC_URL env var is required");
+
+  const secret = process.env.QUIZ_WEBHOOK_SECRET;
+  if (!secret) throw new Error("QUIZ_WEBHOOK_SECRET not set");
+
+  const url = `${base}/attempt/internal/schedule-student`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "x-quiz-secret": secret,
+    },
+    body: JSON.stringify({ scheduleId, studentId }),
+  });
+
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  const body = isJson ? await res.json().catch(() => null) : await res.text();
+
+  if (!res.ok) {
+    const err: any = new Error(
+      (isJson && body && typeof body === "object" && body.message) ||
+        `Quiz Service error: ${res.status}`
+    );
+    err.status = res.status >= 400 && res.status < 600 ? res.status : 502;
+    err.body = body;
+    throw err;
+  }
+
+  const payload = (isJson ? body : null) as OkRows | null;
+  if (!payload || payload.ok !== true || !Array.isArray(payload.rows)) {
+    throw new Error("Quiz Service returned unexpected payload shape");
+  }
+  return payload;
 }

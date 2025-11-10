@@ -209,57 +209,41 @@ export async function editMeta(req: CustomRequest, res: Response) {
         }
       }
 
+      // normalize incoming color
+      const hasColorPatch = !!colorHex?.trim();
+      const normalizedHex = hasColorPatch
+        ? colorHex!.startsWith("#")
+          ? colorHex!
+          : `#${colorHex!}`
+        : undefined;
+
+      // apply to meta doc
       if (newLabel) doc.subjects[idx].label = newLabel;
-      if (colorHex?.trim()) {
-        doc.subjects[idx].colorHex = colorHex.startsWith("#")
-          ? colorHex
-          : `#${colorHex}`;
-      }
+      if (hasColorPatch) doc.subjects[idx].colorHex = normalizedHex!;
       await doc.save();
 
+      // compute effective values AFTER save
+      const nextLabel = doc.subjects[idx].label;
+      const nextHex = doc.subjects[idx].colorHex; // may be unchanged if no color patch
+
+      // ----- CASCADE TO QUIZZES -----
       if (newLabel && !sameLabel(newLabel, oldLabel)) {
+        // rename + (optionally) update color in the same pass
+        const setPatch: any = { subject: nextLabel };
+        if (hasColorPatch && nextHex) setPatch.subjectColorHex = nextHex;
         await QuizBaseModel.updateMany(
           { owner, subject: oldLabel },
-          { $set: { subject: newLabel } }
+          { $set: setPatch }
+        );
+      } else if (hasColorPatch && nextHex) {
+        // color only
+        await QuizBaseModel.updateMany(
+          { owner, subject: nextLabel },
+          { $set: { subjectColorHex: nextHex } }
         );
       }
-    } else {
-      // topics are [{ label }]
-      const i = (doc.topics ?? []).findIndex((t) =>
-        sameLabel(t.label, oldLabel)
-      );
-      if (i < 0) {
-        return res
-          .status(404)
-          .json({ ok: false, message: "Meta item not found" });
-      }
 
-      if (newLabel) {
-        const dup = (doc.topics ?? []).some(
-          (t, j) => j !== i && sameLabel(t.label, newLabel)
-        );
-        if (dup) {
-          return res.status(409).json({
-            ok: false,
-            message: `Topic "${newLabel}" already exists.`,
-          });
-        }
-
-        const prev = doc.topics[i].label;
-        doc.topics[i].label = newLabel;
-        await doc.save();
-
-        if (!sameLabel(newLabel, prev)) {
-          await QuizBaseModel.updateMany(
-            { owner, topic: oldLabel },
-            { $set: { topic: newLabel } }
-          );
-        }
-      } else {
-        return res
-          .status(400)
-          .json({ ok: false, message: "Nothing to update" });
-      }
+      return res.json({ ok: true, ...toPayload(doc.toObject() as any) });
     }
 
     return res.json({ ok: true, ...toPayload(doc.toObject() as any) });

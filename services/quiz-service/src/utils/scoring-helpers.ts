@@ -36,7 +36,11 @@ export function scoreOpen_Exact(
       break;
     }
   }
-  return { score: ok ? max : 0, correct: ok, details: { value: v } };
+  return {
+    score: ok ? max : 0,
+    correct: ok,
+    details: { value: v, correct: accepted },
+  };
 }
 
 /** Crossword: full-word only */

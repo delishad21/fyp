@@ -1,46 +1,19 @@
 import { Cell, CrosswordPlacedEntry } from "@/services/quiz/types/quizTypes";
 import * as React from "react";
 
-/**
- * CrosswordGrid Component
- *
- * Purpose:
- *   - Renders a crossword puzzle grid as a visual matrix of cells.
- *   - Supports numbering clue start positions and showing coordinates for debugging.
- *
- * Props:
- *   @param {Cell[][]} grid
- *     - 2D array of `Cell` objects describing the crossword board.
- *       • Each cell may contain { letter?: string; isBlocked?: boolean }.
- *
- *   @param {CrosswordPlacedEntry[]} [entries=[]]
- *     - Optional list of placed entries used to number starting cells.
- *     - Numbers are displayed in the top-left corner of each first cell.
- *
- *   @param {number} [cellSize=40]
- *     - Pixel size of each grid cell (width and height).
- *
- *   @param {boolean} [showCoords=false]
- *     - If true, displays row/column coordinates in the bottom-right corner of each cell.
- *
- * Behavior:
- *   - Uses CSS Grid to lay out rows × cols of crossword cells.
- *   - Blocked cells are shaded; open cells show letters if present.
- *   - Clue numbers are assigned sequentially from the `entries` prop.
- *
- * UI:
- *   - Each cell:
- *       • Displays a letter (uppercase) if available, otherwise empty.
- *       • Shows a small clue number in the top-left if marked as a start.
- *       • Optionally shows (row,col) coordinates for debugging.
- *
- */
-
 type Props = {
   grid: Cell[][];
   entries?: CrosswordPlacedEntry[];
   cellSize?: number; // px per cell (default 40)
   showCoords?: boolean;
+
+  /**
+   * Optional per-cell status overlay.
+   * - Same shape as `grid`
+   * - Only applied to non-blocked cells
+   * - 'correct' => success ring, 'wrong' => error ring, null/undefined => no highlight
+   */
+  statusByCell?: ("correct" | "wrong" | null)[][];
 };
 
 export default function CrosswordGrid({
@@ -48,6 +21,7 @@ export default function CrosswordGrid({
   entries = [],
   cellSize = 40,
   showCoords = false,
+  statusByCell,
 }: Props) {
   const rows = grid.length;
   const cols = grid[0]?.length ?? 0;
@@ -75,6 +49,14 @@ export default function CrosswordGrid({
         row.map((cell, c) => {
           const key = `${r}:${c}`;
           const number = numbers.get(key);
+          const status = statusByCell?.[r]?.[c] ?? null; // 'correct' | 'wrong' | null
+
+          const ringClass =
+            !cell.isBlocked && status === "correct"
+              ? "ring-2 ring-[var(--color-success)] ring-offset-0"
+              : !cell.isBlocked && status === "wrong"
+              ? "ring-2 ring-[var(--color-error)] ring-offset-0"
+              : "";
 
           return (
             <div
@@ -90,6 +72,8 @@ export default function CrosswordGrid({
                 cell.letter
                   ? "text-[var(--color-text-primary)]"
                   : "text-transparent",
+                ringClass,
+                "rounded-sm",
               ].join(" ")}
             >
               {number && (

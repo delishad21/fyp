@@ -313,7 +313,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
    * Content includes:
    *  - Entries (answers + clues), normalized and order-insensitive
    *  - Generated preview (grid + placed entries), when present
-   * Timer changes do NOT trigger the modal here.
+   *  - Global timer changes
    * ───────────────────────────────────────────────────────────────────── */
 
   // Helpers for normalization
@@ -377,16 +377,22 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
     entries: Array<{ answer: string; clue: string }>;
     grid: Cell[][] | null;
     placed: CrosswordPlacedEntry[] | null;
+    totalTimeLimit: number | null; // <-- add
   }) {
     return {
       entries: normalizeEntries(opts.entries),
       grid: normalizeGrid(opts.grid),
       placed: normalizePlaced(opts.placed || []),
+      totalTimeLimit:
+        opts.totalTimeLimit === null || opts.totalTimeLimit === undefined
+          ? null
+          : Number(opts.totalTimeLimit), // normalize number|null
     };
   }
 
   const initialContentNormJson = useMemo(() => {
     if (mode !== "edit" || !initialData) return "";
+
     const entriesSrc =
       (initialData.entries || []).map((e) => ({
         answer: e.answer ?? "",
@@ -397,6 +403,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       Array.isArray(initialData.grid) &&
       initialData.grid.length > 0 &&
       Array.isArray(initialData.grid[0]);
+
     const hasPlaced =
       Array.isArray(initialData.placedEntries) &&
       initialData.placedEntries.length > 0;
@@ -407,27 +414,30 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       placed: hasPlaced
         ? (initialData.placedEntries as CrosswordPlacedEntry[])
         : [],
+      totalTimeLimit:
+        initialData.totalTimeLimit === undefined
+          ? null
+          : (initialData.totalTimeLimit as number | null), // <-- include timer
     });
 
     return JSON.stringify(snapshot);
   }, [mode, initialData]);
 
   const currentContentNormJson = useMemo(() => {
-    // Always compare entries (answer+clue), order-insensitive
     const nowEntries = (entries || []).map((e) => ({
       answer: e.answer ?? "",
       clue: e.clue ?? "",
     }));
 
-    // If user generated, include the actual grid+placed; else omit both
     const snapshot = buildNormalizedCrosswordSnapshot({
       entries: nowEntries,
       grid: generated ? genGrid : null,
       placed: generated ? genEntries : [],
+      totalTimeLimit: totalTime ?? null, // <-- include current timer
     });
 
     return JSON.stringify(snapshot);
-  }, [entries, generated, genGrid, genEntries]);
+  }, [entries, generated, genGrid, genEntries, totalTime]);
 
   const contentChanged =
     mode === "edit" && initialData?.id
@@ -617,9 +627,9 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
         title="Update will invalidate previous attempts"
         message={
           <>
-            You changed the crossword content (answers/clues and/or generated
-            layout). Submitting will invalidate all previous attempts for this
-            quiz. Do you want to continue?
+            You changed the crossword content (answers/clues, generated layout,
+            or the overall timer). Submitting will invalidate all previous
+            attempts for this quiz. Do you want to continue?
           </>
         }
         cancelLabel="Cancel"

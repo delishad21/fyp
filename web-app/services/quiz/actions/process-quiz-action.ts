@@ -67,7 +67,8 @@ function parseNullableNumber(formData: FormData, key: string): number | null {
 
 function buildBasicPayload(formData: FormData) {
   const itemsJson = parseJsonField(formData, "itemsJson");
-  return itemsJson ? { itemsJson } : {};
+  const totalTimeLimit = parseNullableNumber(formData, "totalTimeLimit");
+  return itemsJson ? { itemsJson, totalTimeLimit } : {};
 }
 
 function buildRapidPayload(formData: FormData) {

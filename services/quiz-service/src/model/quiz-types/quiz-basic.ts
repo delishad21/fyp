@@ -52,10 +52,6 @@ const BasicItemSchema = new Schema(
     id: { type: String, required: true },
     type: { type: String, required: true, enum: ["mc", "open", "context"] },
     text: { type: String, default: "" },
-
-    // Allow null to represent "no limit"
-    timeLimit: { type: Number, default: null },
-
     image: { type: ImageMetaSchema, default: null },
     options: { type: [MCOptionSchema], default: undefined }, // mc only
     answers: { type: [OpenAnswerSchema], default: undefined }, // open only
@@ -63,8 +59,10 @@ const BasicItemSchema = new Schema(
   { _id: false }
 );
 
+/** Basic quiz has a single global timer (seconds | null). */
 const BasicSchema = new Schema(
   {
+    totalTimeLimit: { type: Number, default: null }, // seconds; null = no limit
     items: { type: [BasicItemSchema], default: [] },
   },
   { _id: false }
@@ -90,14 +88,6 @@ function coerceOpenAnswer(raw: any) {
   };
 }
 
-/** Keep null/undefined/"" as "no limit"; otherwise finite number or null. */
-function normalizeTimeLimit(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  if (typeof v === "string" && v.trim() === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
 /** Coerce an incoming raw item to a strictly-shaped item or null if invalid. */
 function coerceBasicItem(raw: any) {
   const id = isString(raw?.id) ? raw.id : crypto.randomUUID();
@@ -108,7 +98,6 @@ function coerceBasicItem(raw: any) {
       id,
       type: "mc",
       text: isString(raw?.text) ? raw.text : "",
-      timeLimit: normalizeTimeLimit(raw?.timeLimit),
       image: raw?.image ?? null,
       options: Array.isArray(raw?.options)
         ? raw.options.map(coerceMCOption)
@@ -121,7 +110,6 @@ function coerceBasicItem(raw: any) {
       id,
       type: "open",
       text: isString(raw?.text) ? raw.text : "",
-      timeLimit: normalizeTimeLimit(raw?.timeLimit),
       image: raw?.image ?? null,
       answers: Array.isArray(raw?.answers)
         ? raw.answers.map(coerceOpenAnswer)
@@ -141,6 +129,14 @@ function coerceBasicItem(raw: any) {
   return null;
 }
 
+/** Keep null/undefined/"" as null; otherwise finite number or null. */
+function normalizeTotalTimeLimit(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 /* ───────────────────────────── 4) VALIDATION ───────────────────────────── */
 
 function validateBasic(body: any, items: any[]) {
@@ -150,52 +146,33 @@ function validateBasic(body: any, items: any[]) {
   if (!body?.subject?.trim()) fieldErrors.subject = "Subject is required";
   if (!body?.topic?.trim()) fieldErrors.topic = "Topic is required";
 
+  // Global timer (optional): allow null/empty (no limit); else >= 30s
+  const ttlRaw = body?.totalTimeLimit;
+  if (
+    !(ttlRaw === null || ttlRaw === undefined || String(ttlRaw).trim() === "")
+  ) {
+    const ttl = Number(ttlRaw);
+    if (!Number.isFinite(ttl) || ttl < 30) {
+      fieldErrors.totalTimeLimit =
+        "Total time limit must be at least 30 seconds";
+    }
+  }
+
   const questionErrors = items.map((it) => {
     const errs: string[] = [];
 
     if (it.type === "mc") {
       if (!it.text?.trim()) errs.push("Question text is required");
-
-      // Time limit: treat null/undefined/"" as "no limit"; else must be >= 5
-      const tRaw = it.timeLimit;
-      if (
-        !(
-          tRaw === null ||
-          tRaw === undefined ||
-          (typeof tRaw === "string" && tRaw.trim() === "")
-        )
-      ) {
-        const t = Number(tRaw);
-        if (!Number.isFinite(t) || t < 5)
-          errs.push("Time limit must be at least 5");
-      }
-
       if (!Array.isArray(it.options) || it.options.length < 1)
         errs.push("Add at least one option");
-
       it.options?.forEach((o: any, i: number) => {
         if (!o.text?.trim()) errs.push(`Option ${i + 1} text is required`);
       });
-
       const correctCount =
         it.options?.filter((o: any) => o.correct).length ?? 0;
       if (correctCount < 1) errs.push("Mark at least one option correct");
     } else if (it.type === "open") {
       if (!it.text?.trim()) errs.push("Question text is required");
-
-      const tRaw = it.timeLimit;
-      if (
-        !(
-          tRaw === null ||
-          tRaw === undefined ||
-          (typeof tRaw === "string" && tRaw.trim() === "")
-        )
-      ) {
-        const t = Number(tRaw);
-        if (!Number.isFinite(t) || t < 5)
-          errs.push("Time limit must be at least 5");
-      }
-
       if (!Array.isArray(it.answers) || it.answers.length < 1)
         errs.push("Add at least one accepted answer");
       it.answers?.forEach((a: any, i: number) => {
@@ -223,8 +200,10 @@ function readItemsFromBody(body: any) {
   }
 }
 
-function buildTypePatch(_body: any, items: any[]) {
-  return { items };
+function buildTypePatch(body: any, items: any[]) {
+  // Basic uses ONLY a global timer now
+  const totalTimeLimit = normalizeTotalTimeLimit(body?.totalTimeLimit);
+  return { items, totalTimeLimit };
 }
 
 /* ─────────────────────── 6) ATTEMPT SPEC BUILDER ───────────────────────── */
@@ -235,23 +214,28 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
 
   for (const it of quizDoc.items ?? []) {
     if (it.type === "mc") {
+      const options = (it.options ?? []).map((o: any) => ({
+        id: o.id,
+        text: o.text ?? "",
+      }));
+      const correctOptionIds: string[] = (it.options ?? [])
+        .filter((o: any) => !!o.correct)
+        .map((o: any) => o.id);
+
       renderItems.push({
         kind: "mc",
         id: it.id,
         text: it.text ?? "",
-        timeLimit: it.timeLimit ?? null,
         image: it.image ?? null,
-        options: (it.options ?? []).map((o: any) => ({
-          id: o.id,
-          text: o.text ?? "",
-        })),
+        options,
+        // multiSelect is true when there are 2+ correct options (MRQ)
+        multiSelect: correctOptionIds.length > 1,
       });
+
       gradingItems.push({
         kind: "mc",
         id: it.id,
-        correctOptionIds: (it.options ?? [])
-          .filter((o: any) => !!o.correct)
-          .map((o: any) => o.id),
+        correctOptionIds,
         maxScore: 1,
       });
     } else if (it.type === "open") {
@@ -259,7 +243,6 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
         kind: "open",
         id: it.id,
         text: it.text ?? "",
-        timeLimit: it.timeLimit ?? null,
         image: it.image ?? null,
       });
       gradingItems.push({
@@ -272,7 +255,6 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
         maxScore: 1,
       });
     } else if (it.type === "context") {
-      // render-only; not graded
       renderItems.push({
         kind: "context",
         id: it.id,
@@ -282,11 +264,22 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
     }
   }
 
+  const totalTimeLimit =
+    quizDoc.totalTimeLimit === null || quizDoc.totalTimeLimit === undefined
+      ? null
+      : Number(quizDoc.totalTimeLimit);
+
   return {
     quizId: String(quizDoc._id),
     quizType: quizDoc.quizType as QuizTypeKey,
-    contentHash: contentHash({ items: quizDoc.items }),
-    renderSpec: { items: renderItems },
+    contentHash: contentHash({
+      items: quizDoc.items,
+      totalTimeLimit,
+    }),
+    renderSpec: {
+      totalTimeLimit,
+      items: renderItems,
+    },
     gradingKey: { items: gradingItems },
     meta: {
       name: quizDoc.name,
@@ -297,7 +290,6 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
     },
   };
 }
-
 /* ─────────────────────────────── 7) GRADING ─────────────────────────────── */
 
 function gradeAttemptBasic(
@@ -382,51 +374,6 @@ function normalizeFreeText(s: unknown) {
     .replace(/\s+/g, " ")
     .toLowerCase();
 }
-
-type BasicScheduleBreakdown = {
-  mc: Array<{
-    itemId: string;
-    text: string;
-    options: Array<{ id: string; text: string; count: number; pct: number }>;
-    total: number;
-  }>;
-  open: Array<{
-    itemId: string;
-    text: string;
-    answers: Array<{ value: string; count: number; pct: number }>;
-    total: number;
-    threshold: number;
-  }>;
-};
-
-type BasicScheduleItemMC = {
-  itemId: string;
-  type: "mc";
-  text: string;
-  totalAnswers: number;
-  // Per-question average (from breakdown when available)
-  perQuestionAvg: number | null; // 0..1
-  perQuestionAvgPct: number | null; // 0..100
-  // Option selection statistics
-  options: {
-    id: string;
-    text: string;
-    count: number;
-    percentageSelected: number; // 0..1
-    percentageSelectedPct: number; // 0..100
-  }[];
-};
-
-type BasicScheduleItemOpen = {
-  itemId: string;
-  type: "open";
-  text: string;
-  totalAnswers: number;
-  perQuestionAvg: number | null; // 0..1 (from breakdown if present)
-  perQuestionAvgPct: number | null; // 0..100
-  threshold: number; // filter applied to top answers
-  answers: { value: string; count: number; pct: number; pctPct: number }[]; // sorted desc
-};
 
 function getCorrectOptionIdsFromItem(it: any): string[] {
   if (Array.isArray(it?.correctOptionIds))

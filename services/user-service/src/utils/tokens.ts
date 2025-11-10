@@ -59,7 +59,7 @@ export function generateAccessToken(
   const payload = { id: userId, role, ...extra }; // keep `id` for FE, add role
 
   return jwt.sign(payload, secret, {
-    expiresIn: opts.expiresIn ?? "1d",
+    expiresIn: opts.expiresIn ?? "30d",
   });
 }
 const SELECTOR_BYTES = 9; // ~12 chars base64url
