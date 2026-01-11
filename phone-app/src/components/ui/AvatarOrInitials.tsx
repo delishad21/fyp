@@ -30,6 +30,8 @@ export default function AvatarOrInitials({
   const initials = useMemo(() => nameInitials(name), [name]);
   const dim = { width: size, height: size, borderRadius: size / 2 };
 
+  const fontSize = Math.round(Math.max(14, Math.round(size * 0.48)));
+
   if (!uri || failed) {
     return (
       <View
@@ -44,7 +46,9 @@ export default function AvatarOrInitials({
           dim,
         ]}
       >
-        <Text style={{ color: textColor, fontWeight: "700" }}>{initials}</Text>
+        <Text style={{ color: textColor, fontWeight: "900", fontSize }}>
+          {initials}
+        </Text>
       </View>
     );
   }

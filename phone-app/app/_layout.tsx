@@ -1,4 +1,5 @@
 import { useSession } from "@/src/auth/session";
+import DragScrollRoot from "@/src/components/DragScrollRoot";
 import { ThemeProvider } from "@/src/theme";
 import { Slot } from "expo-router";
 import { useEffect } from "react";
@@ -12,9 +13,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <Slot />
-      </ThemeProvider>
+      <DragScrollRoot>
+        <ThemeProvider>
+          <Slot />
+        </ThemeProvider>
+      </DragScrollRoot>
     </SafeAreaProvider>
   );
 }

@@ -114,6 +114,7 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                 backgroundColor: colors.bg2,
                 borderColor,
                 borderWidth: StyleSheet.hairlineWidth,
+                shadowColor: "#000",
               },
             ]}
           >
@@ -257,14 +258,22 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 12, padding: 12 },
+  card: {
+    borderRadius: 10,
+    padding: 14,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+    gap: 2,
+  },
   cardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  itemQ: { fontSize: 15, fontWeight: "800" },
+  itemQ: { fontSize: 16, fontWeight: "800" },
   image: {
     width: "100%",
-    height: 180,
+    height: 170,
     borderRadius: 8,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#d9d9d9",
   },
 
   subLabel: { fontSize: 12, fontWeight: "800" },

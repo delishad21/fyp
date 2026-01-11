@@ -54,6 +54,8 @@ export async function getMyMeta(req: CustomRequest, res: Response) {
 export async function addMeta(req: CustomRequest, res: Response) {
   try {
     const owner = req.user?.id;
+
+    console.log("[addMeta] owner:", owner, "body:", req.body);
     if (!owner)
       return res.status(401).json({ ok: false, message: "Unauthorized" });
 
@@ -168,12 +170,18 @@ export async function editMeta(req: CustomRequest, res: Response) {
       return res.status(400).json({ ok: false, message: "Missing kind/value" });
     }
 
+    // Guard against invalid kinds at runtime
+    if (kind !== "subject" && kind !== "topic") {
+      return res.status(400).json({ ok: false, message: "Invalid kind" });
+    }
+
     const { label: newLabelRaw, colorHex } = (req.body ?? {}) as {
       label?: string;
       colorHex?: string;
     };
     const newLabel = newLabelRaw?.trim();
 
+    // Require at least one meaningful patch field
     if (!newLabel && !colorHex) {
       return res.status(400).json({ ok: false, message: "Nothing to update" });
     }
@@ -187,6 +195,7 @@ export async function editMeta(req: CustomRequest, res: Response) {
 
     const oldLabel = value.trim();
 
+    // ───────────── SUBJECT BRANCH ─────────────
     if (kind === "subject") {
       const idx = (doc.subjects ?? []).findIndex((s) =>
         sameLabel(s.label, oldLabel)
@@ -197,6 +206,7 @@ export async function editMeta(req: CustomRequest, res: Response) {
           .json({ ok: false, message: "Meta item not found" });
       }
 
+      // If renaming, ensure no duplicate subject label
       if (newLabel && !sameLabel(newLabel, oldLabel)) {
         const dup = (doc.subjects ?? []).some(
           (s, i) => i !== idx && sameLabel(s.label, newLabel)
@@ -209,7 +219,7 @@ export async function editMeta(req: CustomRequest, res: Response) {
         }
       }
 
-      // normalize incoming color
+      // normalize incoming color (if any)
       const hasColorPatch = !!colorHex?.trim();
       const normalizedHex = hasColorPatch
         ? colorHex!.startsWith("#")
@@ -228,7 +238,6 @@ export async function editMeta(req: CustomRequest, res: Response) {
 
       // ----- CASCADE TO QUIZZES -----
       if (newLabel && !sameLabel(newLabel, oldLabel)) {
-        // rename + (optionally) update color in the same pass
         const setPatch: any = { subject: nextLabel };
         if (hasColorPatch && nextHex) setPatch.subjectColorHex = nextHex;
         await QuizBaseModel.updateMany(
@@ -245,6 +254,43 @@ export async function editMeta(req: CustomRequest, res: Response) {
 
       return res.json({ ok: true, ...toPayload(doc.toObject() as any) });
     }
+
+    const idxTopic = (doc.topics ?? []).findIndex((t) =>
+      sameLabel(t.label, oldLabel)
+    );
+    if (idxTopic < 0) {
+      return res
+        .status(404)
+        .json({ ok: false, message: "Meta item not found" });
+    }
+
+    if (!newLabel) {
+      return res.status(400).json({
+        ok: false,
+        message: "Nothing to update",
+      });
+    }
+
+    // Prevent duplicate topic labels (case-insensitive)
+    const dupTopic = (doc.topics ?? []).some(
+      (t, i) => i !== idxTopic && sameLabel(t.label, newLabel)
+    );
+    if (dupTopic) {
+      return res.status(409).json({
+        ok: false,
+        message: `Topic "${newLabel}" already exists.`,
+      });
+    }
+
+    // Apply rename in meta doc
+    doc.topics[idxTopic].label = newLabel;
+    await doc.save();
+
+    // Cascade rename to quizzes for this owner
+    await QuizBaseModel.updateMany(
+      { owner, topic: oldLabel },
+      { $set: { topic: newLabel } }
+    );
 
     return res.json({ ok: true, ...toPayload(doc.toObject() as any) });
   } catch (e) {

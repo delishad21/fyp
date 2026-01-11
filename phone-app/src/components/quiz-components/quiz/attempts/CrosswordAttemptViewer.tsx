@@ -23,6 +23,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   PanResponder,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,6 +33,7 @@ import {
 /** Read-only Crossword attempt viewer (with per-cell correctness) */
 export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
   const { colors } = useTheme();
+  const panSpeed = Platform.OS === "web" ? 2 : 1;
 
   const spec = doc.quizVersionSnapshot.renderSpec as CrosswordRenderSpec;
   const item = (spec?.items?.[0] || null) as ItemCrossword | null;
@@ -77,7 +79,7 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
     return map;
   }, [doc.breakdown]);
 
-  /** ===== letters from student answers (fallback to snapshot fixed letters) ===== */
+  /** ===== letters from student answers ===== */
   const gridLetters = useMemo(() => {
     const g: string[][] = Array.from({ length: rows }, () =>
       Array.from({ length: cols }, () => "")
@@ -97,16 +99,6 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
           if (ch) g[p.row][p.col] = ch[0];
         }
       });
-    }
-
-    // Fallback from snapshot fixed letters (only where empty and not blocked)
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (!blocked.has(`${r}:${c}`) && !g[r][c]) {
-          const fixed = item.grid[r][c]?.letter;
-          if (fixed) g[r][c] = String(fixed).toUpperCase();
-        }
-      }
     }
 
     return g;
@@ -266,8 +258,8 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
           accY.current = py;
         } else {
           // one finger pan
-          const px = panStartRef.current.x + g.dx;
-          const py = panStartRef.current.y + g.dy;
+          const px = panStartRef.current.x + g.dx * panSpeed;
+          const py = panStartRef.current.y + g.dy * panSpeed;
           translateX.setValue(px);
           translateY.setValue(py);
           accX.current = px;
@@ -337,11 +329,25 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, padding: 16, gap: 12 }}>
       {/* Grid viewport */}
       <View
         onLayout={onWrapLayout}
-        style={{ flex: 1.2, padding: 8, overflow: "hidden" }}
+        style={{
+          flex: 1.2,
+          padding: 10,
+          overflow: "hidden",
+          borderRadius: 10,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.bg4,
+          backgroundColor: colors.bg2,
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 2,
+          shadowColor: "#000",
+        }}
+        data-drag-scroll="ignore"
       >
         <Animated.View {...responder.panHandlers} style={{ flex: 1 }}>
           <Animated.View
@@ -419,7 +425,7 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
               key={`A-${row.entry.id}`}
               style={[
                 styles.card,
-                { backgroundColor: colors.bg2, borderColor: colors.bg3 },
+                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
               ]}
             >
               <View style={styles.cardTop}>
@@ -465,7 +471,7 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
               key={`D-${row.entry.id}`}
               style={[
                 styles.card,
-                { backgroundColor: colors.bg2, borderColor: colors.bg3 },
+                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
               ]}
             >
               <View style={styles.cardTop}>
@@ -521,11 +527,16 @@ const styles = StyleSheet.create({
   cellText: { fontSize: 16, fontWeight: "800" },
 
   card: {
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginTop: 10,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+    shadowColor: "#000",
   },
   cardTop: {
     flexDirection: "row",

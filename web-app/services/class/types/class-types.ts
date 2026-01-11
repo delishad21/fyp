@@ -1,4 +1,4 @@
-// services/class/types.ts
+import { QuizAttemptDto } from "@/services/quiz/actions/get-quiz-attempt";
 
 export interface ClassValues {
   name: string;
@@ -74,8 +74,11 @@ export type QuizLite = {
   subject?: string;
   subjectColorHex?: string;
   topic?: string;
+  quizType?: string;
   type?: string;
   createdAt?: string | Date;
+  rootQuizId?: string | null;
+  version?: number | null;
 };
 
 export type DragData =
@@ -102,34 +105,7 @@ export type DragData =
  * AttemptHeader types
  */
 
-export type AttemptHeaderData = {
-  _id: string;
-  quizId: string;
-  studentId: string;
-  classId?: string;
-  state: "in_progress" | "finalized" | "invalidated";
-  startedAt: string;
-  lastSavedAt?: string;
-  finishedAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  score?: number;
-  maxScore?: number;
-  attemptVersion: number;
-  quizVersionSnapshot: {
-    quizId: string;
-    quizType: "basic" | "rapid" | "crossword" | string;
-    contentHash: string;
-    meta: {
-      name?: string;
-      subject?: string;
-      topic?: string;
-      owner?: string;
-      subjectColorHex?: string;
-      typeColorHex?: string;
-    };
-  };
-};
+export type AttemptHeaderData = QuizAttemptDto;
 
 /**
  * AttemptSwitcher types
@@ -231,6 +207,8 @@ export type ScheduleItem = {
   clientId: string;
   _id?: string;
   quizId: string;
+  quizRootId: string;
+  quizVersion: number;
   startDate: string;
   endDate: string;
   quizName?: string;

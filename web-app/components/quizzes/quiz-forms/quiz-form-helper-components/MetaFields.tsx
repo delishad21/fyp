@@ -72,7 +72,7 @@ export default function MetaFields({
         id="name"
         name="name"
         label="Name"
-        placeholder="Quiz name"
+        placeholder="Quiz Name"
         required
         defaultValue={defaults.name ?? ""}
         error={errorFor("name")}
@@ -83,7 +83,7 @@ export default function MetaFields({
         id="subject"
         name="subject"
         label="Subject"
-        placeholder="Select…"
+        placeholder="Select A Subject"
         options={meta.subjects.map((s) => ({
           label: s.label,
           value: s.value,
@@ -95,19 +95,21 @@ export default function MetaFields({
         error={errorFor("subject")}
         onChange={() => clearError("subject")}
         colorMode="always"
+        searchable
       />
 
       <Select
         id="topic"
         name="topic"
         label="Topic"
-        placeholder="Select…"
+        placeholder="Select A Topic"
         options={meta.topics.map((t) => ({ label: t.label, value: t.value }))}
         required
         handleAdd={onAddTopic}
         defaultValue={defaults.topic ?? ""}
         error={errorFor("topic")}
         onChange={() => clearError("topic")}
+        searchable
       />
     </div>
   );

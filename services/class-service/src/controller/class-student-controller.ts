@@ -46,19 +46,22 @@ import { pct, toPlainObject } from "../utils/utils";
  *             - streakDays: 0 (no attendance yet)
  *             - bestStreakDays: 0 (historic best starts at 0)
  *             - lastStreakDate: null
- * @logic  1) Validate student rows
- *         2) Create accounts in user-svc
- *         3) TX: dedupe, append to roster, seed StudentClassStats
- *            - If TX fails → delete ALL newly created accounts
- *         4) After TX success: delete any created-but-not-added (orphans)
- *         5) Respond with updated roster + issued credentials for added users
+ *         - `includePasswords` may be provided in query or body; query takes precedence.
+ * @logic  1) Validate student rows (shape + basic email + duplicate usernames in payload).
+ *         2) Create accounts in user-svc (POST /student/users/bulk-create).
+ *            - On per-row errors, bubbles through user-svc status (e.status) and returns errors.students.
+ *         3) TX: dedupe, append to roster, seed StudentClassStats.
+ *            - If TX fails -> delete ALL newly created accounts.
+ *         4) After TX success: delete any created-but-not-added (orphans).
+ *         5) Respond with updated roster + issued credentials for added users.
  * @returns 200 { ok, data: Class.students[], issuedCredentials? }
- * @errors  400 validation errors (per-row)
+ * @errors  400 validation errors for the input block (per-row, from validateStudentsBlock)
  *          404 class not found
- *          409 user-svc row errors
- *          502 user-svc failure
+ *          4xx user-svc row errors (status bubbled from user-svc, commonly 400/409; body.errors.students echoed)
+ *          4xx/5xx user-svc failure (status bubbled from user-svc; generic message)
  *          500 internal server error
  */
+
 export async function addStudents(req: CustomRequest, res: Response) {
   const session = await mongoose.startSession();
 
@@ -277,12 +280,14 @@ export async function addStudents(req: CustomRequest, res: Response) {
  * @route  DELETE /classes/:id/students/:studentId
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
  * @input  Params: { id, studentId }
- * @logic  1) Ensure class + membership exist
- *         2) Delete user in user-svc
- *         3) Pull from roster and delete StudentClassStats row
+ * @logic  1) Ensure class + membership exist.
+ *         2) Delete user in user-svc (DELETE /student/users/:id).
+ *            - Treats 404 from user-svc as success ("already deleted").
+ *            - On other non-2xx, bubbles user-svc status and message.
+ *         3) Pull from roster and delete StudentClassStats row.
  * @returns 200 { ok, data: ClassLean }
- * @errors  404 class or student not found
- *          502 user-svc failure
+ * @errors  404 class not found or student not on roster
+ *          4xx/5xx user-svc failure (status bubbled from user-svc)
  *          500 internal server error
  */
 export async function removeStudent(req: CustomRequest, res: Response) {
@@ -346,14 +351,29 @@ export async function removeStudent(req: CustomRequest, res: Response) {
  * @input  Params: { id }
  * @notes  - Populates each embedded student with their StudentClassStats row (virtual: students.statsDoc).
  *         - Computes participationPct and avgScorePct from populated stats.
- *         - Adds overallScore and rank (standard competition ranking with gaps after ties).
+ *         - Adds overallScore, bestStreakDays, and rank (standard competition ranking with gaps after ties).
  * @logic  1) Load class roster and populate per-student stats using { match: { classId: :id } }.
  *         2) Map to enriched rows and compute ranks from overallScore.
  *         3) Sort by rank before returning (tie-breakers: higher overallScore first, then name A→Z).
- * @returns 200 { ok, data: Array<{ userId, displayName, photoUrl?, className, participationPct, avgScorePct, streakDays, overallScore, rank }> }
+ * @returns 200 {
+ *   ok,
+ *   data: Array<{
+ *     userId,
+ *     displayName,
+ *     photoUrl?,
+ *     className,
+ *     participationPct,
+ *     avgScorePct,
+ *     streakDays,
+ *     bestStreakDays,
+ *     overallScore,
+ *     rank
+ *   }>
+ * }
  * @errors  404 class not found
  *          500 internal server error
  */
+
 export async function getStudents(req: CustomRequest, res: Response) {
   try {
     const { id } = req.params;
@@ -415,7 +435,12 @@ export async function getStudents(req: CustomRequest, res: Response) {
         a.displayName.localeCompare(b.displayName)
     );
 
-    return res.json({ ok: true, data: withRank });
+    const cleanedData = withRank.map((r) => ({
+      ...r,
+      overallScore: Math.round((r.overallScore ?? 0) * 100) / 100,
+    }));
+
+    return res.json({ ok: true, data: cleanedData });
   } catch (e) {
     console.error("[getStudents] error", e);
     return res
@@ -430,7 +455,7 @@ export async function getStudents(req: CustomRequest, res: Response) {
  * @input  Params: { id, studentId }
  * @notes  - Populates the student’s stats (virtual) and computes participation/grade percentages.
  *         - Adds overallScore and computes rank within the class (standard competition ranking).
- *         - Enriches subjects with colorHex via quiz-svc `/quiz/meta` (fallback to schedule/live meta).
+ *         - Enriches subjects with colorHex via quiz-svc `/quiz/meta`.
  * @logic  1) Load class roster with populated stats (scoped by classId).
  *         2) Resolve target studentId (honor "me"), compute derived fields + rank.
  *         3) Fetch subject palette from quiz-svc.
@@ -454,8 +479,8 @@ export async function getStudentById(req: CustomRequest, res: Response) {
   try {
     const { id } = req.params;
 
-    // The middleware verifyTeacherOfStudentOrSelf already rewrites "me" to viewer id,
-    // but keep a defensive fallback here in case this controller is re-used elsewhere.
+    // The route uses verifyTeacherOfStudent, so only teachers/admins can access this.
+    // Defensively handle "me" for studentId to allow self-access.
     const resolvedStudentId =
       String(req.params.studentId || "") === "me" && req.user?.id
         ? String(req.user.id)
@@ -574,7 +599,7 @@ export async function getStudentById(req: CustomRequest, res: Response) {
  *         - name: case-insensitive substring on quizName
  *         - subject, topic: case-insensitive exact match
  *         - latestFrom/latestTo: ISO datetime bounds on latestAt (inclusive)
- * @auth   verifyAccessToken + verifyTeacherOfStudentOrSelf
+ * @auth   verifyAccessToken + verifyTeacherOfStudent
  * @input  Params: { id, studentId }
  * @notes  - Returns ONE row per schedule in this class that the student has attempted.
  *         - Includes quiz meta (from attempt snapshot), latest attempt info, and canonical contribution when present.
@@ -694,11 +719,6 @@ export async function getStudentAttemptsScheduleSummaryforClass(
      *    1) Read the class’s schedule array (only _id’s).
      *    2) Build a Set<string> of existing schedule ids (stringified).
      *    3) Delete from bySchedule any scheduleId not in that set.
-     *
-     *  Notes:
-     *    - We do a lightweight re-fetch selecting only schedule._id to avoid
-     *      inflating the original class query. If you prefer, include schedule._id
-     *      in the first class fetch instead and skip this second query.
      * ──────────────────────────────────────────────────────────────────────────
      */
     if (bySchedule.size > 0) {

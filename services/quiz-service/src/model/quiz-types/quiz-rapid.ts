@@ -159,17 +159,12 @@ function buildAttemptSpecRapid(quizDoc: any): AttemptSpecEnvelope {
 
   return {
     quizId: String(quizDoc._id),
+    quizRootId: String(quizDoc.rootQuizId),
+    quizVersion: Number(quizDoc.version),
     quizType: quizDoc.quizType,
     contentHash: contentHash({ items: quizDoc.items }),
     renderSpec: { items: renderItems },
     gradingKey: { items: gradingItems },
-    meta: {
-      name: quizDoc.name,
-      subject: quizDoc.subject,
-      subjectColorHex: quizDoc.subjectColorHex,
-      topic: quizDoc.topic,
-      owner: String(quizDoc.owner),
-    },
   };
 }
 

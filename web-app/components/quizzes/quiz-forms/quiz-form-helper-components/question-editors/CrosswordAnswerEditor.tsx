@@ -67,7 +67,7 @@ export default function CrosswordAnswerEditor({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+          <span className="text-md text-[var(--color-text-primary)]">
             {header ?? "Words & Clues"}
           </span>
         </div>

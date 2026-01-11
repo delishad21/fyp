@@ -4,42 +4,46 @@
  * RowActions Component
  *
  * Purpose:
- *   - Provides small inline action buttons (Edit / Delete) for use in table rows or cards.
- *   - Wraps `IconButton` with a "borderless" variant to keep actions compact and visually subtle.
+ *   - Provides small inline action buttons (View / Edit / Duplicate / Delete)
+ *     for use in table rows or cards.
  *
- * Props:
- *   @param {() => void} [onEdit]
- *     - Optional callback when the edit button is clicked.
- *   @param {() => void} [onDelete]
- *     - Optional callback when the delete button is clicked.
- *   @param {boolean} [editLoading]
- *     - If true, shows a loading spinner on the edit button.
- *   @param {boolean} [deleteLoading]
- *     - If true, shows a loading spinner on the delete button.
- *
- * Behavior / Logic:
- *   - Renders an Edit button if `onEdit` is provided.
- *   - Renders a Delete button if `onDelete` is provided.
- *   - Uses `IconButton` loading state to prevent double-clicks while an action is in progress.
- *   - Delete button is styled in `text-[var(--color-error)]` to indicate destructive action.
- *
+ * Behavior:
+ *   - Buttons are optional; only rendered if corresponding callbacks are provided.
+ *   - Edit/Delete support loading states to prevent double-clicks.
  */
 
 import IconButton from "../ui/buttons/IconButton";
 
 export default function RowActions({
+  onView,
   onEdit,
+  onDuplicate,
   onDelete,
   editLoading,
   deleteLoading,
 }: {
-  onEdit?: (e?: React.MouseEvent) => void; // allow event (optional)
-  onDelete?: (e?: React.MouseEvent) => void; // allow event (optional)
+  onView?: (e?: React.MouseEvent) => void;
+  onEdit?: (e?: React.MouseEvent) => void;
+  onDuplicate?: (e?: React.MouseEvent) => void;
+  onDelete?: (e?: React.MouseEvent) => void;
   editLoading?: boolean;
   deleteLoading?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-end mr-2">
+    <div className="mr-2 flex items-center justify-end gap-1.5">
+      {onView && (
+        <IconButton
+          icon="mingcute:eye-line"
+          title="View"
+          variant="borderless"
+          size="md"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView?.(e);
+          }}
+        />
+      )}
+
       {onEdit && (
         <IconButton
           icon="mingcute:edit-line"
@@ -47,12 +51,26 @@ export default function RowActions({
           variant="borderless"
           size="md"
           onClick={(e) => {
-            e.stopPropagation(); // prevent row onClick
+            e.stopPropagation();
             onEdit?.(e);
           }}
           loading={editLoading}
         />
       )}
+
+      {onDuplicate && (
+        <IconButton
+          icon="mingcute:copy-2-line"
+          title="Duplicate"
+          variant="borderless"
+          size="md"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDuplicate?.(e);
+          }}
+        />
+      )}
+
       {onDelete && (
         <IconButton
           icon="mingcute:delete-2-line"
@@ -60,7 +78,7 @@ export default function RowActions({
           variant="borderless"
           size="md"
           onClick={(e) => {
-            e.stopPropagation(); // prevent row onClick
+            e.stopPropagation();
             onDelete?.(e);
           }}
           className="text-[var(--color-error)]"

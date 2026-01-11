@@ -20,33 +20,44 @@ export type ScheduleStats = {
   attemptsCount?: number;
   breakdown?: any;
 
-  // Class-level aggregates (now provided by class-svc)
-  participants?: number; // absolute
-  totalStudents?: number; // denominator (roster size)
-  participationPct?: number; // 0..100
+  // Class-level aggregates
+  participants?: number;
+  totalStudents?: number;
+  participationPct?: number;
 
   // Score aggregates
-  sumScore?: number; // cumulative sum across canonical attempts
-  sumMax?: number; // cumulative max across canonical attempts
-  avgPct?: number; // 0..100 (sumScore/sumMax)
+  sumScore?: number;
+  sumMax?: number;
+  avgPct?: number;
 
-  // Absolute per-participant average (if backend provides)
-  avgAbsScore?: number; // e.g., ~average points scored per attempt
-  avgAbsMax?: number; // e.g., ~average max points per attempt
+  // Absolute per-participant avg
+  avgAbsScore?: number;
+  avgAbsMax?: number;
 };
 
 export type ScheduleItemWithMeta = {
   _id: string;
+
+  // concrete + canonical quiz identity
   quizId: string;
+  quizRootId: string;
+  quizVersion: number;
+  quizVersions: number[];
+
   startDate: string;
   endDate: string;
   contribution?: number;
+
   quizName?: string;
   subject?: string;
   subjectColor?: string;
   quizType?: "basic" | "rapid" | "crossword" | string;
   topic?: string;
   typeColorHex?: string;
+
+  // policy
+  attemptsAllowed: number;
+  showAnswersAfterAttempt: boolean;
 
   timezone?: string;
 
@@ -97,6 +108,5 @@ export async function getScheduleItemAction(
     return { ok: false, message };
   }
 
-  // Pass-through of backend shape
   return { ok: true, data: json.data as ScheduleItemWithMeta };
 }

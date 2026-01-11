@@ -26,9 +26,21 @@ async function createQuizJSON(
 async function editQuizJSON(
   quizId: string,
   payload: Record<string, any>,
-  authHeader: string
+  authHeader: string,
+  baseVersion?: number | null
 ) {
-  const resp = await fetch(quizSvcUrl(`/quiz/${encodeURIComponent(quizId)}`), {
+  const sp = new URLSearchParams();
+  if (typeof baseVersion === "number" && Number.isFinite(baseVersion)) {
+    sp.set("version", String(baseVersion));
+  }
+
+  const url = quizSvcUrl(
+    `/quiz/${encodeURIComponent(quizId)}${
+      sp.toString() ? `?${sp.toString()}` : ""
+    }`
+  );
+
+  const resp = await fetch(url, {
     method: "PATCH",
     headers: {
       Authorization: authHeader,
@@ -51,6 +63,17 @@ function parseOptional(formData: FormData, key: string): string | undefined {
   return (formData.get(key) as string | null)?.trim() || undefined;
 }
 
+function parseOptionalNumber(
+  formData: FormData,
+  key: string
+): number | null | undefined {
+  const raw = formData.get(key);
+  if (raw == null) return undefined;
+  if (typeof raw === "string" && raw.trim() === "") return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function parseJsonField(formData: FormData, key: string): string | null {
   return formData.get(key) as string | null;
 }
@@ -68,7 +91,7 @@ function parseNullableNumber(formData: FormData, key: string): number | null {
 function buildBasicPayload(formData: FormData) {
   const itemsJson = parseJsonField(formData, "itemsJson");
   const totalTimeLimit = parseNullableNumber(formData, "totalTimeLimit");
-  return itemsJson ? { itemsJson, totalTimeLimit } : {};
+  return itemsJson ? { itemsJson, totalTimeLimit } : { totalTimeLimit };
 }
 
 function buildRapidPayload(formData: FormData) {
@@ -112,10 +135,22 @@ export async function processQuiz(
   const topic = parseText(formData, "topic");
   const quizType = (formData.get("quizType") as QuizType) ?? "basic";
 
+  // console.log("[processQuiz] formData:", {
+  //   formData,
+  // });
   const mode = (
     (formData.get("mode") as string | null) ?? "create"
   ).toLowerCase();
   const quizId = parseOptional(formData, "quizId");
+  const baseVersion = parseOptionalNumber(formData, "baseVersion");
+
+  const updateActiveRaw = (
+    formData.get("updateActiveSchedules") as string | null
+  )?.toLowerCase();
+  const updateActiveSchedules =
+    updateActiveRaw === "true" ||
+    updateActiveRaw === "1" ||
+    updateActiveRaw === "on";
 
   const baseState: CreateQuizState = {
     ok: false,
@@ -129,13 +164,17 @@ export async function processQuiz(
 
   try {
     // Build payload
-    const payload = {
+    const payload: Record<string, any> = {
       name,
       subject,
       topic,
       quizType,
       ...buildPayload(formData, quizType),
     };
+
+    if (mode === "edit") {
+      payload.updateActiveSchedules = updateActiveSchedules;
+    }
 
     // Create or edit
     let resp: Response;
@@ -145,7 +184,12 @@ export async function processQuiz(
       if (!quizId) {
         return { ...baseState, message: "Missing quizId for edit." };
       }
-      ({ resp, json } = await editQuizJSON(quizId, payload, authHeader));
+      ({ resp, json } = await editQuizJSON(
+        quizId,
+        payload,
+        authHeader,
+        baseVersion ?? undefined
+      ));
     } else {
       ({ resp, json } = await createQuizJSON(payload, authHeader));
     }

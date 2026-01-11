@@ -53,7 +53,7 @@ export type FiltersValue = {
 
 export const FilterTriggerStyles =
   "items-center justify-between rounded-md " +
-  "border border-[var(--color-bg3)] bg-[var(--color-bg2)] " +
+  "border border-[var(--color-bg4)] bg-[var(--color-bg2)] " +
   "px-3 text-sm leading-none text-[var(--color-text-primary)] hover:bg-[var(--color-bg2)] focus:ring-2 focus:ring-[var(--color-primary)]";
 
 export default function Filters({

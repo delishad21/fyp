@@ -32,7 +32,7 @@ export default function SubmitButton({
       disabled={isDisabled}
       onClick={handleClick}
       className={
-        "w-full rounded-sm px-4 py-3 font-medium bg-[var(--color-primary)] text-[var(--color-text-primary)] " +
+        "w-full rounded-sm px-4 py-3 font-medium bg-[var(--color-primary)] text-white " +
         "hover:opacity-90 disabled:opacity-60 " +
         (className ?? "")
       }

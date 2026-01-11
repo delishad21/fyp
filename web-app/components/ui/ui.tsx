@@ -1,5 +1,3 @@
-// no "use client" (server-compatible)
-
 export function ClassBadge({ label }: { label: string }) {
   const map: Record<string, string> = {
     "4B": "bg-[#FF4D4F]",

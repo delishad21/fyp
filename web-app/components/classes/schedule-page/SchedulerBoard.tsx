@@ -28,12 +28,14 @@ import type {
 } from "@/services/class/types/class-types";
 
 import {
-  ymdToLocalDate,
-  dateToLocalYMD,
-  diffLocalDays,
+  addDaysToDayKey,
+  diffDayKeys,
+  dayKeyFromDateInTZ,
+  makeDateInTZ,
+  startOfDayInTZ,
+  endOfDayInTZ,
+  getTimePartsInTZ,
   tzDayKey,
-  endOfLocalDate,
-  addLocalDays,
   withClientIds,
   formatSchedulerBoardFieldErrors,
   hasStarted,
@@ -95,6 +97,8 @@ export default function SchedulerBoard({
     handleOpenEdit,
     handleCloseEdit,
     handleSaveEdit,
+    versionOptions,
+    versionLoading,
   } = useScheduleEditModal(classId, showToast);
 
   const sensors = useSensors(
@@ -144,20 +148,20 @@ export default function SchedulerBoard({
       resizeStateRef.current.lastValidDayId = overId;
 
       if (drag.dir === "left") {
-        const newStartDate = ymdToLocalDate(overId).toISOString();
+        const newStartDate = startOfDayInTZ(overId, classTimezone).toISOString();
         setPreviewById((prev) => ({
           ...prev,
           [drag.clientId]: { startDate: newStartDate },
         }));
       } else {
-        const newEndDate = endOfLocalDate(overId).toISOString();
+        const newEndDate = endOfDayInTZ(overId, classTimezone).toISOString();
         setPreviewById((prev) => ({
           ...prev,
           [drag.clientId]: { endDate: newEndDate },
         }));
       }
     }
-  }, []);
+  }, [classTimezone]);
 
   const handleDragEnd = useCallback(
     async (e: any) => {
@@ -213,16 +217,25 @@ export default function SchedulerBoard({
           return;
         }
 
-        const start = ymdToLocalDate(overId);
-        const end = endOfLocalDate(overId);
+        const start = startOfDayInTZ(overId, classTimezone);
+        const end = endOfDayInTZ(overId, classTimezone);
 
         const clientId = `c-${
           crypto.randomUUID?.() || Math.random().toString(16).slice(2)
         }`;
+
+        const quizRootId = drag.quiz?.rootQuizId ?? drag.quiz?.id ?? ""; // safe fallback
+        const quizVersion =
+          typeof drag.quiz?.version === "number" ? drag.quiz.version : 1;
+
         const optimistic: ScheduleItem = {
           clientId,
           _id: undefined,
+
           quizId: drag.quiz.id,
+          quizRootId: quizRootId || drag.quiz.id, // never empty string
+          quizVersion,
+
           startDate: start.toISOString(),
           endDate: end.toISOString(),
           quizName: drag.quiz.title,
@@ -232,6 +245,7 @@ export default function SchedulerBoard({
           attemptsAllowed: 1,
           showAnswersAfterAttempt: false,
         };
+
         const prev = schedule.map((x) => ({ ...x }));
         setSchedule((s) => s.concat(optimistic));
 
@@ -242,11 +256,13 @@ export default function SchedulerBoard({
         const createP = (async () => {
           const res = await addClassQuizSchedule(classId, {
             quizId: drag.quiz!.id,
+            quizRootId: quizRootId || drag.quiz!.id,
+            quizVersion,
             startDate: start,
             endDate: end,
             contribution: 100,
             attemptsAllowed: 1,
-            showAnswersAfterAttempt: false,
+            showAnswersAfterAttempt: true,
           });
           if (!res.ok || !res.data?._id) {
             const err: any = new Error(res.message || "Create failed");
@@ -323,7 +339,7 @@ export default function SchedulerBoard({
           showToast({
             title: "Not allowed",
             description:
-              "The start date can’t be changed after the quiz has started.",
+              "The start time can’t be changed after the quiz has started.",
             variant: "error",
           });
           setActiveDrag(null);
@@ -351,24 +367,40 @@ export default function SchedulerBoard({
 
         const currentStartUTC = new Date(currentItem.startDate);
         const currentEndUTC = new Date(currentItem.endDate);
+        const curStartTime = getTimePartsInTZ(currentStartUTC, classTimezone);
 
         let newStartDate = currentStartUTC;
         let newEndDate = currentEndUTC;
 
         if (drag.dir === "left") {
-          newStartDate = ymdToLocalDate(targetDayId);
+          newStartDate = makeDateInTZ(
+            targetDayId,
+            classTimezone,
+            curStartTime.hour,
+            curStartTime.minute,
+            curStartTime.second,
+            currentStartUTC.getMilliseconds()
+          );
           if (newStartDate > newEndDate)
-            newStartDate = ymdToLocalDate(dateToLocalYMD(newEndDate));
+            newStartDate = startOfDayInTZ(
+              dayKeyFromDateInTZ(newEndDate, classTimezone),
+              classTimezone
+            );
         } else {
-          newEndDate = endOfLocalDate(targetDayId);
+          newEndDate = endOfDayInTZ(targetDayId, classTimezone);
           if (newEndDate < newStartDate)
-            newEndDate = endOfLocalDate(dateToLocalYMD(newStartDate));
+            newEndDate = endOfDayInTZ(
+              dayKeyFromDateInTZ(newStartDate, classTimezone),
+              classTimezone
+            );
         }
 
         const sameStart =
-          dateToLocalYMD(newStartDate) === dateToLocalYMD(currentStartUTC);
+          dayKeyFromDateInTZ(newStartDate, classTimezone) ===
+          dayKeyFromDateInTZ(currentStartUTC, classTimezone);
         const sameEnd =
-          dateToLocalYMD(newEndDate) === dateToLocalYMD(currentEndUTC);
+          dayKeyFromDateInTZ(newEndDate, classTimezone) ===
+          dayKeyFromDateInTZ(currentEndUTC, classTimezone);
         if (sameStart && sameEnd) {
           setActiveDrag(null);
           setPreviewById({});
@@ -477,33 +509,60 @@ export default function SchedulerBoard({
           showToast({
             title: "Not allowed",
             description:
-              "The start date can’t be changed after the quiz has started.",
+              "The start time can’t be changed after the quiz has started.",
             variant: "error",
           });
           return;
         }
 
         const todayYMD_TZ = tzDayKey(new Date(), classTimezone);
-        const dropDay = ymdToLocalDate(overId);
+        const dropDayKey = overId;
 
-        // Original normalized local range and day-span
-        const origStart = ymdToLocalDate(
-          dateToLocalYMD(new Date(currentItem.startDate))
+        // Original normalized class-TZ range and day-span
+        const origStartKey = dayKeyFromDateInTZ(
+          new Date(currentItem.startDate),
+          classTimezone
         );
-        const origEnd = endOfLocalDate(
-          dateToLocalYMD(new Date(currentItem.endDate))
+        const origEndKey = dayKeyFromDateInTZ(
+          new Date(currentItem.endDate),
+          classTimezone
         );
-        const days = diffLocalDays(origEnd, origStart) + 1;
+        const days = diffDayKeys(origEndKey, origStartKey) + 1;
 
         // Shift by the internal-day offset we grabbed
         const offsetDays = anchorOffsetDaysRef.current || 0;
-        const newStart = addLocalDays(dropDay, -offsetDays);
-        const newEnd = endOfLocalDate(
-          dateToLocalYMD(addLocalDays(newStart, days - 1))
+        const newStartKey = addDaysToDayKey(dropDayKey, -offsetDays);
+        const newEndKey = addDaysToDayKey(newStartKey, days - 1);
+        const startTime = getTimePartsInTZ(
+          new Date(currentItem.startDate),
+          classTimezone
         );
+        const newStart = makeDateInTZ(
+          newStartKey,
+          classTimezone,
+          startTime.hour,
+          startTime.minute,
+          startTime.second,
+          new Date(currentItem.startDate).getMilliseconds()
+        );
+        const endTime = getTimePartsInTZ(
+          new Date(currentItem.endDate),
+          classTimezone
+        );
+        let newEnd = makeDateInTZ(
+          newEndKey,
+          classTimezone,
+          endTime.hour,
+          endTime.minute,
+          endTime.second,
+          new Date(currentItem.endDate).getMilliseconds()
+        );
+        if (newEnd < newStart) {
+          newEnd = endOfDayInTZ(newEndKey, classTimezone);
+        }
 
         // Disallow moves that would start in the past
-        if (tzDayKey(newStart, classTimezone) < todayYMD_TZ) {
+        if (dayKeyFromDateInTZ(newStart, classTimezone) < todayYMD_TZ) {
           showToast({
             title: "Not allowed",
             description: "A move can’t make the schedule start before today.",
@@ -573,6 +632,7 @@ export default function SchedulerBoard({
       {/* Monitors (unchanged) */}
       <PillAnchorMonitor
         schedule={schedule}
+        classTimezone={classTimezone}
         setOffsetDays={(n) => {
           anchorOffsetDaysRef.current = n;
         }}
@@ -609,11 +669,6 @@ export default function SchedulerBoard({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Available Quizzes</h2>
-            <span className="text-sm text-[var(--color-text-secondary)] text-right">
-              Drag quizzes onto the calendar to schedule
-              <br />
-              Drag/resize pills on the calendar or right-click to edit
-            </span>
           </div>
           <QuizzesTable
             initial={tableInitial}
@@ -657,6 +712,9 @@ export default function SchedulerBoard({
       <ScheduleItemEditModal
         open={editOpen}
         item={editItem}
+        versionOptions={versionOptions}
+        versionLoading={versionLoading}
+        classTimezone={classTimezone}
         onClose={handleCloseEdit}
         onSave={(patch) =>
           handleSaveEdit(patch, schedule, setSchedule, pendingCreateRef)

@@ -16,7 +16,7 @@
  *   @param {(index: number) => void} onSelect - Handler to select an item by index.
  *   @param {(index: number) => void} [onDelete] - Optional handler to delete an item by index.
  *   @param {(index: number) => boolean|Promise<boolean>} [confirmDelete]
- *       - Optional confirmation hook before deletion; defaults to browser confirm dialog.
+ *       - Optional confirmation hook before deletion. If provided, this is used instead of the WarningModal.
  *   @param {number[]} [errorIndexes] - List of indexes that should be styled as error states.
  *   @param {(string|React.ReactNode)[]} [labels] - Optional custom labels per item; defaults to "1", "2", ...
  *
@@ -30,16 +30,13 @@
  *   - Add button (+) appears if under max limit.
  *   - Dedicated delete button (trash icon) deletes the current item,
  *     disabled if count <= min.
- *
- * UI:
- *   - Compact horizontal layout with circular buttons for navigation.
- *   - Hover and disabled states styled via `clsx` and theme colors.
- *   - Tooltips (`title`) describe the action for accessibility.
  */
 
+import { useState } from "react";
 import IconButton from "@/components/ui/buttons/IconButton";
 import IndexButton from "@/components/ui/buttons/IndexButton";
 import clsx from "clsx";
+import WarningModal from "@/components/ui/WarningModal";
 
 export default function QuestionSelector({
   count,
@@ -67,6 +64,11 @@ export default function QuestionSelector({
   const canAdd = max === undefined || count < max;
   const canDelete = !!onDelete && count > min;
 
+  // Which index are we currently asking to delete via WarningModal?
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(
+    null
+  );
+
   function getLabel(i: number): string | React.ReactNode {
     return labels?.[i] ?? String(i + 1);
   }
@@ -76,70 +78,107 @@ export default function QuestionSelector({
     return typeof l === "string" ? l : `Item ${i + 1}`;
   }
 
-  async function handleDelete(index: number) {
+  function requestDelete(index: number) {
     if (!onDelete || !canDelete) return;
-    let ok = true;
+
     if (confirmDelete) {
-      ok = await Promise.resolve(confirmDelete(index));
+      // If the parent provided a custom confirm hook, use that instead of the modal.
+      Promise.resolve(confirmDelete(index)).then((ok) => {
+        if (ok) onDelete(index);
+      });
     } else {
-      const labelText = getLabelText(index);
-      ok = window.confirm?.(`Delete ${labelText}?`) ?? true;
+      // Open the WarningModal for this index.
+      setPendingDeleteIndex(index);
     }
-    if (ok) onDelete(index);
+  }
+
+  function handleCancelModal() {
+    setPendingDeleteIndex(null);
+  }
+
+  function handleConfirmModal() {
+    if (pendingDeleteIndex === null || !onDelete) {
+      setPendingDeleteIndex(null);
+      return;
+    }
+    const idx = pendingDeleteIndex;
+    setPendingDeleteIndex(null);
+    onDelete(idx);
   }
 
   return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: count }).map((_, i) => {
-        const hasError = errorIndexes?.includes(i);
-        const label = getLabel(i);
-        const labelText = getLabelText(i);
+    <>
+      <div className="flex items-center gap-1">
+        {Array.from({ length: count }).map((_, i) => {
+          const hasError = errorIndexes?.includes(i);
+          const label = getLabel(i);
+          const labelText = getLabelText(i);
 
-        return (
-          <IndexButton
-            key={i}
-            index={i}
-            label={label}
-            active={i === currentIndex}
-            hasError={hasError}
-            onSelect={onSelect}
-            onDelete={onDelete ? handleDelete : undefined}
-            title={`${labelText}${onDelete ? " (right-click to delete)" : ""}`}
+          return (
+            <IndexButton
+              key={i}
+              index={i}
+              label={label}
+              active={i === currentIndex}
+              hasError={hasError}
+              onSelect={onSelect}
+              onDelete={onDelete ? requestDelete : undefined}
+              title={`${labelText}${
+                onDelete ? " (right-click to delete)" : ""
+              }`}
+            />
+          );
+        })}
+
+        {canAdd && (
+          <IconButton
+            icon="mingcute:add-line"
+            size={28} // h-7 w-7
+            variant="ghost" // keep it transparent; we’ll style via className
+            onClick={onAdd}
+            title="Add item"
+            className="ml-1 border-2 border-[var(--color-bg4)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg3)]"
           />
-        );
-      })}
+        )}
 
-      {canAdd && (
-        <IconButton
-          icon="mingcute:add-line"
-          size={28} // h-7 w-7
-          variant="ghost" // keep it transparent; we’ll style via className
-          onClick={onAdd}
-          title="Add item"
-          className="ml-1 border-2 border-[var(--color-bg4)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg3)]"
-        />
-      )}
+        {onDelete && (
+          <IconButton
+            icon="mingcute:delete-2-line"
+            size={28}
+            variant="error"
+            onClick={() => requestDelete(currentIndex)}
+            disabled={!canDelete}
+            title={
+              canDelete
+                ? `Delete current (${getLabelText(currentIndex)})`
+                : `Cannot delete (min ${min})`
+            }
+            className={clsx(
+              "ml-1",
+              canDelete
+                ? "hover:bg-[var(--color-error)]/5"
+                : "border-[var(--color-error)]/50 text-[var(--color-error)]/50 cursor-not-allowed disabled:opacity-100"
+            )}
+          />
+        )}
+      </div>
 
-      {onDelete && (
-        <IconButton
-          icon="mingcute:delete-2-line"
-          size={28}
-          variant="error"
-          onClick={() => handleDelete(currentIndex)}
-          disabled={!canDelete}
-          title={
-            canDelete
-              ? `Delete current (${getLabelText(currentIndex)})`
-              : `Cannot delete (min ${min})`
-          }
-          className={clsx(
-            "ml-1",
-            canDelete
-              ? "hover:bg-[var(--color-error)]/5"
-              : "border-[var(--color-error)]/50 text-[var(--color-error)]/50 cursor-not-allowed disabled:opacity-100"
-          )}
-        />
-      )}
-    </div>
+      {/* Warning modal for delete confirmation (used when confirmDelete is not provided) */}
+      <WarningModal
+        open={pendingDeleteIndex !== null}
+        title="Delete item?"
+        message={
+          pendingDeleteIndex !== null
+            ? `Are you sure you want to delete ${getLabelText(
+                pendingDeleteIndex
+              )}?`
+            : undefined
+        }
+        cancelLabel="Cancel"
+        continueLabel="Delete"
+        onCancel={handleCancelModal}
+        onContinue={handleConfirmModal}
+      />
+    </>
   );
 }

@@ -271,6 +271,8 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
 
   return {
     quizId: String(quizDoc._id),
+    quizRootId: String(quizDoc.rootQuizId),
+    quizVersion: Number(quizDoc.version),
     quizType: quizDoc.quizType as QuizTypeKey,
     contentHash: contentHash({
       items: quizDoc.items,
@@ -281,13 +283,6 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
       items: renderItems,
     },
     gradingKey: { items: gradingItems },
-    meta: {
-      name: quizDoc.name,
-      subject: quizDoc.subject,
-      subjectColorHex: quizDoc.subjectColorHex,
-      topic: quizDoc.topic,
-      owner: String(quizDoc.owner),
-    },
   };
 }
 /* ─────────────────────────────── 7) GRADING ─────────────────────────────── */

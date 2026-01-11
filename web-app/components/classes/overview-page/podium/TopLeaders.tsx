@@ -20,6 +20,10 @@ function toPodium<T>(arr: T[], map: (x: T) => PodiumWinnerShape) {
   return { center: wrap(first), left: wrap(second), right: wrap(third) };
 }
 
+function toTwoDecimals(num: number) {
+  return Math.round(num * 100) / 100;
+}
+
 export default function TopLeaders({
   topOverallScore,
   topParticipation,
@@ -34,8 +38,8 @@ export default function TopLeaders({
     className: s.className,
     displayName: s.displayName,
     photoUrl: s.photoUrl ?? undefined,
-    rightText: `${s.overallScore} pts`,
-    subText: `${s.avgScorePct}% avg.`,
+    rightText: `${toTwoDecimals(s.overallScore)} pts`,
+    subText: `${toTwoDecimals(s.avgScorePct)}% avg.`,
   }));
 
   const podiumPart = toPodium(topParticipation, (s) => ({
@@ -43,7 +47,7 @@ export default function TopLeaders({
     className: s.className,
     displayName: s.displayName,
     photoUrl: s.photoUrl ?? undefined,
-    rightText: `${s.participationPct}%`,
+    rightText: `${toTwoDecimals(s.participationPct)}%`,
     subText: `${s.participationCount} quizzes`,
   }));
 

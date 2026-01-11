@@ -86,6 +86,7 @@ export default function DateRangeField({
   onChange,
   loading = false,
   className,
+  error,
 }: {
   label: string;
   start?: string; // 'YYYY-MM-DD'
@@ -93,8 +94,10 @@ export default function DateRangeField({
   onChange: (patch: { start?: string; end?: string }) => void;
   loading?: boolean;
   className?: string;
+  error?: string | string[];
 }) {
   const [open, setOpen] = useState(false);
+  const errors = Array.isArray(error) ? error : error ? [error] : [];
 
   // Controlled -> local draft for the calendar UI while open
   const controlled: RDDateRange | undefined = useMemo(() => {
@@ -189,7 +192,7 @@ export default function DateRangeField({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`flex h-10 min-w-[250px] ${FilterTriggerStyles}`}
+        className={`flex h-11 w-full min-w-[250px] ${FilterTriggerStyles}`}
       >
         <span
           className={start || end ? "" : "text-[var(--color-text-secondary)]"}
@@ -208,6 +211,18 @@ export default function DateRangeField({
           />
         </span>
       </button>
+
+      {/* Error (single or list) */}
+      {errors.length === 1 && (
+        <p className="mt-1 text-xs text-[var(--color-error)]">{errors[0]}</p>
+      )}
+      {errors.length > 1 && (
+        <ul className="mt-1 list-disc pl-5 text-xs text-[var(--color-error)] space-y-0.5">
+          {errors.map((msg, i) => (
+            <li key={i}>{msg}</li>
+          ))}
+        </ul>
+      )}
 
       {/* Animated popover */}
       <AnimatePresence initial={false}>

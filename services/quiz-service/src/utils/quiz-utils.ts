@@ -1,4 +1,4 @@
-import { FilterQuery } from "mongoose";
+import { FilterQuery, Types } from "mongoose";
 import { BaseQuizLean } from "../model/quiz-base-model";
 import { contentHash } from "../model/quiz-shared";
 
@@ -135,17 +135,15 @@ export type ListFilters = {
  * - `types`: `$in` on discriminator field `quizType`.
  * - `createdStart`/`createdEnd`: inclusive range on `createdAt` using local day bounds.
  *
- * @security
- * - The regex uses the raw term. If you expect user-controlled input, consider escaping
- *   special characters to avoid unintended regex behavior (not a security vuln, but UX).
- *
  * @timezone
  * - Date bounds are computed in server local time (see `toDateAtStart/End`).
  */
 export function buildMongoFilter(ownerId?: string, q?: Partial<ListFilters>) {
   const query: FilterQuery<BaseQuizLean> = {};
+
+  // Owner filter MUST match ObjectId type stored in Mongo
   if (ownerId) {
-    query.owner = ownerId as any;
+    query.owner = new Types.ObjectId(ownerId) as any;
   }
 
   if (q?.name && q.name.trim()) {

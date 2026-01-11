@@ -28,8 +28,6 @@ function isValidIanaTimeZone(tz: unknown): tz is string {
   }
 }
 
-// validation/class-validation.ts
-
 export function validateClassInput(body: any): ValidationResult {
   const fieldErrors: ValidationResult["fieldErrors"] = {};
 
@@ -77,11 +75,6 @@ export function validateClassInput(body: any): ValidationResult {
       fieldErrors.students = errors;
     }
   }
-
-  // ⛔️ No schedule validation here anymore. New classes always start with an empty schedule,
-  // and schedule changes go through the dedicated schedule controllers.
-
-  // deep check
   const hasAnyErrors = (v: any): boolean =>
     Array.isArray(v)
       ? v.some(hasAnyErrors)

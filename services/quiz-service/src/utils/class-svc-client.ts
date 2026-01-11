@@ -2,17 +2,29 @@ import "dotenv/config";
 
 /** ---------- Types returned by class-service helper endpoints ---------- */
 
-// --- types.ts (or wherever you keep these) ---
-
 export type EligibilityByScheduleResult = {
   ok: true;
+
+  // Core decision
   allowed: boolean;
   reason?: string;
   message?: string;
+
+  // schedule window
   window?: { start: string; end: string };
 
+  // Canonical context resolved by class-service
+  classId?: string;
+  scheduleId?: string;
+  quizId?: string; // concrete quiz doc id to use in quiz-svc
+
+  // Canonical quiz identity (root + version)
+  quizRootId?: string;
+  quizVersion?: number;
+
+  // Attempts policy from schedule
   attemptsAllowed?: number; // from schedule (default 1, max 10)
-  attemptsCount?: number; // number of prior attempts by student
+  attemptsCount?: number; // finalized attempts made by student
   attemptsRemaining?: number; // max(0, attemptsAllowed - attemptsCount)
   showAnswersAfterAttempt?: boolean; // from schedule (default false)
 };
@@ -76,21 +88,19 @@ async function svcJson<T>(
 
 /**
  * @route  POST {CLASS_SVC_URL}/helper/attempt-eligibility
- * @input  Body: { studentId, classId, scheduleId, quizId, attemptsCount }
+ * @input  Body: { studentId, scheduleId, attemptsCount }
  * @output 200 {
  *   ok, allowed, reason?, message?, window?,
- *   attemptsAllowed?, attemptsCount?, attemptsRemaining?, showAnswersAfterAttempt?
+ *   classId?, scheduleId?, quizId?,
+ *   quizRootId?, quizVersion?,
+ *   attemptsAllowed?, attemptsCount?, attemptsRemaining?,
+ *   showAnswersAfterAttempt?
  * }
- * @logic  S2S check that a student may start an attempt for a scheduled quiz.
- *         Quiz Service must compute attemptsCount for (studentId, scheduleId)
- *         and include it in the request so Class Service can enforce limits.
  */
 export async function checkAttemptEligibilityBySchedule(input: {
   studentId: string;
-  classId: string;
   scheduleId: string;
-  quizId: string; // sanity cross-check on class svc side
-  attemptsCount: number; // NEW: attempts already made by this student for this schedule
+  attemptsCount: number;
 }): Promise<EligibilityByScheduleResult> {
   return svcJson<EligibilityByScheduleResult>("/helper/attempt-eligibility", {
     method: "POST",
@@ -169,32 +179,6 @@ export async function checkTeacherOfStudent(input: {
     isTeacher: !!body.isTeacher,
     message: body.message,
   };
-}
-
-/** ---------- Internal webhook (outbox publisher target) ---------- */
-
-/**
- * @route  POST {CLASS_SVC_URL}/internal/quiz-events
- * @input  Body: any (event envelope)
- * @output fetch Response (callers don’t need JSON; they just check res.ok)
- * @logic  Fire-and-forget post used by the outbox publisher; timeout applies.
- */
-export async function postToClassWebhook(body: any): Promise<Response> {
-  const url = `${baseUrl()}/internal/quiz-events`;
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), DEFAULT_TIMEOUT_MS);
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: defaultHeaders(true),
-      body: JSON.stringify(body),
-      signal: ctl.signal,
-    });
-    return res as any;
-  } finally {
-    clearTimeout(t);
-  }
 }
 
 /** ---------- Other class-service helpers ---------- */

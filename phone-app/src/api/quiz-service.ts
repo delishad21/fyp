@@ -85,11 +85,17 @@ export type BaseAttemptSpec<TSpec> = {
     topic?: string;
     owner: string;
   };
+
+  // canonical quiz identity from class-service / server
+  quizRootId?: string | null;
+  quizVersion?: number | null;
+
   // policy context
   attemptsAllowed: number;
-  attemptsCount: number; // finalized-only count (per the server logic)
+  attemptsCount: number; // FINALIZED-only count (per schedule)
   attemptsRemaining: number;
   showAnswersAfterAttempt: boolean;
+
   // optional tagging
   versionTag?: string;
 };
@@ -124,23 +130,46 @@ export type AttemptSpecClientResult = {
 // ---- Attempt snapshot / doc (returned when resuming an in-progress attempt) ----
 export type AttemptSnapshot = {
   quizId: string;
+  quizRootId: string;
+  quizVersion: number;
   quizType: QuizType;
   contentHash: string;
   renderSpec: BasicRenderSpec | RapidRenderSpec | CrosswordRenderSpec;
+  gradingKey: any; // or a more specific GradingKey type if you have one
+
   meta: {
-    name: string;
-    subject: string;
+    typeColorHex?: string;
+    // keep it flexible for future fields
+    name?: string;
+    subject?: string;
     subjectColorHex?: string;
     topic?: string;
-    owner: string;
+    owner?: string;
     [k: string]: any;
   };
+
   versionTag?: string;
+};
+
+export type QuizSummary = {
+  quizId: string;
+  name: string;
+  subject: string;
+  subjectColorHex?: string;
+  topic?: string;
+  quizType: QuizType;
+  typeColorHex?: string;
+  contentHash: string;
 };
 
 export type AttemptDoc = {
   _id: string; // server id
+
+  // concrete + canonical quiz identity
   quizId: string;
+  quizRootId: string;
+  quizVersion: number;
+
   studentId: string;
   classId: string;
   scheduleId: string;
@@ -149,12 +178,21 @@ export type AttemptDoc = {
   lastSavedAt?: string;
   finishedAt?: string;
   attemptVersion: number;
+
   answers: Record<string, any>;
+
   quizVersionSnapshot: AttemptSnapshot;
+
+  // summary block from the server
+  quiz?: QuizSummary;
+
   // Optional fields (usually present after finalize)
   maxScore?: number;
   score?: number;
   breakdown?: any[];
+
+  // From server responses when answer-visibility is gated
+  answersAvailable?: boolean;
 };
 
 // What startAttempt() returns in the client:
@@ -168,6 +206,7 @@ export type StartAttemptCreatedResponse = {
   ok: boolean;
   data: { attemptId: string };
 };
+
 type StartAttemptResumedResponse = {
   ok: boolean;
   data: {
@@ -192,22 +231,8 @@ export type SaveAnswersResponse = {
 // ---- Finish attempt (finalize) ----
 export type FinalizeAttemptResponse = {
   ok: boolean;
-  data: {
-    _id: string;
-    quizId: string;
-    studentId: string;
-    classId: string;
-    scheduleId: string;
-    state: "finalized" | string;
-    startedAt: string;
-    finishedAt?: string;
-    maxScore: number;
-    score: number;
-    attemptVersion?: number;
-    lastSavedAt?: string;
-    breakdown?: any[];
-    answers?: Record<string, any>;
-  };
+  answersAvailable?: boolean;
+  data: AttemptDoc;
 };
 
 // ---- Answers payloads ----
@@ -292,15 +317,21 @@ const authedGet = <T>(url: string, token: string) =>
   authedJson<T>(url, token, "GET");
 
 // ---------- Public API ----------
+
+/**
+ * POST /attempt/spec
+ * New flow is schedule-first; the server resolves quiz + canonical identity.
+ */
 export async function getAttemptSpec(
   token: string,
-  quizId: string,
-  params: { scheduleId: string; classId: string }
+  params: { scheduleId: string }
 ): Promise<AttemptSpecClientResult> {
+  const { scheduleId } = params;
+
   const resp = await authedPost<AttemptSpecServerResponse>(
-    `${QUIZ_BASE_URL}/attempt/spec/${encodeURIComponent(quizId)}`,
+    `${QUIZ_BASE_URL}/attempt/spec`,
     token,
-    { scheduleId: params.scheduleId, classId: params.classId }
+    { scheduleId }
   );
 
   const { inProgressAttemptId, ...rest } = resp.data as AttemptSpec & {
@@ -313,41 +344,27 @@ export async function getAttemptSpec(
   };
 }
 
+/**
+ * POST /attempt
+ * New flow: server only needs scheduleId and resolves quiz/class + canonical identity.
+ */
 export async function startAttempt(
   token: string,
-  payload: { scheduleId: string; quizId: string; classId: string }
+  scheduleId: string
 ): Promise<StartAttemptResult> {
   const resp = await authedPost<
     StartAttemptCreatedResponse | StartAttemptResumedResponse
-  >(`${QUIZ_BASE_URL}/attempt`, token, payload);
+  >(`${QUIZ_BASE_URL}/attempt`, token, {
+    scheduleId,
+  });
 
   const data = (resp as any)?.data;
   if (!data) throw new Error("Unexpected startAttempt response");
 
   // If server included `answers` or `startedAt`, it's a RESUME
   if ("answers" in data || "startedAt" in data) {
-    // Build a minimal AttemptDoc the screen needs (answers, version, startedAt)
-    const attempt: AttemptDoc = {
-      _id: data.attemptId,
-      quizId: payload.quizId,
-      classId: payload.classId,
-      scheduleId: payload.scheduleId,
-      studentId: "", // not required by the play screen
-      state: "in_progress",
-      startedAt: data.startedAt ?? new Date().toISOString(),
-      lastSavedAt: data.lastSavedAt ?? undefined,
-      attemptVersion: data.attemptVersion ?? 1,
-      answers: data.answers ?? {},
-      // not needed by the play screen for continuation
-      quizVersionSnapshot: {
-        quizId: payload.quizId,
-        quizType: "basic" as any, // optional; unused by Basic screen
-        contentHash: "",
-        renderSpec: {} as any,
-        meta: { name: "", subject: "", owner: "" },
-      },
-    };
-
+    // Get the full attempt (with quizRootId/quizVersion/snapshot) from server
+    const attempt = await getAttemptById(token, data.attemptId);
     return { attemptId: data.attemptId, attempt };
   }
 
@@ -361,8 +378,6 @@ export async function saveAnswers(
   answers: AnswersPayload,
   attemptVersion?: number
 ): Promise<SaveAnswersResponse["data"]> {
-  // Note: we intentionally avoid strict optimistic concurrency
-  // to prevent 409s from overlapping client saves.
   try {
     const resp = await authedJson<SaveAnswersResponse>(
       `${QUIZ_BASE_URL}/attempt/${encodeURIComponent(attemptId)}/answers`,
@@ -375,7 +390,6 @@ export async function saveAnswers(
     }
     return resp.data;
   } catch (e: any) {
-    // Graceful fallback if server enforces version check and we sent a stale one.
     const msg = String(e?.message || "");
     if (msg.toLowerCase().includes("version conflict")) {
       const retry = await authedJson<SaveAnswersResponse>(
@@ -416,17 +430,17 @@ export async function getAttemptById(
 
 /**
  * High-level helper the UI can call to fetch spec AND resume data in one go.
- * 1) Calls POST /attempt/spec/:quizId
+ * 1) Calls POST /attempt/spec  (schedule-only)
  * 2) If inProgressAttemptId exists, calls GET /attempt/:id
  * 3) Returns { spec, attemptId, attempt? }
  */
 export async function fetchAttemptForPlay(
   token: string,
-  quizId: string,
-  params: { scheduleId: string; classId: string }
+  scheduleId: string
 ): Promise<{ spec: AttemptSpec; attemptId: string; attempt?: AttemptDoc }> {
-  const specRes = await getAttemptSpec(token, quizId, params);
-  const { spec, inProgressAttemptId } = specRes;
+  const { spec, inProgressAttemptId } = await getAttemptSpec(token, {
+    scheduleId,
+  });
 
   if (inProgressAttemptId) {
     const attempt = await getAttemptById(token, inProgressAttemptId);
@@ -449,7 +463,11 @@ export const isCrossword = (s: AttemptSpec): s is CrosswordAttemptSpec =>
 export type AttemptRow = {
   _id: string;
   scheduleId: string;
+
   quizId: string;
+  quizRootId?: string | null;
+  quizVersion?: number | null;
+
   studentId: string;
   classId: string;
   state: string;

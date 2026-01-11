@@ -3,7 +3,7 @@ export type StudentRowError =
   | { _error?: string; name?: string; username?: string; email?: string }
   | undefined;
 
-/** Light email check; replace if you already have a shared util */
+/** Light email check */
 function isValidEmail(email: string): boolean {
   if (!email) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(email);

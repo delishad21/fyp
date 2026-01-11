@@ -1,3 +1,10 @@
+/**
+ * Crossword puzzle generation and solving algorithms.
+ * Uses a simple greedy algorithm to place words in a grid.
+ *
+ * Note: This is a basic implementation and may not produce optimal crosswords.
+ */
+
 export type Direction = "across" | "down";
 export type Cell = { letter: string | null; isBlocked: boolean };
 

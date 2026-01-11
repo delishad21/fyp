@@ -1,4 +1,5 @@
 import { useDndMonitor } from "@dnd-kit/core";
+import { useRef } from "react";
 
 /**
  * DND monitor that calls the provided callbacks to handle auto-sliding
@@ -13,6 +14,8 @@ export function DragAutoSlideMonitor({
   onMoveAtX: (clientX: number) => void;
   onEnd: () => void;
 }) {
+  const startClientXRef = useRef<number | null>(null);
+
   useDndMonitor({
     onDragStart: (e) => {
       const ev: any = (e as any).activatorEvent;
@@ -21,20 +24,31 @@ export function DragAutoSlideMonitor({
       else if (ev?.touches?.[0]?.clientX != null)
         cx = ev.touches[0].clientX as number;
       else if (e.active?.rect?.current?.initial) {
-        cx = e.active.rect.current.initial.left + 4;
+        const rect = e.active.rect.current.initial;
+        cx = rect.left + rect.width / 2;
       }
+      startClientXRef.current = cx;
       onStart(cx, String(e.active?.id ?? ""));
     },
     onDragMove: (e) => {
-      // pointer X relative from original client
       const ev: any = e;
-      if (ev?.delta?.x != null && ev?.active?.rect?.current?.initial) {
-        const cx = ev.active.rect.current.initial.left + 4 + ev.delta.x;
-        onMoveAtX(cx);
+      if (ev?.delta?.x == null) return;
+      const startX = startClientXRef.current;
+      if (startX != null) {
+        onMoveAtX(startX + ev.delta.x);
+        return;
       }
+      const rect = ev?.active?.rect?.current?.translated;
+      if (rect) onMoveAtX(rect.left + rect.width / 2);
     },
-    onDragEnd: onEnd,
-    onDragCancel: onEnd,
+    onDragEnd: () => {
+      startClientXRef.current = null;
+      onEnd();
+    },
+    onDragCancel: () => {
+      startClientXRef.current = null;
+      onEnd();
+    },
   });
   return null;
 }

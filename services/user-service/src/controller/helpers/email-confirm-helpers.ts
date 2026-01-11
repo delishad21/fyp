@@ -5,6 +5,7 @@ import {
   findUserByEmail as _findUserByEmail,
 } from "../../model/teacher-user-repository";
 import { formatUserResponse } from "../../utils/formats";
+import { generateAccessToken } from "../../utils/tokens";
 
 // ---- Types ----
 
@@ -35,7 +36,7 @@ export async function loadUserFromTokenDoc(doc: TeacherAuthToken) {
 /**
  * Handle purpose === "email_verify"
  * - If already verified, return a failure
- * - Issues access token (as per your existing behavior)
+ * - Issues access token
  */
 export async function handleEmailVerify(
   user: any
@@ -45,9 +46,12 @@ export async function handleEmailVerify(
     user.expireAt = null;
     await user.save();
 
-    const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET!, {
-      expiresIn: "30d",
-    });
+    const accessToken = generateAccessToken(
+      user.id,
+      "teacher",
+      {},
+      { expiresIn: "30d" }
+    );
 
     console.log(
       `[AUTH] Email verification successful for user: ${user.username}`

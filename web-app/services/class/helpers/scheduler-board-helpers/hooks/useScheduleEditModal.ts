@@ -1,13 +1,17 @@
+"use client";
+
 import { useCallback, useState } from "react";
 import type { ScheduleItem } from "@/services/class/types/class-types";
 import { editClassScheduleItem } from "@/services/class/actions/class-schedule-actions";
+import { getScheduleItemAction } from "@/services/class/actions/get-schedule-item-action";
 
 type Patch = {
   startDate?: Date;
   endDate?: Date;
   contribution?: number;
-  attemptsAllowed?: number; // NEW
-  showAnswersAfterAttempt?: boolean; // NEW
+  attemptsAllowed?: number;
+  showAnswersAfterAttempt?: boolean;
+  quizVersion?: number;
 };
 
 export function useScheduleEditModal(
@@ -21,13 +25,88 @@ export function useScheduleEditModal(
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ScheduleItem | null>(null);
 
-  const handleOpenEdit = useCallback((it: ScheduleItem) => {
-    setEditItem(it);
-    setEditOpen(true);
-  }, []);
+  const [versionOptions, setVersionOptions] = useState<number[]>([]);
+  const [versionLoading, setVersionLoading] = useState(false);
+
+  const handleOpenEdit = useCallback(
+    (it: ScheduleItem) => {
+      setEditItem(it);
+      setEditOpen(true);
+
+      // Reset version state
+      setVersionOptions(
+        typeof (it as any).quizVersion === "number"
+          ? [(it as any).quizVersion]
+          : []
+      );
+      setVersionLoading(true);
+
+      // If the schedule row has no _id yet (optimistic only), we can't fetch stats/versions
+      if (!it._id) {
+        setVersionLoading(false);
+        return;
+      }
+
+      (async () => {
+        try {
+          const res = await getScheduleItemAction(classId, it._id!);
+          if (!res.ok || !res.data) {
+            throw new Error("Failed to load schedule details");
+          }
+
+          const data = res.data as any;
+
+          // Merge extra fields (including rootQuizId, quizVersion, etc.) into the item
+          setEditItem((prev) =>
+            prev && prev.clientId === it.clientId
+              ? ({ ...prev, ...data } as ScheduleItem)
+              : prev
+          );
+
+          // Backend returns quizVersions as an array of rows; map to numbers
+          const versions: number[] = Array.isArray(data.quizVersions)
+            ? data.quizVersions
+                .map((row: any) => Number(row.version))
+                .filter((n: number) => Number.isFinite(n))
+            : [];
+
+          // Fallback: ensure current version is included
+          const currentVersion =
+            typeof data.quizVersion === "number"
+              ? data.quizVersion
+              : typeof (it as any).quizVersion === "number"
+              ? (it as any).quizVersion
+              : undefined;
+
+          const merged = new Set<number>(versions);
+          if (typeof currentVersion === "number") merged.add(currentVersion);
+
+          setVersionOptions(Array.from(merged).sort((a, b) => a - b));
+        } catch (err) {
+          console.error("[useScheduleEditModal] failed to load versions", err);
+
+          // Show a soft error and keep ONLY the current version (no change possible)
+          showToast({
+            title: "Could not load quiz versions",
+            description:
+              "You can still edit dates and settings, but cannot change the quiz version right now.",
+            variant: "error",
+          });
+
+          // Keep whatever we initially set (current version only)
+        } finally {
+          setVersionLoading(false);
+        }
+      })();
+    },
+    [classId, showToast]
+  );
+
   const handleCloseEdit = useCallback(() => {
     setEditOpen(false);
     setEditItem(null);
+    setVersionOptions([]);
+    setVersionLoading(false);
   }, []);
 
   const handleSaveEdit = useCallback(
@@ -48,6 +127,8 @@ export function useScheduleEditModal(
         apiPatch.attemptsAllowed = patch.attemptsAllowed;
       if (typeof patch.showAnswersAfterAttempt === "boolean")
         apiPatch.showAnswersAfterAttempt = patch.showAnswersAfterAttempt;
+      if (typeof patch.quizVersion === "number")
+        apiPatch.quizVersion = patch.quizVersion;
 
       try {
         const scheduleId =
@@ -84,6 +165,9 @@ export function useScheduleEditModal(
                   ...(typeof patch.showAnswersAfterAttempt === "boolean"
                     ? { showAnswersAfterAttempt: patch.showAnswersAfterAttempt }
                     : {}),
+                  ...(typeof patch.quizVersion === "number"
+                    ? { quizVersion: patch.quizVersion }
+                    : {}),
                 }
               : it
           )
@@ -111,5 +195,7 @@ export function useScheduleEditModal(
     handleOpenEdit,
     handleCloseEdit,
     handleSaveEdit,
+    versionOptions,
+    versionLoading,
   };
 }

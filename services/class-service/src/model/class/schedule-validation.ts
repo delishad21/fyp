@@ -27,7 +27,6 @@ function normalizeContribution(v: any): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** NEW: attemptsAllowed must be an integer in [1, 10] */
 function normalizeAttemptsAllowed(v: any): number | undefined {
   if (v === undefined || v === null || v === "") return undefined;
   const n = Number(v);
@@ -37,7 +36,6 @@ function normalizeAttemptsAllowed(v: any): number | undefined {
   return i;
 }
 
-/** NEW: coerce common boolean-ish values; return undefined if invalid */
 function normalizeBool(v: any): boolean | undefined {
   if (typeof v === "boolean") return v;
   if (v === 1 || v === "1") return true;
@@ -56,8 +54,8 @@ function normalizeBool(v: any): boolean | undefined {
  * - endDate > startDate
  * - start & end must be today-or-later (class TZ)
  * - contribution optional; if present must be >= 0
- * - NEW: attemptsAllowed optional; if present must be integer 1..10
- * - NEW: showAnswersAfterAttempt optional; if present must be boolean
+ * - attemptsAllowed optional; if present must be integer 1..10
+ * - showAnswersAfterAttempt optional; if present must be boolean
  */
 export function validateScheduleCreate(
   body: any,
@@ -67,16 +65,31 @@ export function validateScheduleCreate(
     (opts?.timeZone && String(opts.timeZone)) || "Asia/Singapore";
   const fieldErrors: Record<string, string | undefined> = {
     quizId: undefined,
+    quizRootId: undefined,
+    quizVersion: undefined,
     startDate: undefined,
     endDate: undefined,
     contribution: undefined,
-    attemptsAllowed: undefined, // NEW
-    showAnswersAfterAttempt: undefined, // NEW
+    attemptsAllowed: undefined,
+    showAnswersAfterAttempt: undefined,
   };
 
-  // quizId
+  // quizId (still stored, even if not used for identity)
   if (!body?.quizId || typeof body.quizId !== "string") {
     fieldErrors.quizId = "quizId is required";
+  }
+
+  if (!body?.quizRootId || typeof body.quizRootId !== "string") {
+    fieldErrors.quizRootId = "quizRootId is required";
+  }
+
+  if (body?.quizVersion === undefined || body?.quizVersion === null) {
+    fieldErrors.quizVersion = "quizVersion is required";
+  } else {
+    const v = Number(body.quizVersion);
+    if (!Number.isFinite(v) || !Number.isInteger(v) || v < 1) {
+      fieldErrors.quizVersion = "quizVersion must be a positive integer (>= 1)";
+    }
   }
 
   // dates
@@ -99,7 +112,7 @@ export function validateScheduleCreate(
     fieldErrors.endDate = "endDate must be today or later (per class timezone)";
   }
 
-  // contribution (optional)
+  // contribution
   const c = normalizeContribution(body?.contribution);
   if (body?.contribution !== undefined) {
     if (c === undefined || c < 0) {
@@ -107,7 +120,7 @@ export function validateScheduleCreate(
     }
   }
 
-  // NEW: attemptsAllowed (optional; integer 1..10)
+  // attemptsAllowed
   if (body?.attemptsAllowed !== undefined) {
     const a = normalizeAttemptsAllowed(body.attemptsAllowed);
     if (a === undefined) {
@@ -116,7 +129,7 @@ export function validateScheduleCreate(
     }
   }
 
-  // NEW: showAnswersAfterAttempt (optional; boolean)
+  // showAnswersAfterAttempt
   if (body?.showAnswersAfterAttempt !== undefined) {
     const b = normalizeBool(body.showAnswersAfterAttempt);
     if (b === undefined) {
@@ -139,8 +152,8 @@ export function validateScheduleCreate(
  *  - endDate may change anytime (still must be >= merged start).
  *  - If quiz has NOT started yet: merged start/end must still be today-or-later (class TZ).
  *  - contribution allowed anytime, must be ≥ 0 if provided.
- *  - NEW: attemptsAllowed allowed anytime; must be integer 1..10 if provided.
- *  - NEW: showAnswersAfterAttempt allowed anytime; must be boolean if provided.
+ *  - attemptsAllowed allowed anytime; must be integer 1..10 if provided.
+ *  - showAnswersAfterAttempt allowed anytime; must be boolean if provided.
  */
 export function validateScheduleEdit(
   patch: any,
@@ -153,8 +166,8 @@ export function validateScheduleEdit(
     startDate: undefined,
     endDate: undefined,
     contribution: undefined,
-    attemptsAllowed: undefined, // NEW
-    showAnswersAfterAttempt: undefined, // NEW
+    attemptsAllowed: undefined,
+    showAnswersAfterAttempt: undefined,
   };
 
   // existing required
@@ -170,19 +183,17 @@ export function validateScheduleEdit(
     };
   }
 
-  // Determine if quiz "has started" in class TZ (start day <= today)
-  const todayKey = tzDayKey(new Date(), timeZone);
-  const startKey = tzDayKey(curStart, timeZone);
-  const hasStarted = startKey <= todayKey;
+  // Determine if quiz "has started" (precise instant)
+  const now = new Date();
+  const hasStarted = curStart.getTime() <= now.getTime();
 
   // Proposed values (merged)
   const nextStart = toDate(patch?.startDate) ?? curStart;
   const nextEnd = toDate(patch?.endDate) ?? curEnd;
 
-  // If started, disallow startDate day-change
+  // If started, disallow any startDate change
   if (hasStarted && patch?.startDate) {
-    const patchStartKey = tzDayKey(nextStart, timeZone);
-    if (patchStartKey !== startKey) {
+    if (nextStart.getTime() !== curStart.getTime()) {
       fieldErrors.startDate =
         "Start date can’t be changed after the quiz has started.";
     }
@@ -195,6 +206,7 @@ export function validateScheduleEdit(
 
   // Past-day rules (when NOT started)
   if (!hasStarted) {
+    const todayKey = tzDayKey(new Date(), timeZone);
     if (nextStart && tzDayKey(nextStart, timeZone) < todayKey) {
       fieldErrors.startDate =
         "startDate must be today or later (per class timezone)";
@@ -205,7 +217,7 @@ export function validateScheduleEdit(
     }
   }
 
-  // contribution (optional; allowed anytime)
+  // contribution (allowed anytime)
   if (patch?.contribution !== undefined) {
     const c = normalizeContribution(patch.contribution);
     if (c === undefined || c < 0) {
@@ -213,7 +225,7 @@ export function validateScheduleEdit(
     }
   }
 
-  // NEW: attemptsAllowed (optional; integer 1..10)
+  // attemptsAllowed (integer 1..10)
   if (patch?.attemptsAllowed !== undefined) {
     const a = normalizeAttemptsAllowed(patch.attemptsAllowed);
     if (a === undefined) {
@@ -222,7 +234,7 @@ export function validateScheduleEdit(
     }
   }
 
-  // NEW: showAnswersAfterAttempt (optional; boolean)
+  // showAnswersAfterAttempt (boolean)
   if (patch?.showAnswersAfterAttempt !== undefined) {
     const b = normalizeBool(patch.showAnswersAfterAttempt);
     if (b === undefined) {

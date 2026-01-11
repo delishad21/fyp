@@ -108,11 +108,7 @@ export function ColorSelect({
                   className={`
                     h-6 w-6 rounded-full ring-1 ring-black/10
                     focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
-                    ${
-                      isSel
-                        ? "outline outline-2 outline-[var(--color-primary)]"
-                        : ""
-                    }
+                    ${isSel ? "outline-2 outline-[var(--color-primary)]" : ""}
                   `}
                   style={{ backgroundColor: hex }}
                   title={hex}

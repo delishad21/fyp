@@ -2,32 +2,45 @@
 
 @theme {
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, -apple-system,
-  "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  /* Dark mode */
-  --color-text-primary-dark: #F0F0F0;
-  --color-text-secondary-dark: #9A9A9A;
-  --color-icon-dark: #E8F4FF;
-  --color-primary: #3D5CFF;
+    "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+
+  /* ─────────────────────────────────────────────
+   * Brand
+   * ──────────────────────────────────────────── */
+  --color-primary: #3d5cff;
+  --color-primary-light: #6d85ff;
+  --color-primary-dark: #2a47cc;
+
+  /* ─────────────────────────────────────────────
+   * Dark mode
+   * ──────────────────────────────────────────── */
+  --color-text-primary-dark: #f0f0f0;
+  --color-text-secondary-dark: #9a9a9a;
+  --color-text-tertiary-dark: #7a7a7a;
+  --color-icon-dark: #e8f4ff;
+
   --color-bg1-dark: #161616;
   --color-bg2-dark: #212121;
   --color-bg3-dark: #303030;
   --color-bg4-dark: #464646;
 
-  /* Light mode */
-  --color-text-primary-light: #1A1A1A;
-  --color-text-secondary-light: #555555;
-  --color-icon-light: #2B4A66;
-  --color-bg1-light: #F5F5F5;
-  --color-bg2-light: #F1F1F1;
-  --color-bg3-light: #E5E5E5;
-  --color-bg4-light: #D9D9D9;
+  /* ─────────────────────────────────────────────
+   * Light mode
+   * ──────────────────────────────────────────── */
+  --color-text-primary-light: #111827;
+  --color-text-secondary-light: #4b5563;
+  --color-text-tertiary-light: #6b7280;
+  --color-icon-light: #334155;
 
-  /* Primary gradient shades */
-  --color-primary-light: #6D85FF;
-  --color-primary-dark:  #2A47CC;
+--color-bg1-light: #ffffff; /* page canvas (lightest) */
+--color-bg2-light: #f4f6f8; /* raised cards */
+--color-bg3-light: #e5e7eb; /* panels / inputs / hover */
+--color-bg4-light: #cbd5e1; /* borders / dividers (darkest) */
 
-  /* response colours */
-  --color-error:  #EF5350;
+  /* ─────────────────────────────────────────────
+   * Response colours
+   * ──────────────────────────────────────────── */
+  --color-error: #ef5350;
   --color-success: theme(colors.emerald.600);
   --color-warning: theme(colors.amber.600);
 }
@@ -36,28 +49,40 @@
 :root {
   --color-text-primary: var(--color-text-primary-light);
   --color-text-secondary: var(--color-text-secondary-light);
+  --color-text-tertiary: var(--color-text-tertiary-light);
   --color-icon: var(--color-icon-light);
+
   --color-bg1: var(--color-bg1-light);
   --color-bg2: var(--color-bg2-light);
   --color-bg3: var(--color-bg3-light);
   --color-bg4: var(--color-bg4-light);
-  --drop-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+
+  --drop-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  --drop-shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.06);
 }
 
 /* dark override */
 [data-theme="dark"] {
   --color-text-primary: var(--color-text-primary-dark);
   --color-text-secondary: var(--color-text-secondary-dark);
+  --color-text-tertiary: var(--color-text-tertiary-dark);
   --color-icon: var(--color-icon-dark);
+
   --color-bg1: var(--color-bg1-dark);
   --color-bg2: var(--color-bg2-dark);
   --color-bg3: var(--color-bg3-dark);
   --color-bg4: var(--color-bg4-dark);
+
   --drop-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  --drop-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 @layer base {
-  html, body { min-height: 100%; }
+  html,
+  body {
+    min-height: 100%;
+  }
+
   body {
     font-family: var(--font-sans);
     background: var(--color-bg1);
@@ -66,4 +91,3 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
-

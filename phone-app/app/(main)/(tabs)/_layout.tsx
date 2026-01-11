@@ -1,11 +1,12 @@
 import { useSession } from "@/src/auth/session";
 import { useTheme } from "@/src/theme";
 import { Redirect, Tabs } from "expo-router";
+import { Platform } from "react-native";
 import { Iconify } from "react-native-iconify";
 
 export default function MainLayout() {
   const status = useSession((s) => s.status);
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
 
   if (status !== "auth") return <Redirect href="/" />;
 
@@ -13,16 +14,41 @@ export default function MainLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: colors.bg1 },
+        tabBarActiveTintColor: colors.textPrimary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarLabelStyle: {
+          fontSize: 15,
+          fontWeight: "700",
+          marginTop: 2,
+        },
+
         tabBarStyle: {
           backgroundColor: colors.bg1,
           borderTopColor: colors.bg3,
           borderTopWidth: 1,
+
+          height: 75,
+          paddingTop: 8,
+          paddingBottom: Platform.OS === "ios" ? 18 : 10,
+
           elevation: 0,
+
+          ...(Platform.OS === "ios"
+            ? {
+                shadowColor: "#000",
+                shadowOpacity: 0.08,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: -4 },
+              }
+            : null),
         },
-        sceneStyle: { backgroundColor: colors.bg1 },
-        tabBarActiveTintColor: colors.textPrimary,
-        tabBarInactiveTintColor: colors.textSecondary,
+
         tabBarIconStyle: { marginBottom: -2 },
+
+        tabBarItemStyle: {
+          paddingHorizontal: 6,
+        },
       }}
     >
       <Tabs.Screen

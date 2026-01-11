@@ -5,6 +5,57 @@ import { ClassModel } from "../model/class/class-model";
 import { ClassAttemptModel } from "../model/events/class-attempt-model";
 import { toId, pct, getClassTimezone, ymdInTZ } from "../utils/utils";
 
+/**
+ * These are all internal functions. No routes are exposed here.
+ * They are called by controllers in response to class/attempt/schedule events.
+ */
+
+async function pruneEmptySubjectTopicBuckets(
+  classId: string,
+  studentId: string,
+  session: mongoose.ClientSession
+) {
+  const row = await StudentClassStatsModel.findOne(
+    { classId: toId(classId), studentId },
+    { bySubject: 1, byTopic: 1 }
+  )
+    .session(session)
+    .lean<any>();
+
+  if (!row) return;
+
+  const unset: Record<string, string> = {};
+
+  // A bucket is "empty" if attempts <= 0 OR (sumScore and sumMax are both 0/absent)
+  for (const [subj, v] of Object.entries(row.bySubject || {})) {
+    const attempts = Number((v as any).attempts ?? 0);
+    const sumScore = Number((v as any).sumScore ?? 0);
+    const sumMax = Number((v as any).sumMax ?? 0);
+
+    if (attempts <= 0 || (sumScore === 0 && sumMax === 0)) {
+      unset[`bySubject.${subj}`] = "";
+    }
+  }
+
+  for (const [topic, v] of Object.entries(row.byTopic || {})) {
+    const attempts = Number((v as any).attempts ?? 0);
+    const sumScore = Number((v as any).sumScore ?? 0);
+    const sumMax = Number((v as any).sumMax ?? 0);
+
+    if (attempts <= 0 || (sumScore === 0 && sumMax === 0)) {
+      unset[`byTopic.${topic}`] = "";
+    }
+  }
+
+  if (Object.keys(unset).length === 0) return;
+
+  await StudentClassStatsModel.updateOne(
+    { classId: toId(classId), studentId },
+    { $unset: unset },
+    { session }
+  );
+}
+
 /* ========= Attendance & streak (earned & sticky) ========= */
 
 /**
@@ -271,6 +322,7 @@ export async function stats_onScheduleContributionChanged(
     session.endSession();
   }
 }
+
 /**
  * Finalize (or edit) an attempt and apply its effects.
  *
@@ -285,16 +337,15 @@ export async function stats_onScheduleContributionChanged(
  *
  * Effects on ScheduleStats (per-assignment aggregates):
  *  - Update sumScore/sumMax by the deltas.
- *  - If first canonical for this schedule: +1 attempts and +1 participants.
+ *  - If first canonical for this schedule: +1 participants.
  *
  * Does NOT:
  *  - Write to ClassStats (since class stats are derived at read time).
  *
- * Also:
- *  - Attendance is sticky; later schedule/attempt edits do not revoke streak days.
- *  - Must run in the same transaction as the attempt write for consistency.
+ * Transaction model:
+ *  - Runs in its own MongoDB transaction (per call).
+ *  - Call immediately after the attempt is finalized to keep stats in sync.
  */
-// add attemptId to payload
 export async function stats_onAttemptFinalized(payload: {
   classId: string;
   studentId: string;
@@ -305,7 +356,7 @@ export async function stats_onAttemptFinalized(payload: {
   score: number;
   maxScore: number;
   finishedAt: Date;
-  attemptId: string; // <-- NEW
+  attemptId: string;
 }) {
   const session = await mongoose.startSession();
   try {
@@ -486,7 +537,8 @@ export async function stats_onAttemptFinalized(payload: {
  *  - If no next canonical: decrement participationCount.
  *
  * Effects on ScheduleStats:
- *  - Apply deltas to sumScore/sumMax; decrement attempts/participants only when no next canonical.
+ *  - Apply deltas to sumScore/sumMax.
+ *  - Decrement participants only when there is no next canonical.
  *
  * Does NOT:
  *  - Touch attendance or streaks (attendance is sticky and not revoked).
@@ -739,6 +791,9 @@ export async function stats_onAttemptInvalidated(payload: {
 
       // NOTE: We intentionally do **not** touch attendance/streak here.
       // Attendance is sticky and not revoked by invalidations.
+
+      // --- Cleanup empty subject/topic buckets ---
+      await pruneEmptySubjectTopicBuckets(classId, studentId, session);
     });
   } finally {
     session.endSession();
@@ -844,6 +899,12 @@ export async function stats_onScheduleRemoved(
           { classId: toId(classId), studentId: row.studentId },
           studentUpd,
           { session }
+        );
+
+        await pruneEmptySubjectTopicBuckets(
+          classId,
+          String(row.studentId),
+          session
         );
       }
 

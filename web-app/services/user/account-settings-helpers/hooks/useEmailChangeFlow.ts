@@ -63,7 +63,7 @@ export function useEmailChangeFlow(opts: {
           res.error ||
           "Failed to request email change."
       );
-      return { ok: false as const };
+      return { ok: false as const, error: res.error || "Request failed." };
     }
 
     const sel = res.data?.selector;

@@ -3,30 +3,74 @@ import CrosswordQuizForm from "@/components/quizzes/quiz-forms/CrosswordQuizForm
 import RapidQuizForm from "@/components/quizzes/quiz-forms/RapidQuizForm";
 import { getQuizForEdit } from "@/services/quiz/actions/get-quiz-action";
 import { getFilterMeta } from "@/services/quiz/actions/quiz-metadata-actions";
+import { getQuizTypeColors } from "@/services/quiz/actions/quiz-type-colors-action";
 import { notFound } from "next/navigation";
 
 export default async function EditQuizPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: Promise<{ version?: string }>;
 }) {
-  const quizRes = await getQuizForEdit((await params).id);
+  const paramsResolved = await params;
+  const searchParamsResolved = await searchParams;
+  const version = searchParamsResolved?.version
+    ? Number(searchParamsResolved.version)
+    : undefined;
+
+  const quizRes = await getQuizForEdit(paramsResolved.id, version);
   if (!quizRes.ok) {
     return notFound();
   }
-  const meta = await getFilterMeta();
-  let form;
 
+  const meta = await getFilterMeta();
+  const typeColors = await getQuizTypeColors();
   const data = quizRes.data;
+  const { versions, currentVersion } = quizRes;
+
+  let form: React.ReactNode = null;
 
   if (data.quizType === "rapid") {
-    form = <RapidQuizForm meta={meta} mode="edit" initialData={data} />;
+    form = (
+      <RapidQuizForm
+        key={`rapid-${paramsResolved.id}-v${currentVersion}`}
+        meta={meta}
+        mode="edit"
+        initialData={data}
+        versions={versions}
+        currentVersion={currentVersion}
+        typeColorHex={typeColors.rapid}
+      />
+    );
   }
+
   if (data.quizType === "crossword") {
-    form = <CrosswordQuizForm meta={meta} mode="edit" initialData={data} />;
+    form = (
+      <CrosswordQuizForm
+        key={`crossword-${paramsResolved.id}-v${currentVersion}`}
+        meta={meta}
+        mode="edit"
+        initialData={data}
+        versions={versions}
+        currentVersion={currentVersion}
+        typeColorHex={typeColors.crossword}
+      />
+    );
   }
+
   if (data.quizType === "basic") {
-    form = <BasicQuizForm meta={meta} mode="edit" initialData={data} />;
+    form = (
+      <BasicQuizForm
+        key={`basic-${paramsResolved.id}-v${currentVersion}`}
+        meta={meta}
+        mode="edit"
+        initialData={data}
+        versions={versions}
+        currentVersion={currentVersion}
+        typeColorHex={typeColors.basic}
+      />
+    );
   }
 
   if (!form) {

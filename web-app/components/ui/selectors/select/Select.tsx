@@ -76,6 +76,7 @@
 
 import * as React from "react";
 import clsx from "clsx";
+import { Icon } from "@iconify/react";
 import { SelectTrigger } from "./components/SelectTrigger";
 import { SelectPopover } from "./components/SelectPopover";
 import { SelectList, SimpleOption } from "./components/SelectList";
@@ -118,6 +119,7 @@ type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
   error?: string | string[];
   helperText?: string;
   className?: string;
+  searchable?: boolean;
   handleAdd?: (
     // Select will call this and expect canonical {value,label,colorHex?} or error string
     label: string,
@@ -141,6 +143,7 @@ export default function Select({
   className,
   required,
   disabled,
+  searchable = false,
   handleAdd,
   allowAdd,
   colorMode = "auto",
@@ -186,6 +189,7 @@ export default function Select({
   }, [normalized]);
 
   const [open, setOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
   const rootRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -197,6 +201,10 @@ export default function Select({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
+
+  React.useEffect(() => {
+    if (!open) setSearchQuery("");
+  }, [open]);
 
   const isControlled = controlledValue !== undefined;
   const [uncontrolled, setUncontrolled] = React.useState<string>(
@@ -318,12 +326,23 @@ export default function Select({
     !normalized.some((o) => o.value === currentValue) &&
     Boolean(currentLabel);
 
+  const filteredOptions = React.useMemo(() => {
+    if (!searchable) return allOptions;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allOptions;
+    return allOptions.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(q) ||
+        opt.value.toLowerCase().includes(q)
+    );
+  }, [allOptions, searchable, searchQuery]);
+
   return (
     <div ref={rootRef} className={clsx("grid gap-1.5", className)}>
       {label && (
         <label
           htmlFor={id}
-          className="text-sm text-[var(--color-text-primary)]"
+          className="text-xs text-[var(--color-text-secondary)]"
         >
           {label}
         </label>
@@ -349,23 +368,62 @@ export default function Select({
       )}
 
       <div className="relative">
-        <SelectTrigger
-          id={id}
-          disabled={disabled}
-          open={open}
-          hasValue={Boolean(currentValue)}
-          text={currentLabel}
-          placeholder={placeholder}
-          onToggle={() => setOpen((o) => !o)}
-          showColor={colorEnabled}
-          colorHex={currentColor}
-        />
+        {searchable ? (
+          <div
+            className={clsx(
+              "flex h-11 w-full items-center gap-2 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 text-left text-sm",
+              "text-[var(--color-text-primary)] focus-within:ring-2 focus-within:ring-[var(--color-primary)]",
+              disabled
+                ? "cursor-not-allowed text-[var(--color-text-secondary)]"
+                : "hover:bg-[var(--color-bg2)]"
+            )}
+            onClick={() => !disabled && setOpen(true)}
+          >
+            {colorEnabled && currentValue ? (
+              <span
+                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+                style={{ backgroundColor: currentColor ?? "#ffffff" }}
+              />
+            ) : null}
+            <input
+              id={id}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.currentTarget.value);
+                if (!open) setOpen(true);
+              }}
+              onFocus={() => !disabled && setOpen(true)}
+              placeholder={currentValue ? currentLabel : placeholder ?? ""}
+              disabled={disabled}
+              className="min-w-0 flex-1 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none"
+            />
+            <Icon
+              icon={open ? "mingcute:up-line" : "mingcute:down-line"}
+              className="text-[var(--color-icon)]"
+              width={18}
+              height={18}
+            />
+          </div>
+        ) : (
+          <SelectTrigger
+            id={id}
+            disabled={disabled}
+            open={open}
+            hasValue={Boolean(currentValue)}
+            text={currentLabel}
+            placeholder={placeholder}
+            onToggle={() => setOpen((o) => !o)}
+            showColor={colorEnabled}
+            colorHex={currentColor}
+          />
+        )}
 
         <SelectPopover open={open && !disabled}>
           {canAdd && <SelectAddRow onClick={() => setShowAdd(true)} />}
           <SelectList
             id={id}
-            options={allOptions}
+            options={filteredOptions}
             value={currentValue}
             placeholder={placeholder}
             onSelect={(v) => {

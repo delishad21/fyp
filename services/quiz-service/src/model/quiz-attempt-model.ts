@@ -6,14 +6,23 @@ export type AnswerPayload = Record<string, any>;
 
 export interface AttemptDoc {
   _id: Types.ObjectId;
+
+  // Concrete quiz document id (per-version)
   quizId: Types.ObjectId | string;
+
+  // Canonical quiz identity (root + version)
+  quizRootId: Types.ObjectId | string;
+  quizVersion: number;
+
   studentId: Types.ObjectId | string;
   classId: Types.ObjectId | string;
   scheduleId: Types.ObjectId | string;
+
   state: AttemptState;
   startedAt: Date;
   lastSavedAt?: Date;
   finishedAt?: Date;
+
   answers: Record<string, AnswerPayload>;
   score?: number;
   maxScore?: number;
@@ -23,8 +32,10 @@ export interface AttemptDoc {
     max: number;
     meta?: any;
   }>;
+
   quizVersionSnapshot: AttemptSpecEnvelope;
   attemptVersion: number;
+
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -36,7 +47,13 @@ export interface AttemptDoc {
  */
 const AttemptSchema = new Schema<AttemptDoc>(
   {
+    // Concrete quiz document id (per-version)
     quizId: { type: Schema.Types.ObjectId, required: true, index: true },
+
+    // Canonical quiz identity (optional for older attempts)
+    quizRootId: { type: Schema.Types.ObjectId, required: true, index: true },
+    quizVersion: { type: Number, required: true, index: true },
+
     studentId: { type: Schema.Types.ObjectId, required: true, index: true },
     classId: { type: Schema.Types.ObjectId, required: true, index: true },
     scheduleId: { type: Schema.Types.ObjectId, required: true, index: true },
@@ -77,6 +94,7 @@ AttemptSchema.index({ quizId: 1, state: 1, finishedAt: -1 });
 AttemptSchema.index({ studentId: 1, startedAt: -1 });
 AttemptSchema.index({ classId: 1, finishedAt: -1 });
 AttemptSchema.index({ classId: 1, scheduleId: 1, studentId: 1 });
+AttemptSchema.index({ quizRootId: 1, quizVersion: 1, studentId: 1 });
 
 export const AttemptModel: Model<AttemptDoc> = model<AttemptDoc>(
   "QuizAttempt",

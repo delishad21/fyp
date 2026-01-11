@@ -4,17 +4,22 @@ import { getAuthHeader } from "@/services/user/session-definitions";
 import { quizSvcUrl } from "@/utils/utils";
 
 export async function deleteQuizAction(
-  id: string
+  rootQuizId: string
 ): Promise<{ ok: boolean; message?: string }> {
   const auth = await getAuthHeader();
   if (!auth) return { ok: false, message: "Not authenticated" };
 
   try {
-    const res = await fetch(quizSvcUrl(`/quiz/${encodeURIComponent(id)}`), {
-      method: "DELETE",
-      headers: { Authorization: auth },
-      cache: "no-store",
-    });
+    const res = await fetch(
+      quizSvcUrl(`/quiz/${encodeURIComponent(rootQuizId)}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: auth },
+        cache: "no-store",
+      }
+    );
+
+    console.log("Delete quiz response:", res);
 
     const json = await res.json().catch(() => ({} as any));
 

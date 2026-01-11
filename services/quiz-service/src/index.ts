@@ -27,7 +27,6 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors());
-// TODO: if you need stricter CORS, configure allowed origins/methods/headers.
 
 // ───────────────────────────── Route mounting ───────────────────────────────
 app.use("/quiz/meta", quizMetaRoutes); // Must come before /quiz to avoid shadowing

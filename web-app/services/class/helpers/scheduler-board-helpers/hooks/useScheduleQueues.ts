@@ -8,8 +8,8 @@ import {
 type QueuedEditPatch = {
   startDate?: Date;
   endDate?: Date;
-  attemptsAllowed?: number; // NEW
-  showAnswersAfterAttempt?: boolean; // NEW
+  attemptsAllowed?: number;
+  showAnswersAfterAttempt?: boolean;
 };
 
 export function useScheduleQueues(
@@ -26,7 +26,7 @@ export function useScheduleQueues(
 
   // queues + snapshots
   const pendingCreateRef = useRef<Record<string, Promise<string>>>({});
-  const pendingEditRef = useRef<Record<string, QueuedEditPatch>>({}); // UPDATED
+  const pendingEditRef = useRef<Record<string, QueuedEditPatch>>({});
   const pendingDeleteRef = useRef<Record<string, true>>({});
   const editSnapshotRef = useRef<Record<string, ScheduleItem[]>>({});
   const deleteSnapshotRef = useRef<Record<string, ScheduleItem[]>>({});
@@ -51,7 +51,7 @@ export function useScheduleQueues(
         const exists = schedule.some((s) => s.clientId === clientId);
         const wantsDelete = !!pendingDeleteRef.current[clientId];
 
-        // --- DELETE path (unchanged) ---
+        // --- DELETE path ---
         if (wantsDelete) {
           try {
             console.log("Draining delete for", clientId);
@@ -89,7 +89,7 @@ export function useScheduleQueues(
 
         if (!exists) return;
 
-        // --- EDIT path (generalized) ---
+        // --- EDIT path ---
         const edit = pendingEditRef.current[clientId];
         if (!edit) return;
 
@@ -139,7 +139,7 @@ export function useScheduleQueues(
     [classId, schedule, showToast, formatFieldErrors, ensureScheduleId]
   );
 
-  // seen id watcher (unchanged)
+  // seen id watcher
   const seenIdRef = useRef<Record<string, boolean>>({});
   useEffect(() => {
     for (const it of schedule) {

@@ -5,8 +5,10 @@ export interface ClassAttemptDoc extends Document {
   attemptId: string;
   attemptVersion: number;
   quizId: string;
-  scheduleId: string | null;
-  classId: string | null;
+  quizRootId: string;
+  quizVersion: number;
+  scheduleId: string;
+  classId: string;
   studentId: string;
   subject?: string;
   topic?: string;
@@ -23,8 +25,10 @@ export interface ClassAttemptLean {
   attemptId: string;
   attemptVersion: number;
   quizId: string;
-  scheduleId: string | null;
-  classId: string | null;
+  quizRootId: string;
+  quizVersion: number;
+  scheduleId: string;
+  classId: string;
   studentId: string;
   subject?: string;
   topic?: string;
@@ -41,8 +45,10 @@ const ClassAttemptSchema = new Schema<ClassAttemptDoc>(
     attemptId: { type: String, required: true, unique: true, index: true },
     attemptVersion: { type: Number, required: true },
     quizId: { type: String, required: true, index: true },
-    scheduleId: { type: String, default: null, index: true },
-    classId: { type: String, default: null, index: true },
+    quizRootId: { type: String, required: true, index: true },
+    quizVersion: { type: Number, required: true },
+    scheduleId: { type: String, required: true, index: true },
+    classId: { type: String, required: true, index: true },
     studentId: { type: String, required: true, index: true },
     subject: { type: String },
     topic: { type: String },
@@ -60,6 +66,23 @@ ClassAttemptSchema.index({
   classId: 1,
   studentId: 1,
   scheduleId: 1,
+  valid: 1,
+  finishedAt: -1,
+});
+ClassAttemptSchema.index({
+  quizRootId: 1,
+  quizVersion: 1,
+  classId: 1,
+  valid: 1,
+});
+ClassAttemptSchema.index({
+  quizRootId: 1,
+  classId: 1,
+  scheduleId: 1,
+});
+ClassAttemptSchema.index({
+  studentId: 1,
+  quizRootId: 1,
   valid: 1,
   finishedAt: -1,
 });

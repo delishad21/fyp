@@ -12,8 +12,8 @@ import { isTeacherOfStudent } from "../middleware/access-control";
  *          2) Check if class exists with owner==userId OR userId in teachers
  * @returns 200 { ok:true, isTeacher:boolean, message?:string }
  * @errors  400 missing/invalid ids
- *          403 forbidden (invalid secret)
- *          500 internal
+ *          403 forbidden (invalid secret; enforced by verifySharedSecret middleware)
+ *          4xx/5xx bubbled from downstream errors when present, otherwise 500 internal
  */
 export async function checkIfTeacherOfClass(req: Request, res: Response) {
   try {
@@ -58,82 +58,86 @@ export async function checkIfTeacherOfClass(req: Request, res: Response) {
 }
 
 /**
- * @route   POST /helper/check-attempt-eligibility
+ * @route   POST /helper/attempt-eligibility
  * @auth    x-quiz-secret header (S2S)
  * @input   Body: {
  *            studentId: string,
- *            classId: string(ObjectId),
  *            scheduleId: string(ObjectId),
- *            quizId: string,
- *            attemptsCount?: number    // NEW: provided by quiz-svc
+ *            attemptsCount?: number    // provided by quiz-svc
  *          }
  * @logic   Middleware validates shared secret
- *          1) Validate required fields and ObjectId formats
- *          2) Ensure student is in class
- *          3) Find the exact schedule item by _id and verify quizId matches
+ *          1) Validate required fields and formats:
+ *             - studentId: required string (compared to students.userId as string)
+ *             - scheduleId: required, must be valid ObjectId
+ *          2) Find the class containing the scheduleId and ensure student is in class
+ *          3) Find the exact schedule item by _id
  *          4) Check [start, end] window
  *          5) Enforce attemptsAllowed (default 1, max 10). If attemptsCount >= cap → deny.
+ *          6) Return canonical quiz identity (quizId + quizRootId + quizVersion)
  * @returns 200 {
  *   ok:true,
  *   allowed:boolean,
  *   reason?:string,
  *   message?:string,
- *   classId?,
+ *   classId?:string,
+ *   scheduleId?:string,
+ *   quizId?:string,
+ *   quizRootId?:string,
+ *   quizVersion?:number,
  *   window?:{start,end},
- *   attemptsAllowed?: number,              // NEW
- *   showAnswersAfterAttempt?: boolean,     // NEW
- *   attemptsCount?: number                 // echo for convenience
+ *   attemptsAllowed?: number,
+ *   showAnswersAfterAttempt?: boolean,
+ *   attemptsCount?: number,
+ *   attemptsRemaining?: number
  * }
- * @errors  400 missing/invalid ids
- *          403 forbidden (invalid secret)
- *          500 internal
+ * @errors  400 missing/invalid ids (studentId/scheduleId)
+ *          403 forbidden (invalid secret; enforced by verifySharedSecret middleware)
+ *          4xx/5xx bubbled from downstream errors when present, otherwise 500 internal
  */
 export async function checkAttemptEligibilityBySchedule(
   req: Request,
   res: Response
 ) {
   try {
-    // 1) Validate input
-    const { studentId, classId, scheduleId, quizId, attemptsCount } =
-      (req.body ?? {}) as {
-        studentId?: string;
-        classId?: string;
-        scheduleId?: string;
-        quizId?: string;
-        attemptsCount?: number; // NEW
-      };
+    const { studentId, scheduleId, attemptsCount } = (req.body ?? {}) as {
+      studentId?: string;
+      scheduleId?: string;
+      attemptsCount?: number;
+    };
 
-    if (!studentId || !classId || !scheduleId || !quizId) {
+    if (!studentId || !scheduleId) {
       return res.status(400).json({
         ok: false,
-        message: "Missing studentId/classId/scheduleId/quizId",
+        message: "Missing studentId/scheduleId",
       });
     }
-    if (
-      !Types.ObjectId.isValid(classId) ||
-      !Types.ObjectId.isValid(scheduleId)
-    ) {
-      return res.status(400).json({ ok: false, message: "Invalid ids" });
+
+    if (!Types.ObjectId.isValid(scheduleId)) {
+      return res.status(400).json({ ok: false, message: "Invalid scheduleId" });
     }
 
-    // 2) Verify membership
-    const cls = await ClassModel.findOne({
-      _id: new Types.ObjectId(classId),
-      "students.userId": studentId, // roster stores userId as string
-    })
-      .select({ schedule: 1 })
-      .lean();
+    const sid = new Types.ObjectId(scheduleId);
+
+    // Find class that:
+    //  - contains this schedule item
+    //  - contains the student in its roster (students.userId is a string)
+    const cls = await ClassModel.findOne(
+      {
+        "schedule._id": sid,
+        "students.userId": studentId,
+      },
+      { _id: 1, schedule: 1 }
+    ).lean();
 
     if (!cls) {
       return res.json({
         ok: true,
         allowed: false,
         reason: "not_found",
-        message: "Class or student not found in roster.",
+        message: "Class or student not found for this schedule.",
       });
     }
 
-    // 3) Find the EXACT schedule item by _id and verify its quizId matches the payload
     const sched = (cls.schedule ?? []).find(
       (s: any) => String(s._id) === String(scheduleId)
     );
@@ -147,18 +151,26 @@ export async function checkAttemptEligibilityBySchedule(
       });
     }
 
-    // quizId can be stored as ObjectId or string; normalize both sides to string
-    const schedQuizId = sched.quizId != null ? String(sched.quizId) : "";
-    if (schedQuizId !== String(quizId)) {
+    // Require canonical identity on the schedule (no quizId fallback)
+    const quizId = String(sched.quizId || "");
+    const quizRootId = (sched as any).quizRootId
+      ? String((sched as any).quizRootId)
+      : "";
+    const quizVersion =
+      typeof (sched as any).quizVersion === "number"
+        ? (sched as any).quizVersion
+        : NaN;
+
+    if (!quizRootId || !Number.isFinite(quizVersion)) {
       return res.json({
         ok: true,
         allowed: false,
-        reason: "quiz_mismatch",
-        message: "Schedule item does not belong to the provided quizId.",
-        details: {
-          expectedQuizId: schedQuizId,
-          receivedQuizId: String(quizId),
-        },
+        reason: "invalid_quiz_identity",
+        message:
+          "Schedule item is missing quizRootId/quizVersion (invalid configuration).",
+        classId: String(cls._id),
+        scheduleId: String(scheduleId),
+        quizId: quizId || undefined,
       });
     }
 
@@ -173,6 +185,11 @@ export async function checkAttemptEligibilityBySchedule(
         allowed: false,
         reason: "invalid_window",
         message: "Schedule window is invalid.",
+        classId: String(cls._id),
+        scheduleId: String(scheduleId),
+        quizId,
+        quizRootId,
+        quizVersion,
       });
     }
 
@@ -182,18 +199,29 @@ export async function checkAttemptEligibilityBySchedule(
         allowed: false,
         reason: "window_not_started",
         window: { start: start.toISOString(), end: end.toISOString() },
-        attemptsAllowed: Number(sched.attemptsAllowed ?? 1), // echo config
+        classId: String(cls._id),
+        scheduleId: String(scheduleId),
+        quizId,
+        quizRootId,
+        quizVersion,
+        attemptsAllowed: Number(sched.attemptsAllowed ?? 1),
         showAnswersAfterAttempt: Boolean(sched.showAnswersAfterAttempt),
         attemptsCount:
           typeof attemptsCount === "number" ? attemptsCount : undefined,
       });
     }
+
     if (now > end) {
       return res.json({
         ok: true,
         allowed: false,
         reason: "window_ended",
         window: { start: start.toISOString(), end: end.toISOString() },
+        classId: String(cls._id),
+        scheduleId: String(scheduleId),
+        quizId,
+        quizRootId,
+        quizVersion,
         attemptsAllowed: Number(sched.attemptsAllowed ?? 1),
         showAnswersAfterAttempt: Boolean(sched.showAnswersAfterAttempt),
         attemptsCount:
@@ -214,6 +242,11 @@ export async function checkAttemptEligibilityBySchedule(
         allowed: false,
         reason: "attempt_limit",
         message: `No more attempts allowed for this quiz (limit: ${cap}).`,
+        classId: String(cls._id),
+        scheduleId: String(scheduleId),
+        quizId,
+        quizRootId,
+        quizVersion,
         attemptsAllowed: cap,
         showAnswersAfterAttempt: Boolean(sched.showAnswersAfterAttempt),
         attemptsCount: count,
@@ -225,7 +258,11 @@ export async function checkAttemptEligibilityBySchedule(
     return res.json({
       ok: true,
       allowed: true,
-      classId,
+      classId: String(cls._id),
+      scheduleId: String(scheduleId),
+      quizId,
+      quizRootId,
+      quizVersion,
       attemptsAllowed: cap,
       showAnswersAfterAttempt: Boolean(sched.showAnswersAfterAttempt),
       attemptsCount: count,
@@ -259,8 +296,8 @@ export async function checkAttemptEligibilityBySchedule(
  *            classId?: string
  *          }
  * @errors  400 invalid/missing ids
- *          403 forbidden (invalid secret; handled by middleware)
- *          500 internal
+ *          403 forbidden (invalid secret; enforced by verifySharedSecret middleware)
+ *          4xx/5xx bubbled from downstream calls (if any), else 500 internal
  */
 export async function checkIfTeacherOfSchedule(req: Request, res: Response) {
   try {
@@ -303,7 +340,8 @@ export async function checkIfTeacherOfSchedule(req: Request, res: Response) {
     // 3) Check if user is owner or in teachers of that class
     const isTeacher =
       String(cls.owner) === u ||
-      (Array.isArray(cls.teachers) && cls.teachers.includes(u));
+      (Array.isArray(cls.teachers) &&
+        cls.teachers.some((t: any) => String(t) === u));
 
     return res.json({
       ok: true,
@@ -325,8 +363,16 @@ export async function checkIfTeacherOfSchedule(req: Request, res: Response) {
 }
 
 /**
- * @route POST /helper/check-teacher-of-student
- * @auth  x-quiz-secret (S2S)
+ * @route   POST /helper/check-teacher-of-student
+ * @auth    x-quiz-secret header (S2S; enforced by verifySharedSecret middleware)
+ * @input   Body: { userId: string, studentId: string }
+ * @logic   1) Validate userId and studentId are present and valid ObjectIds.
+ *          2) Use isTeacherOfStudent(userId, studentId) to determine if the user
+ *             is a teacher of any class that contains this student.
+ * @returns 200 { ok: true, isTeacher: boolean, message?: string }
+ * @errors  400 missing/invalid ids
+ *          403 forbidden (invalid secret; enforced by middleware)
+ *          4xx/5xx bubbled from downstream errors when present, otherwise 500 internal
  */
 export async function checkIfTeacherOfStudent(req: Request, res: Response) {
   try {
@@ -380,8 +426,8 @@ export async function checkIfTeacherOfStudent(req: Request, res: Response) {
  *            timezone?: string
  *          }
  * @errors  400 invalid/missing ids
- *          403 forbidden (invalid secret; handled by middleware)
- *          500 internal
+ *          403 forbidden (invalid secret; enforced by verifySharedSecret middleware)
+ *          4xx/5xx bubbled from downstream errors when present, otherwise 500 internal
  */
 export async function canShowAnswersForSchedule(req: Request, res: Response) {
   try {

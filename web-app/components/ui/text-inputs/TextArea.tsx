@@ -31,11 +31,14 @@ export default function TextArea({
       onFocus={onFocus}
       onBlur={onBlur}
       required={required}
-      className={`min-h-[${minHeight}px] w-full rounded-sm
-                  bg-[var(--color-bg2)] p-3 text-sm
-                  text-[var(--color-text-primary)]
-                  outline-2 outline-[var(--color-bg4)]
-                  focus:outline-[var(--color-primary)] ${className}`}
+      className={[
+        "w-full rounded-md border border-[var(--color-bg4)]",
+        "bg-[var(--color-bg2)] px-3 py-2 text-sm text-[var(--color-text-primary)]",
+        "placeholder:text-[var(--color-text-tertiary)]",
+        "hover:bg-[var(--color-bg2)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]",
+        className || "",
+      ].join(" ")}
+      style={{ minHeight }}
     />
   );
 }

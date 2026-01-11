@@ -28,17 +28,44 @@ export function useFieldErrorMask<TField extends string>(
 
 /** Manage per-index/per-question error masking. */
 export function useIndexedErrorMask(
-  errors?: Array<string | string[] | undefined>
+  externalErrors?: Array<string | string[] | undefined>
 ) {
+  // Keep an internal copy of errors so we can reindex them on delete.
+  const [errors, setErrors] = useState<Array<string | string[] | undefined>>(
+    externalErrors ?? []
+  );
   const [clearedIndexes, setClearedIndexes] = useState<Set<number>>(new Set());
 
-  // Reset cleared state whenever new errors come in
-  useEffect(() => setClearedIndexes(new Set()), [errors]);
+  // Whenever upstream errors change (e.g. new validation run), reset.
+  useEffect(() => {
+    setErrors(externalErrors ?? []);
+    setClearedIndexes(new Set());
+  }, [externalErrors]);
 
   const clearErrorAtIndex = useCallback((index: number) => {
     setClearedIndexes((prev) =>
       prev.has(index) ? prev : new Set(prev).add(index)
     );
+  }, []);
+
+  /**
+   * Call this when you delete a question at `index` so the errors stay aligned
+   * with the remaining questions.
+   */
+  const removeErrorIndex = useCallback((index: number) => {
+    setErrors((prev) => prev.filter((_, i) => i !== index));
+
+    // Reindex cleared masks as well.
+    setClearedIndexes((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<number>();
+      prev.forEach((i) => {
+        if (i < index) next.add(i);
+        else if (i > index) next.add(i - 1);
+        // if i === index, drop it
+      });
+      return next;
+    });
   }, []);
 
   const visibleErrors = useMemo(
@@ -52,5 +79,5 @@ export function useIndexedErrorMask(
     [visibleErrors]
   );
 
-  return { visibleErrors, clearErrorAtIndex, erroredIndexes };
+  return { visibleErrors, clearErrorAtIndex, erroredIndexes, removeErrorIndex };
 }

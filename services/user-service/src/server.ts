@@ -3,7 +3,7 @@ import index from "./index";
 import "dotenv/config";
 import { connectToDB } from "./model/teacher-user-repository";
 
-const port = process.env.USER_PORT || 7202;
+const port = process.env.USER_PORT || 7301;
 
 const server = http.createServer(index);
 

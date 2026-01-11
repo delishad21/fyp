@@ -89,7 +89,7 @@ export default function Button({
 const styles = StyleSheet.create({
   base: {
     borderRadius: 6,
-    paddingVertical: 12,
+    paddingVertical: 15,
     paddingHorizontal: 20,
     overflow: "hidden", // ensures Android ripple clips and bg paints cleanly
   },

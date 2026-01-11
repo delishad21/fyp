@@ -5,7 +5,7 @@ import {
 } from "@/src/api/class-service";
 import { useSession } from "@/src/auth/session";
 import { useTheme } from "@/src/theme";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -63,21 +63,24 @@ function AttemptCard({
       <View
         style={[
           cardStyles.container,
-          { backgroundColor: subjectColorHex || colors.primary },
+          {
+            backgroundColor: subjectColorHex || colors.primary,
+            shadowColor: "#000",
+          },
         ]}
       >
         {/* Title */}
-        <Text numberOfLines={2} style={[cardStyles.title /* onPrimary */]}>
+        <Text numberOfLines={2} style={cardStyles.title}>
           {quizName}
         </Text>
 
         {/* Subject • Topic */}
-        <Text numberOfLines={1} style={[cardStyles.metaLine /* onPrimary */]}>
+        <Text numberOfLines={1} style={cardStyles.metaLine}>
           {[subject, topic].filter(Boolean).join(" • ") || "—"}
         </Text>
 
         {/* Latest attempt date */}
-        <Text numberOfLines={1} style={[cardStyles.until /* onPrimary */]}>
+        <Text numberOfLines={1} style={cardStyles.until}>
           {formatLatestAt(latestAt)}
         </Text>
       </View>
@@ -87,28 +90,34 @@ function AttemptCard({
 
 const cardStyles = StyleSheet.create({
   container: {
-    borderRadius: 14,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    borderRadius: 5,
+    paddingVertical: 25,
+    paddingHorizontal: 16,
     marginBottom: 12,
+
+    // subtle depth
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  // Using white text on colored card (no onPrimary token provided)
   title: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 6,
+    fontSize: 22,
+    fontWeight: "900",
+    marginBottom: 7,
+    letterSpacing: 0.2,
   },
   metaLine: {
     color: "#ffffffdd",
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     marginBottom: 10,
   },
   until: {
     color: "#ffffffcc",
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 14, // ~12 * 1.15 = 13.8 → 14
+    fontWeight: "700",
   },
 });
 
@@ -127,6 +136,7 @@ export default function HistoryScreen() {
   // Filter modal state
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<ScheduleSummaryFilters>({});
+
   // Draft UI states inside modal (so you can cancel)
   const [draftName, setDraftName] = useState("");
   const [draftSubject, setDraftSubject] = useState("");
@@ -165,9 +175,12 @@ export default function HistoryScreen() {
     [token, filters]
   );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // ✅ Refresh every time screen is focused (already matches Home behavior)
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -201,33 +214,42 @@ export default function HistoryScreen() {
       return (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
             Loading history…
           </Text>
         </View>
       );
     }
+
     if (error) {
       return (
         <View style={styles.center}>
-          <Text style={{ color: colors.error, fontWeight: "700" }}>
+          <Text style={[styles.errorText, { color: colors.error }]}>
             {error}
           </Text>
           <Pressable
             onPress={() => load()}
-            style={[styles.retryBtn, { borderColor: colors.bg3 }]}
+            style={({ pressed }) => [
+              styles.retryBtn,
+              {
+                opacity: pressed ? 0.9 : 1,
+                borderColor: colors.bg3,
+                backgroundColor: colors.bg2,
+              },
+            ]}
           >
-            <Text style={{ color: colors.textPrimary, fontWeight: "800" }}>
+            <Text style={{ color: colors.textPrimary, fontWeight: "900" }}>
               Retry
             </Text>
           </Pressable>
         </View>
       );
     }
+
     if (!rows.length) {
       return (
         <View style={styles.center}>
-          <Text style={{ color: colors.textSecondary }}>
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
             No attempts found.
           </Text>
         </View>
@@ -242,11 +264,13 @@ export default function HistoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.textSecondary}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.bg2}
           />
         }
         contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom + 80, 120),
+          paddingBottom: Math.max(insets.bottom + 92, 140),
         }}
         renderItem={({ item }) => (
           <AttemptCard
@@ -260,7 +284,6 @@ export default function HistoryScreen() {
                 pathname: "/(main)/attempt",
                 params: {
                   scheduleId: item.scheduleId,
-                  // if a canonical attempt exists, we’ll select that attempt first
                   displayedAttemptId: item.canonical?.attemptId,
                 },
               })
@@ -270,10 +293,11 @@ export default function HistoryScreen() {
       />
     );
   }, [
-    colors.error,
+    colors.primary,
     colors.textPrimary,
     colors.textSecondary,
-    colors.primary,
+    colors.error,
+    colors.bg2,
     colors.bg3,
     insets.bottom,
     loading,
@@ -281,26 +305,30 @@ export default function HistoryScreen() {
     rows,
     refreshing,
     onRefresh,
+    load,
+    router,
   ]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg1 }]}>
-      {/* Header */}
+      {/* ✅ Home-style title block (exactly like Home) */}
       <View
-        style={[
-          styles.header,
-          { borderBottomColor: colors.bg2, paddingTop: insets.top },
-        ]}
+        style={{
+          paddingTop: insets.top + 16,
+          paddingHorizontal: 16,
+          paddingBottom: 12,
+        }}
       >
-        <Text style={[styles.headerTxt, { color: colors.textPrimary }]}>
+        <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>
           History
+        </Text>
+        <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>
+          Your past quizzes and attempts
         </Text>
       </View>
 
       {/* Body */}
-      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12 }}>
-        {content}
-      </View>
+      <View style={{ flex: 1, paddingHorizontal: 16 }}>{content}</View>
 
       {/* FAB */}
       <Pressable
@@ -312,12 +340,11 @@ export default function HistoryScreen() {
             bottom: Math.max(insets.bottom + 16, 24),
             right: 16,
             backgroundColor: colors.primary,
-            // subtle elevation/shadow works for both schemes
-            shadowColor: colors.textPrimary,
+            shadowColor: "#000",
           },
         ]}
       >
-        <Iconify icon="mingcute:filter-line" size={18} color="#fff" />
+        <Iconify icon="mingcute:filter-line" size={20} color="#fff" />
         <Text style={styles.fabTxt}>Filter</Text>
       </Pressable>
 
@@ -358,7 +385,6 @@ export default function HistoryScreen() {
                 value={draftTopic}
                 onChangeText={setDraftTopic}
               />
-
               <Field
                 label="Latest From (ISO)"
                 placeholder="YYYY-MM-DD or full ISO"
@@ -385,7 +411,7 @@ export default function HistoryScreen() {
                   },
                 ]}
               >
-                <Text style={{ color: colors.textPrimary, fontWeight: "800" }}>
+                <Text style={{ color: colors.textPrimary, fontWeight: "900" }}>
                   Reset
                 </Text>
               </Pressable>
@@ -400,15 +426,17 @@ export default function HistoryScreen() {
                   },
                 ]}
               >
-                <Text style={{ color: "#fff", fontWeight: "800" }}>Save</Text>
+                <Text style={{ color: "#fff", fontWeight: "900" }}>Save</Text>
               </Pressable>
             </View>
 
             <Pressable
               onPress={() => setFilterOpen(false)}
-              style={{ alignSelf: "center", marginTop: 8, padding: 8 }}
+              style={{ alignSelf: "center", marginTop: 10, padding: 10 }}
             >
-              <Text style={{ color: colors.textSecondary }}>Close</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 15 }}>
+                Close
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -442,7 +470,11 @@ function Field({
         placeholderTextColor={colors.textSecondary}
         style={[
           styles.input,
-          { borderColor: colors.bg2, color: colors.textPrimary },
+          {
+            borderColor: colors.bg2,
+            color: colors.textPrimary,
+            backgroundColor: colors.bg1,
+          },
         ]}
         autoCapitalize="none"
         autoCorrect={false}
@@ -453,39 +485,38 @@ function Field({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    height: 56,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  headerTxt: { fontWeight: "800", fontSize: 16 },
+
+  // ✅ Home-style title
+  pageTitle: { fontSize: 29, fontWeight: "900" },
+  pageSubtitle: { fontSize: 18, fontWeight: "700", marginTop: 2 },
 
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  helperText: { marginTop: 10, fontSize: 15, fontWeight: "600" },
+  errorText: { fontSize: 15, fontWeight: "800", textAlign: "center" },
+
   retryBtn: {
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
+    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 5,
     borderWidth: StyleSheet.hairlineWidth,
   },
 
   fab: {
     position: "absolute",
-    paddingHorizontal: 14,
-    height: 44,
+    paddingHorizontal: 16,
+    height: 48,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
     elevation: 3,
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
   },
-  fabTxt: { color: "#fff", fontWeight: "900" },
+  fabTxt: { color: "#fff", fontWeight: "900", fontSize: 15 },
 
   modalBackdrop: {
     flex: 1,
@@ -495,35 +526,37 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: "100%",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingTop: 16,
+    paddingBottom: 26,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  modalTitle: { fontSize: 16, fontWeight: "900", marginBottom: 10 },
+  modalTitle: { fontSize: 18, fontWeight: "900", marginBottom: 12 },
 
-  fieldLabel: { fontSize: 12, fontWeight: "800", marginBottom: 6 },
+  fieldLabel: { fontSize: 14, fontWeight: "900", marginBottom: 8 },
   input: {
-    height: 42,
+    height: 48,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontSize: 17, // ~15 * 1.15 = 17.25 → 17
+    fontWeight: "600",
   },
 
   modalActions: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 10,
-    marginTop: 16,
+    marginTop: 18,
   },
   actionBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 10,
+    height: 48,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
 });

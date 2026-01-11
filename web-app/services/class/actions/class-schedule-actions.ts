@@ -6,15 +6,27 @@ import { classSvcUrl } from "@/utils/utils";
 // ---- Types (align with controller/model) ----
 export type ApiScheduleItem = {
   _id: string; // scheduleId
+
+  // concrete + canonical quiz identity
   quizId: string;
+  quizRootId: string;
+  quizVersion: number;
+
   startDate: string; // ISO
   endDate: string; // ISO
   quizName?: string;
   subject?: string;
   subjectColor?: string;
   contribution?: number;
-  attemptsAllowed?: number; // default 1 (max 10, server-enforced)
-  showAnswersAfterAttempt?: boolean; // default false (server-enforced)
+
+  // policy
+  attemptsAllowed: number; // default 1 (max 10, server-enforced)
+  showAnswersAfterAttempt: boolean; // default false (server-enforced)
+
+  // optional quiz meta
+  quizType?: "basic" | "rapid" | "crossword" | string;
+  topic?: string;
+  typeColorHex?: string;
 
   [k: string]: any;
 };
@@ -43,19 +55,21 @@ function toIso(d: string | Date | undefined | null) {
 // ======================================================================
 // CREATE  (POST /classes/:id/schedule)
 // Notes
-//  - Server validates against the CLASS timezone (Class.timezone); any client tz is ignored.
-//  - Allows multiple entries per quizId; server rejects overlapping time ranges for the same quizId.
-//  - attemptsAllowed defaults to 1 (max 10), showAnswersAfterAttempt defaults to false.
+//  - Server validates against the CLASS timezone (Class.timezone).
+//  - Overlap is now checked by canonical identity (quizRootId + quizVersion).
 // ======================================================================
 export async function addClassQuizSchedule(
   classId: string,
   item: {
+    // concrete + canonical quiz identity (all required in new flow)
     quizId: string;
+    quizRootId: string;
+    quizVersion: number;
+
     startDate: string | Date;
     endDate: string | Date;
     contribution?: number;
 
-    // NEW optional policy fields
     attemptsAllowed?: number;
     showAnswersAfterAttempt?: boolean;
 
@@ -67,6 +81,8 @@ export async function addClassQuizSchedule(
 
   const body = JSON.stringify({
     quizId: item.quizId,
+    quizRootId: item.quizRootId,
+    quizVersion: item.quizVersion,
     startDate: toIso(item.startDate),
     endDate: toIso(item.endDate),
     ...(typeof item.contribution === "number"
@@ -172,9 +188,8 @@ export async function getClassScheduleItemById(
 // ======================================================================
 // EDIT (by scheduleId)  PATCH /classes/:id/schedule/item/:scheduleId
 // Notes
-//  - Send only fields you intend to change.
-//  - Server validates against the CLASS timezone; client-sent timezone is ignored.
-//  - attemptsAllowed (1..10) & showAnswersAfterAttempt are validated server-side.
+//  - Identity (quizId/root/version) is typically fixed once created;
+//    this patch focuses on window/policy + extra.
 // ======================================================================
 export async function editClassScheduleItem(
   classId: string,
@@ -185,6 +200,7 @@ export async function editClassScheduleItem(
     contribution?: number;
     attemptsAllowed?: number;
     showAnswersAfterAttempt?: boolean;
+    quizVersion?: number; // NEW
 
     extra?: Record<string, any>;
   }
@@ -207,6 +223,9 @@ export async function editClassScheduleItem(
       : {}),
     ...(typeof patch.showAnswersAfterAttempt === "boolean"
       ? { showAnswersAfterAttempt: patch.showAnswersAfterAttempt }
+      : {}),
+    ...(typeof patch.quizVersion === "number"
+      ? { quizVersion: patch.quizVersion }
       : {}),
     ...(patch.extra ? { extra: patch.extra } : {}),
   });
@@ -294,6 +313,85 @@ export async function deleteAllClassScheduleItemsForQuiz(
       };
     }
     return json as Ok<any>;
+  } catch (e: any) {
+    return { ok: false, message: e?.message || "Network error" };
+  }
+}
+
+export type ApiClassScheduleBundle = {
+  classId: string;
+  className?: string;
+  classTimezone: string;
+  schedule: ApiScheduleItem[];
+};
+
+/**
+ * GET /classes/schedule/all
+ * Returns schedules for all classes of the current teacher,
+ * grouped by class.
+ */
+export async function getAllClassesScheduleForDashboard(): Promise<
+  R<ApiClassScheduleBundle[]>
+> {
+  try {
+    const token = await getAuthHeader();
+    const url = classSvcUrl(`/classes/schedule/all`);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+
+    const json = await res.json().catch(() => ({} as any));
+    if (!res.ok || !json?.ok) {
+      return {
+        ok: false,
+        message: json?.message || `Failed (${res.status})`,
+        status: res.status,
+        fieldErrors: json?.fieldErrors,
+      };
+    }
+
+    const raw = json.data;
+
+    const data: ApiClassScheduleBundle[] = Array.isArray(raw)
+      ? raw.map((row: any) => ({
+          classId: String(row.classId),
+          className:
+            typeof row.className === "string" ? row.className : undefined,
+          classTimezone: String(row.classTimezone || "UTC"),
+          schedule: Array.isArray(row.schedule)
+            ? (row.schedule as any[]).map((s) => ({
+                // normalize minimally; rely on backend for the rest
+                _id: String(s._id),
+                quizId: String(s.quizId),
+                quizRootId: String(s.quizRootId ?? ""),
+                quizVersion: Number(s.quizVersion ?? 0),
+                startDate: String(s.startDate),
+                endDate: String(s.endDate),
+                quizName: s.quizName,
+                subject: s.subject,
+                subjectColor: s.subjectColor,
+                contribution:
+                  typeof s.contribution === "number"
+                    ? s.contribution
+                    : undefined,
+                attemptsAllowed: Number(s.attemptsAllowed ?? 1),
+                showAnswersAfterAttempt: Boolean(
+                  s.showAnswersAfterAttempt ?? false
+                ),
+                quizType: s.quizType,
+                topic: s.topic,
+                typeColorHex: s.typeColorHex,
+                // allow extra fields through
+                ...s,
+              }))
+            : [],
+        }))
+      : [];
+
+    return { ok: true, data };
   } catch (e: any) {
     return { ok: false, message: e?.message || "Network error" };
   }

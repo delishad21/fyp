@@ -11,7 +11,7 @@
  *   - Defined in `items` array with { label, icon, href }.
  *   - Labels: "Home", "Quizzes", "Classes", "Settings".
  *   - Active link detection:
- *       • "Home": active only when pathname is "/".
+ *       • "Home": active when pathname is "/" OR "/home" (or "/home/...").
  *       • Others: active if pathname starts with the link href.
  *
  * UI Structure:
@@ -35,18 +35,34 @@ type NavItem = {
 };
 
 const items: NavItem[] = [
-  { label: "Home", icon: "mingcute:home-2-line", href: "/" },
+  { label: "Home", icon: "mingcute:home-2-line", href: "/home" },
   { label: "Quizzes", icon: "mingcute:book-2-line", href: "/quizzes" },
   { label: "Classes", icon: "mingcute:group-2-line", href: "/classes" },
   { label: "Settings", icon: "mingcute:settings-2-line", href: "/settings" },
 ];
 
+function normalizePathname(pathname: string | null) {
+  if (!pathname) return "/";
+  // remove trailing slash except root
+  if (pathname.length > 1 && pathname.endsWith("/"))
+    return pathname.slice(0, -1);
+  return pathname;
+}
+
 export function SideBar({ className = "" }: { className?: string }) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = normalizePathname(rawPathname);
 
   const isActive = (href: string, label: NavItem["label"]) => {
-    if (label === "Home") return pathname === "/";
-    return pathname.startsWith(href);
+    // Home should be active on /home (and /home/*), and also handle "/" during initial render / transitions
+    if (label === "Home")
+      return (
+        pathname === "/" ||
+        pathname === "/home" ||
+        pathname.startsWith("/home/")
+      );
+    // Others: active if exact match or nested routes
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -65,6 +81,7 @@ export function SideBar({ className = "" }: { className?: string }) {
       <nav className="mt-2 px-3 space-y-2 overflow-auto">
         {items.map((it) => {
           const active = isActive(it.href, it.label);
+
           return (
             <Link
               key={it.label}

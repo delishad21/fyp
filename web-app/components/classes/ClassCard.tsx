@@ -34,7 +34,7 @@ export default function ClassCard({ cls }: { cls: ClassItem }) {
         className="
           absolute bottom-0 left-0 right-0
           mt-auto flex items-center justify-between
-          px-4 py-3 text-[--color-text-primary]
+          px-4 py-3 text-white
         "
         style={{ backgroundColor: color }}
       >

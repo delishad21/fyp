@@ -4,6 +4,7 @@ import { queryQuizzes } from "@/services/quiz/actions/query-quiz-action";
 import { getFilterMeta } from "@/services/quiz/actions/quiz-metadata-actions";
 import { InitialPayload } from "@/services/quiz/types/quiz-table-types";
 import { getClass } from "@/services/class/actions/class-actions";
+import ScheduleTutorialHeader from "@/components/classes/schedule-page/ScheduleTutorialHeader";
 
 export default async function Page({
   params,
@@ -36,9 +37,7 @@ export default async function Page({
 
   return (
     <div className="px-6 py-4 space-y-4">
-      <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">
-        Schedule Quizzes
-      </h1>
+      <ScheduleTutorialHeader />
       <SchedulerBoard
         classId={classId}
         initialSchedule={initialSchedule}

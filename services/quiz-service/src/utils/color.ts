@@ -1,5 +1,5 @@
 export function stringToColorHex(input: string): string {
-  // simple deterministic hash → color
+  // simple deterministic hash -> color
   let h = 0;
   for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) | 0;
   // map to pleasant HSL range, then convert to hex

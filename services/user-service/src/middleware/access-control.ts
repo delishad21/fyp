@@ -39,31 +39,38 @@ export async function verifyAccessToken(
   next: NextFunction
 ) {
   try {
+    console.log("[AUTH] Verifying access token...");
     const secret = process.env.JWT_SECRET;
     if (!secret) {
       console.error("[AUTH] JWT secret not provided");
       return res.status(500).json({ message: "Internal server error" });
     }
+    // console.log("[AUTH] JWT secret loaded");
 
     const authHeader = req.headers.authorization || "";
     if (!authHeader) {
-      console.log("[AUTH] Missing authorization header");
+      console.error("[AUTH] Missing authorization header");
       return res.status(401).json({ message: "Authentication failed" });
     }
+    // console.log("[AUTH] Authorization header found");
 
     const token = authHeader.replace(/^Bearer\s+/i, "");
     let decoded: AccessTokenPayload;
     try {
       decoded = jwt.verify(token, secret) as AccessTokenPayload;
     } catch (err: any) {
-      console.log(`[AUTH] Invalid token - ${err.message}`);
+      console.error(`[AUTH] Invalid token - ${err.message}`);
       return res.status(401).json({ message: "Authentication failed" });
     }
-
+    console.log("[AUTH] Token verified");
+    console.log(`[AUTH] Decoded token for user ID: ${decoded.id}`);
     const role = decoded.role;
+    // console.log(`[AUTH] User role from token: ${role}`);
 
     if (role === "teacher" || role === "admin") {
+      console.log(`[AUTH] Verifying teacher/admin user - ID: ${decoded.id}`);
       const dbUser = await _findUserById(decoded.id);
+      console.log(`[AUTH] Found teacher/admin user: ${dbUser?.username}`);
       if (!dbUser) {
         console.log(`[AUTH] User not found - ID: ${decoded.id}`);
         return res.status(401).json({ message: "Authentication failed" });
@@ -84,6 +91,7 @@ export async function verifyAccessToken(
         teacherId: decoded.teacherId,
         mustChangePassword: decoded.mustChangePassword,
       };
+      console.log(`[AUTH] Access token verified for user: ${dbUser.username}`);
       return next();
     }
 
@@ -113,6 +121,7 @@ export async function verifyAccessToken(
     }
 
     // Unknown role
+    console.error(`[AUTH] Unknown role in token: ${role}`);
     return res.status(401).json({ message: "Authentication failed" });
   } catch (e: any) {
     const status = e?.status ?? 500;

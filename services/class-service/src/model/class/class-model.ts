@@ -4,7 +4,14 @@ import { IStudent, StudentSchema } from "../students/student-model";
 
 export interface IAssignedQuiz {
   _id?: Types.ObjectId | string;
+
+  // Concrete quiz document id from quiz-svc (still stored, but not used for identity)
   quizId: string;
+
+  // Canonical quiz identity (used for identification)
+  quizRootId: string;
+  quizVersion: number;
+
   startDate: Date;
   endDate: Date;
 
@@ -21,6 +28,7 @@ export interface IAssignedQuiz {
   quizName?: string;
   subject?: string;
   subjectColor?: string;
+  topic?: string;
 
   [key: string]: any;
 }
@@ -44,13 +52,18 @@ export interface IClass {
 
 const AssignedQuizSchema = new Schema<IAssignedQuiz>(
   {
+    // Concrete quiz document id from quiz-svc
     quizId: { type: String, required: true },
+
+    // Canonical quiz identity
+    quizRootId: { type: String, required: true },
+    quizVersion: { type: Number, required: true },
+
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
 
     contribution: { type: Number, default: 100, min: 0 },
 
-    // NEW fields
     attemptsAllowed: {
       type: Number,
       default: 1,
@@ -96,9 +109,11 @@ const ClassSchema = new Schema<IClass>(
 );
 
 // Indexes for common queries
+// Indexes for common queries
 ClassSchema.index({ "students.userId": 1 });
 ClassSchema.index({ "schedule._id": 1 });
-ClassSchema.index({ "schedule.quizId": 1 });
+ClassSchema.index({ "schedule.quizId": 1 }); // useful for stats/metadata lookups
+ClassSchema.index({ "schedule.quizRootId": 1, "schedule.quizVersion": 1 });
 ClassSchema.index({ "schedule.startDate": 1, "schedule.endDate": 1 });
 
 export const ClassModel = model<IClass>("Class", ClassSchema);

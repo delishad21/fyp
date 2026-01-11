@@ -1,6 +1,11 @@
 import { ClassModel } from "../model/class/class-model";
 import { StudentClassStatsModel } from "../model/stats/student-stats-model";
-import { fetchQuizzesByIds, QuizSvcBatchRow } from "./quiz-svc-client";
+import {
+  QuizSvcBatchRow,
+  fetchQuizzesByCanonical,
+  QuizCanonicalSelector,
+} from "./quiz-svc-client";
+import { ymdInTZ } from "./utils";
 
 /** Return schedule array as plain objects with string ids */
 export function scheduleOut(c: any) {
@@ -15,13 +20,17 @@ export function scheduleOut(c: any) {
   });
 }
 
-/** Attach live quiz meta if available; otherwise use stored snapshot */
+/** Attach live quiz meta if available; otherwise use stored snapshot.
+ *  Assumes quizRootId + quizVersion are the canonical identity and does NOT fall back to quizId.
+ */
 export function attachQuizMeta(
   it: any,
   q?: QuizSvcBatchRow
 ): {
   _id: string;
   quizId: string;
+  quizRootId: string | null;
+  quizVersion: number | null;
   quizName?: string;
   subject?: string;
   subjectColor?: string;
@@ -34,6 +43,16 @@ export function attachQuizMeta(
   showAnswersAfterAttempt: boolean;
   attemptsAllowed: number;
 } {
+  // Canonical identity: prefer schedule row; otherwise quiz meta; no fallback to quizId
+  const quizRootId = (it as any).quizRootId ?? (q as any)?.rootQuizId ?? null;
+
+  const quizVersion =
+    typeof (it as any).quizVersion === "number"
+      ? (it as any).quizVersion
+      : typeof (q as any)?.version === "number"
+      ? (q as any).version
+      : null;
+
   const quizName = q?.name ?? it.quizName;
   const subject = q?.subject ?? it.subject;
   const subjectColor = q?.subjectColorHex ?? it.subjectColor;
@@ -46,6 +65,10 @@ export function attachQuizMeta(
   return {
     _id: String(it._id),
     quizId: String(it.quizId),
+
+    quizRootId: quizRootId !== null ? String(quizRootId) : null,
+    quizVersion: quizVersion !== null ? quizVersion : null,
+
     quizName,
     subject,
     subjectColor,
@@ -87,43 +110,79 @@ export function extractClassTimezone(c: any): string {
   return (c.timezone && String(c.timezone)) || "Asia/Singapore";
 }
 
-/** Fetch a single quiz’s live metadata, best-effort */
-export async function fetchQuizMetaOnce(quizId: string) {
+/**
+ * Fetch a single quiz’s live metadata by canonical identity (rootQuizId + version), best-effort.
+ *
+ * NOTE: Signature changed — it no longer accepts quizId.
+ */
+export async function fetchQuizMetaOnce(
+  rootQuizId: string,
+  version: number
+): Promise<QuizSvcBatchRow | undefined> {
   try {
-    const { byId } = await fetchQuizzesByIds([quizId]);
-    return byId[String(quizId)];
+    const { byCanonical } = await fetchQuizzesByCanonical([
+      { rootQuizId, version },
+    ]);
+    const rows = Object.values(byCanonical);
+    return rows.length ? rows[0] : undefined;
   } catch {
     return undefined;
   }
 }
 
-/** Batch fetch quiz metadata for multiple quizIds */
+/**
+ * Batch fetch quiz metadata by canonical identity.
+ *
+ * @param selectors Array of { rootQuizId, version } objects.
+ * @returns Record keyed by canonical key `${rootQuizId}:${version}`.
+ *
+ * NOTE: Signature & keying changed — previously keyed by quizId.
+ */
 export async function fetchQuizMetaBatch(
-  quizIds: string[]
+  selectors: QuizCanonicalSelector[]
 ): Promise<Record<string, QuizSvcBatchRow>> {
-  if (!quizIds.length) return {};
+  if (!selectors.length) return {};
   try {
-    const { byId } = await fetchQuizzesByIds(quizIds);
-    return byId;
+    const { byCanonical } = await fetchQuizzesByCanonical(selectors);
+    return byCanonical;
   } catch {
     return {};
   }
 }
 
-/** Detect overlap among schedule ranges for a specific quizId */
+/** Detect overlap among schedule ranges for a specific quiz identity.
+ *  Uses ONLY quizRootId + quizVersion as identity. quizId is ignored here.
+ */
 export function hasScheduleConflict(
   schedule: any[],
-  quizId: string,
+  identity: {
+    quizRootId: string;
+    quizVersion: number;
+  },
   startDate: Date,
   endDate: Date,
   excludeIndex?: number
 ): boolean {
+  const newRoot = String(identity.quizRootId);
+  const newVersion = identity.quizVersion;
+
   return schedule.some((s, i) => {
     if (excludeIndex != null && i === excludeIndex) return false;
-    return (
-      String(s.quizId) === String(quizId) &&
-      rangesOverlap(startDate, endDate, s.startDate, s.endDate)
-    );
+
+    const sRoot =
+      (s as any).quizRootId != null ? String((s as any).quizRootId) : null;
+    const sVersion =
+      typeof (s as any).quizVersion === "number"
+        ? (s as any).quizVersion
+        : null;
+
+    // If either side is missing canonical identity, treat as different quiz.
+    if (!sRoot || sVersion === null) return false;
+
+    const sameIdentity = sRoot === newRoot && sVersion === newVersion;
+    if (!sameIdentity) return false;
+
+    return rangesOverlap(startDate, endDate, s.startDate, s.endDate);
   });
 }
 
@@ -231,7 +290,14 @@ export function enrichScheduleItem(item: any, quizMeta?: QuizSvcBatchRow) {
 /** for getAttemptableSchedulesForMe */
 export type AttemptableRow = {
   scheduleId: string;
+
+  // Concrete quiz id (still stored but not used for identity)
   quizId: string;
+
+  // Canonical quiz identity (required)
+  quizRootId: string;
+  quizVersion: number;
+
   startDate: string;
   endDate: string;
   attemptsAllowed: number; // effective (1..10)
@@ -247,4 +313,19 @@ export function normalizeAllowedAttempts(v: any): number {
   const n = Number(v);
   if (!Number.isFinite(n)) return 1;
   return Math.max(1, Math.min(10, Math.round(n)));
+}
+
+export function getDayKeyInTZ(date: Date, timeZone: string): string {
+  return ymdInTZ(date, timeZone);
+}
+
+export function isScheduleOnDayInTZ(
+  startDate: Date | string,
+  endDate: Date | string,
+  dayKey: string,
+  timeZone: string
+): boolean {
+  const startKey = ymdInTZ(new Date(startDate), timeZone);
+  const endKey = ymdInTZ(new Date(endDate), timeZone);
+  return startKey <= dayKey && dayKey <= endKey;
 }

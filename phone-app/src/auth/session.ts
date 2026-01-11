@@ -25,6 +25,7 @@ type AuthState = {
   account: SessionData | null;
   error: string | null;
   errors: string[] | null;
+  lastAuthPassword: string | null;
 
   bootstrap: () => Promise<void>;
   signIn: (u: string, p: string) => Promise<void>;
@@ -45,6 +46,7 @@ export const useSession = create<AuthState>((set, get) => ({
   account: null,
   error: null,
   errors: null,
+  lastAuthPassword: null,
 
   async bootstrap() {
     const saved = await getJSON<SessionData>(KEY.SESSION);
@@ -71,6 +73,7 @@ export const useSession = create<AuthState>((set, get) => ({
         status: acc.mustChangePassword ? "mustChangePassword" : "auth",
         error: null,
         errors: null,
+        lastAuthPassword: password,
       });
     } catch (e: any) {
       set({
@@ -84,7 +87,13 @@ export const useSession = create<AuthState>((set, get) => ({
 
   async logout() {
     await del(KEY.SESSION);
-    set({ account: null, status: "unauth", error: null, errors: null });
+    set({
+      account: null,
+      status: "unauth",
+      error: null,
+      errors: null,
+      lastAuthPassword: null,
+    });
   },
 
   token() {
@@ -114,6 +123,7 @@ export const useSession = create<AuthState>((set, get) => ({
         status: "auth",
         error: null,
         errors: null,
+        lastAuthPassword: null,
       });
     } catch (e: any) {
       set({

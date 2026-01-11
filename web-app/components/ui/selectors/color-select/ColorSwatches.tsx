@@ -9,7 +9,7 @@ export function ColorSwatches({
   palette = DEFAULT_COLOR_PALETTE,
   label = "Color",
   error,
-  name, // optional: if provided, we render a hidden input so forms post the color
+  name, // optional: if provided, render a hidden input so forms post the color
 }: {
   value: string;
   onChange: (hex: string) => void;

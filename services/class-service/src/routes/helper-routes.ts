@@ -12,7 +12,7 @@ const router = Router();
 
 /**
  * Routes under prefix: /helper  (mounted in index.ts)
- * S2S endpoints; auth is enforced in controller via x-quiz-secret.
+ * S2S endpoints; auth is enforced by verifySharedSecret using the x-quiz-secret header.
  */
 
 /** POST /helper/attempt-eligibility — Check if a student may attempt a scheduled quiz */
@@ -22,7 +22,7 @@ router.post(
   checkAttemptEligibilityBySchedule
 );
 
-/** POST /helper/check-teacher-of-class — Verify if user is a teacher of a class */
+/** POST /helper/check-teacher-of-class — Verify if user is a teacher of a class*/
 router.post(
   "/check-teacher-of-class",
   verifySharedSecret,
@@ -36,6 +36,7 @@ router.post(
   checkIfTeacherOfSchedule
 );
 
+/** POST /helper/check-teacher-of-student — Verify if user teaches a student's class */
 router.post(
   "/check-teacher-of-student",
   verifySharedSecret,

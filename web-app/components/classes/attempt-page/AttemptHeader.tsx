@@ -30,14 +30,30 @@ export default function AttemptHeader({
 }) {
   const router = useRouter();
 
-  const spec = attempt.quizVersionSnapshot;
-  const name = spec.meta.name ?? "Untitled Quiz";
-  const subject = spec.meta.subject ?? "—";
-  const topic = spec.meta.topic ?? "—";
+  // Snapshot is only for spec-ish info; don't rely on its meta being enriched.
+  const spec = (attempt.quizVersionSnapshot ?? {}) as any;
+
+  // All live quiz metadata (name, subject, colors, type) comes from here.
+  const quizMeta = (attempt as any).quiz ?? {};
+
+  const name = quizMeta.name ?? spec?.meta?.name ?? "Untitled Quiz";
+
+  const subject = quizMeta.subject ?? spec?.meta?.subject ?? "—";
+
+  const topic = quizMeta.topic ?? spec?.meta?.topic ?? "—";
+
   const gradePct = pct(attempt.score, attempt.maxScore);
 
-  const subjectColor = normalizeHex(spec.meta.subjectColorHex);
-  const typeColor = normalizeHex(spec.meta.typeColorHex);
+  const subjectColor = normalizeHex(
+    quizMeta.subjectColorHex ?? spec?.meta?.subjectColorHex
+  );
+
+  const typeColor = normalizeHex(
+    quizMeta.typeColorHex ?? spec?.meta?.typeColorHex
+  );
+
+  const quizType = quizMeta.quizType ?? spec?.quizType;
+  const version = attempt.quizVersion ?? spec?.quizVersion;
 
   // Badge colors
   const stateColor =
@@ -51,7 +67,7 @@ export default function AttemptHeader({
     <div className="flex gap-4 rounded-lg bg-[var(--color-bg3)] px-7 py-5 text-[var(--color-text-primary)]">
       {/* LEFT: Title + meta */}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <h1 className="truncate text-xl font-bold">{name}</h1>
+        <h1 className="text-xl font-bold">{name}</h1>
 
         {/* Subject dot + text (text stays primary) */}
         <span className="flex items-center gap-2 leading-none">
@@ -60,7 +76,7 @@ export default function AttemptHeader({
             style={{ background: subjectColor ?? "var(--color-primary)" }}
             title={subject}
           />
-          <span className="font-semibold truncate" title={subject}>
+          <span className="font-semibold" title={subject}>
             {subject}
           </span>
         </span>
@@ -75,10 +91,15 @@ export default function AttemptHeader({
             color: "var(--color-text-primary)",
             background: typeColor ?? "var(--color-bg4)",
           }}
-          title={spec.quizType}
+          title={quizType ?? undefined}
         >
-          {spec.quizType}
+          {quizType ?? "Unknown type"}
         </span>
+
+        {/* Version info */}
+        <div className="text-xs text-[var(--color-text-secondary)]">
+          Version {version ?? "—"}
+        </div>
       </div>
 
       {/* RIGHT: Switcher + badges + finished date */}

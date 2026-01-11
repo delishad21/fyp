@@ -30,11 +30,15 @@ export function useBaseQuizFormItems(
     ]
   );
 
+  // Always create a fresh MC draft using the normalized config.
+  const makeInitialMcDraft = React.useCallback(
+    () => makeMcDraft(config.initialNumMCOptions),
+    [config.initialNumMCOptions]
+  );
+
   // seed once: if initial provided & non-empty use it, else one default MC draft
   const [items, setItems] = React.useState<BaseFormItemDraft[]>(() =>
-    initial && initial.length > 0
-      ? initial
-      : [makeMcDraft(config.initialNumMCOptions)]
+    initial && initial.length > 0 ? initial : [makeInitialMcDraft()]
   );
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
@@ -54,10 +58,8 @@ export function useBaseQuizFormItems(
   const addQuestion = () => {
     setItems((prev) => {
       if (prev.length >= (config.maxQuestions as number)) return prev;
-      const next = clampQuestions([
-        ...prev,
-        makeMcDraft(cfg?.initialNumMCOptions),
-      ]);
+
+      const next = clampQuestions([...prev, makeInitialMcDraft()]);
       setCurrentIndex(next.length - 1);
       return next;
     });
@@ -249,13 +251,11 @@ export function useBaseQuizFormItems(
   const replaceItems = React.useCallback(
     (next: BaseFormItemDraft[]) => {
       setItems(
-        clampQuestions(
-          next && next.length ? next : [makeMcDraft(config.initialNumMCOptions)]
-        )
+        clampQuestions(next && next.length ? next : [makeInitialMcDraft()])
       );
       setCurrentIndex(0);
     },
-    [clampQuestions]
+    [clampQuestions, makeInitialMcDraft]
   );
 
   return {
@@ -273,7 +273,7 @@ export function useBaseQuizFormItems(
 
     setText,
     setTime,
-    setImageMeta, // <— export this one
+    setImageMeta,
 
     switchToOpen,
     switchToMc,
@@ -289,7 +289,6 @@ export function useBaseQuizFormItems(
     setOpenAnswerText,
     toggleAnswerCaseSensitive,
 
-    // constraints utility — call from forms that need it (e.g., Rapid)
     ensureMcConstraints,
   };
 }

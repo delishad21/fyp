@@ -6,7 +6,6 @@ import classRoutes from "./routes/class-routes";
 import scheduleRoutes from "./routes/schedule-routes";
 import classStudentRoutes from "./routes/class-student-routes";
 import imageRoutes from "./routes/image-routes";
-import quizEventRoutes from "./routes/quiz-events-routes";
 import helperRoutes from "./routes/helper-routes";
 import studentsRoutes from "./routes/student-routes";
 
@@ -21,14 +20,13 @@ app.use(cors());
 
 /**
  * Route mounts (prefix → router)
- * - /internal/quiz-events  → quizEventRoutes (mounted at root)
- * - /classes               → classRoutes, studentRoutes, scheduleRoutes
- * - /helper                → helperRoutes (S2S helpers)
- * - /uploads               → static files
- * - /upload                → imageRoutes (mounted at "/")
+ * - /classes   -> classRoutes, classStudentRoutes, scheduleRoutes
+ * - /helper    -> helperRoutes (S2S helpers)
+ * - /students  -> studentsRoutes (standalone student roster helpers)
+ * - /uploads   -> static files (served from ./uploads)
+ * - /          -> imageRoutes (defines its own /upload... paths internally)
  */
 
-app.use(quizEventRoutes);
 app.use("/classes", classRoutes);
 app.use("/classes", classStudentRoutes);
 app.use("/classes", scheduleRoutes);

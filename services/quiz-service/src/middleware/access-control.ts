@@ -3,7 +3,6 @@ import { QuizBaseModel, BaseQuizLean } from "../model/quiz-base-model";
 import { AttemptModel } from "../model/quiz-attempt-model";
 import { Types } from "mongoose";
 import {
-  checkTeacherOfClass,
   checkTeacherOfSchedule,
   checkTeacherOfStudent,
 } from "../utils/class-svc-client";
@@ -128,6 +127,7 @@ export async function verifyAccessToken(
   // Step 1: require Authorization header
   const authorization = req.headers["authorization"];
   if (!authorization) {
+    console.log("[verifyAccessToken] missing authorization header");
     return res.status(401).json({ message: "Authentication failed" });
   }
 
@@ -137,6 +137,7 @@ export async function verifyAccessToken(
     req.user = user;
     return next();
   } catch (e: any) {
+    console.error("[verifyAccessToken] verification error", e);
     const status = typeof e?.status === "number" ? e.status : 401;
     return res
       .status(status)
@@ -158,6 +159,24 @@ export function verifyIsAdmin(
   if (!user)
     return res.status(401).json({ message: "Authentication required" });
   if (user.isAdmin) return next();
+  return res
+    .status(403)
+    .json({ message: "Not authorized to access this resource" });
+}
+
+/**
+ * Middleware: verifyIsTeacher
+ * Allows teachers and admins only
+ */
+export function verifyIsTeacher(
+  req: CustomRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const user = req.user;
+  if (!user)
+    return res.status(401).json({ message: "Authentication required" });
+  if (user.isAdmin || user.role === "teacher") return next();
   return res
     .status(403)
     .json({ message: "Not authorized to access this resource" });
@@ -223,9 +242,13 @@ export function makeVerifyOwnerOrAdmin(
  * Resolves quiz owner by :id and allows owner or admin
  */
 export const verifyQuizOwnerOrAdmin = makeVerifyOwnerOrAdmin(async (req) => {
-  const id = req.params.id;
-  if (!id) return null;
-  const doc = await QuizBaseModel.findById(id)
+  console.log(
+    "[verifyQuizOwnerOrAdmin] resolving owner for quiz",
+    req.params.id
+  );
+  const rootQuizId = req.params.id;
+  if (!rootQuizId) return null;
+  const doc = await QuizBaseModel.findOne({ rootQuizId })
     .select("owner")
     .lean<BaseQuizLean>();
   return doc ? String(doc.owner) : null;
@@ -236,7 +259,6 @@ export const verifyQuizOwnerOrAdmin = makeVerifyOwnerOrAdmin(async (req) => {
  * Allows: attempt owner (student), class teacher who owns the *schedule* (via class-svc), or admin.
  * Expects :attemptId param and verifyAccessToken already applied.
  */
-
 export async function verifyAttemptOwnerOrPrivileged(
   req: CustomRequest,
   res: Response,
@@ -375,7 +397,6 @@ export async function verifyTeacherOfStudent(
     if (isAdmin(user)) return next();
 
     try {
-      // ✅ Use the correct helper
       const check = await checkTeacherOfStudent({ userId: user.id, studentId });
       if (check.ok && check.isTeacher) return next();
       return forbid(res);

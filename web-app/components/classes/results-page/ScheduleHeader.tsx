@@ -11,6 +11,7 @@ import {
 
 export default function ScheduleHeader({
   quizName,
+  quizVersion,
   subject,
   subjectColor,
   quizType,
@@ -33,6 +34,7 @@ export default function ScheduleHeader({
   sumMax,
 }: {
   quizName?: string;
+  quizVersion: number;
   subject?: string;
   subjectColor?: string;
   quizType?: string;
@@ -121,6 +123,11 @@ export default function ScheduleHeader({
         >
           {quizType ?? "—"}
         </span>
+
+        {/* Version info */}
+        <div className="text-xs text-[var(--color-text-secondary)]">
+          Version {quizVersion}
+        </div>
       </div>
 
       {/* RIGHT: KPIs top-right, schedule window bottom-right */}

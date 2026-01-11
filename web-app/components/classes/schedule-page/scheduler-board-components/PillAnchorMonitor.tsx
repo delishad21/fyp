@@ -1,8 +1,7 @@
 import {
   findDayFromPoint,
-  ymdToLocalDate,
-  dateToLocalYMD,
-  diffLocalDays,
+  diffDayKeys,
+  dayKeyFromDateInTZ,
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
 import { DragData, ScheduleItem } from "@/services/class/types/class-types";
 import { useDndMonitor } from "@dnd-kit/core";
@@ -10,9 +9,11 @@ import { useDndMonitor } from "@dnd-kit/core";
 /** Capture "which internal day was grabbed" to preserve span while moving */
 export function PillAnchorMonitor({
   schedule,
+  classTimezone,
   setOffsetDays,
 }: {
   schedule: ScheduleItem[];
+  classTimezone: string;
   setOffsetDays: (n: number) => void;
 }) {
   useDndMonitor({
@@ -45,11 +46,11 @@ export function PillAnchorMonitor({
       if (cx != null && cy != null && currentItem) {
         const grabbedYMD = findDayFromPoint(cx, cy);
         if (grabbedYMD) {
-          const grabbedDay = ymdToLocalDate(grabbedYMD);
-          const startDay = ymdToLocalDate(
-            dateToLocalYMD(new Date(currentItem.startDate))
+          const startDayKey = dayKeyFromDateInTZ(
+            new Date(currentItem.startDate),
+            classTimezone
           );
-          setOffsetDays(diffLocalDays(grabbedDay, startDay));
+          setOffsetDays(diffDayKeys(grabbedYMD, startDayKey));
           return;
         }
       }

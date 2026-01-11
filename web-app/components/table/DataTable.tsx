@@ -1,8 +1,7 @@
-// components/table/DataTable.tsx
 "use client";
 
 import { useMemo, useEffect, useCallback, useState } from "react";
-import CardTable from "./CardTable";
+import CardTable, { DragConfig } from "./CardTable";
 import Filters, { FiltersValue } from "./Filters";
 import Pagination from "./Pagination";
 import type {
@@ -21,9 +20,13 @@ export default function DataTable({
   initial,
   onQuery,
   onEdit,
+  onView,
+  onDuplicate,
   onDelete,
   draggable = false,
   editable = true,
+  dragConfig,
+  renderEmpty,
 }: {
   columns: ColumnDef[];
   initial: InitialPayload;
@@ -34,9 +37,13 @@ export default function DataTable({
     total: number;
   }>;
   onEdit?: (row: RowData) => Promise<void> | void;
+  onView?: (row: RowData) => Promise<void> | void;
+  onDuplicate?: (row: RowData) => Promise<void> | void;
   onDelete?: (row: RowData) => Promise<{ ok: boolean; message?: string }>;
   draggable?: boolean;
   editable?: boolean;
+  dragConfig?: DragConfig;
+  renderEmpty?: () => React.ReactNode;
 }) {
   const filters = useTableFilters({
     name: initial.query.name,
@@ -197,14 +204,21 @@ export default function DataTable({
       </div>
 
       <div className="relative">
-        <CardTable
-          columns={columns}
-          rows={data.rows}
-          onEdit={editable ? onEdit : undefined}
-          // 👇 intercept deletion with our confirmation modal
-          onDelete={editable ? requestDelete : undefined}
-          draggable={draggable}
-        />
+        {data.rows.length === 0 && !isPending ? (
+          renderEmpty?.()
+        ) : (
+          <CardTable
+            columns={columns}
+            rows={data.rows}
+            onView={editable ? onView : undefined}
+            onEdit={editable ? onEdit : undefined}
+            onDuplicate={editable ? onDuplicate : undefined}
+            onDelete={editable ? requestDelete : undefined}
+            draggable={draggable}
+            dragConfig={dragConfig}
+          />
+        )}
+
         {isPending && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
             <span className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />

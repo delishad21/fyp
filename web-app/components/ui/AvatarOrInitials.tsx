@@ -1,8 +1,5 @@
 "use client";
-// components/ui/AvatarOrInitials.tsx
-/* eslint-disable @next/next/no-img-element */
 
-// utils/name-initials.ts
 export function nameInitials(fullName?: string) {
   if (!fullName) return "?";
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -60,7 +57,7 @@ export default function AvatarOrInitials({
           />
           {/* fallback (hidden until error) */}
           <div
-            className="hidden items-center justify-center rounded-full bg-[var(--color-bg3)] text-white font-semibold select-none"
+            className="hidden items-center justify-center rounded-full bg-[var(--color-bg3)] text-[var(--color-text-primary)] font-semibold select-none"
             style={{ width: "100%", height: "100%" }}
           >
             <span className="text-lg">{initials}</span>
@@ -68,7 +65,7 @@ export default function AvatarOrInitials({
         </>
       ) : (
         <div
-          className="flex items-center justify-center rounded-full bg-[var(--color-bg3)] text-white font-semibold select-none"
+          className="flex items-center justify-center rounded-full bg-[var(--color-bg3)] text-[var(--color-text-primary)] font-semibold select-none"
           style={{ width: "100%", height: "100%" }}
         >
           <span className="text-lg">{initials}</span>

@@ -2,6 +2,7 @@ import OverviewScheduleClient from "@/components/classes/overview-page/schedule/
 import TopLeaders from "@/components/classes/overview-page/podium/TopLeaders";
 import { getClassSchedule } from "@/services/class/actions/class-schedule-actions";
 import { getTopStudentsAction } from "@/services/class/actions/get-top-students-action";
+import { getClass } from "@/services/class/actions/class-actions";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -11,7 +12,8 @@ export default async function OverviewPage({ params }: PageProps) {
   const { id: classId } = await params;
 
   // Fetch data in parallel
-  const [schedRes, topRes] = await Promise.all([
+  const [cls, schedRes, topRes] = await Promise.all([
+    getClass(classId),
     getClassSchedule(classId),
     getTopStudentsAction(classId, { limit: 3 }),
   ]);
@@ -19,8 +21,7 @@ export default async function OverviewPage({ params }: PageProps) {
   const initialSchedule = schedRes?.ok ? schedRes.data ?? [] : [];
   const leaders = topRes?.ok ? topRes.data : null;
 
-  // TODO: replace with real per-class timezone from your class doc
-  const classTimezone = "Asia/Singapore";
+  const classTimezone = cls?.ok ? cls.data.timezone : "UTC";
 
   return (
     <div className="space-y-6 p-4">

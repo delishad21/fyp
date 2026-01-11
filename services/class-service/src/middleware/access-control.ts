@@ -74,6 +74,7 @@ async function verifyWithUserService(
     };
 
     if (!data?.id || !data?.role) {
+      console.error("Invalid user-svc /auth/me response data", data);
       const err: any = new Error("Authentication failed");
       err.status = 401;
       throw err;
@@ -91,6 +92,7 @@ async function verifyWithUserService(
 
     return verified;
   } catch (e: any) {
+    console.error("Error verifying with user-svc", e);
     if (e?.name === "AbortError") {
       const err: any = new Error("Auth service timeout");
       err.status = 503;
@@ -234,7 +236,6 @@ export async function verifyTeacherOfStudent(
     if (!studentId)
       return res.status(400).json({ ok: false, message: "Missing studentId" });
 
-    // ✅ Admin bypass
     if (viewer.isAdmin || viewer.role === "admin") return next();
 
     const ok = await isTeacherOfStudent(String(viewerId), String(studentId));
@@ -268,7 +269,6 @@ export async function verifyTeacherOfStudentOrSelf(
     if (!studentId)
       return res.status(400).json({ ok: false, message: "Missing studentId" });
 
-    // ✅ Admin bypass
     if (viewer.isAdmin || viewer.role === "admin") return next();
 
     // Self

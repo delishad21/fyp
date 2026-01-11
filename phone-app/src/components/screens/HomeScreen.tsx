@@ -6,8 +6,8 @@ import {
 } from "@/src/api/class-service";
 import { useSession } from "@/src/auth/session";
 import { useTheme } from "@/src/theme";
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -61,9 +61,12 @@ export default function HomeScreen() {
     }
   }, [token]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+      return () => {};
+    }, [load])
+  );
 
   // Pull-to-refresh handler (uses same loader)
   const onRefresh = useCallback(async () => {
@@ -99,10 +102,9 @@ export default function HomeScreen() {
         bottomColor={colors.bg3}
       />
 
-      {/* One scroll container for the whole page with pull-to-refresh */}
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top,
+          paddingTop: insets.top + 16,
           paddingBottom: insets.bottom + 24,
         }}
         keyboardShouldPersistTaps="handled"
@@ -110,8 +112,8 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary} // iOS spinner color
-            colors={[colors.primary]} // Android spinner colors
+            tintColor={colors.primary}
+            colors={[colors.primary]}
             progressBackgroundColor={colors.bg2}
           />
         }
@@ -126,31 +128,48 @@ export default function HomeScreen() {
               >
                 Hi, {displayName.split(" ")[0]}
               </Text>
+              <Text
+                numberOfLines={1}
+                style={[styles.subHi, { color: colors.textSecondary }]}
+              >
+                Ready for today's practice?
+              </Text>
             </View>
+
             <AvatarOrInitials
               uri={profile?.photoUrl}
               name={displayName}
-              size={40}
+              size={44}
               bgFallback={colors.bg3}
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor={colors.bg4}
             />
           </View>
 
-          {/* Streak Card—its midpoint sets the split line */}
+          {/* Streak Card */}
           <View
-            style={[styles.streakCard, { backgroundColor: colors.bg4 }]}
+            style={[
+              styles.streakCard,
+              {
+                backgroundColor: colors.bg2,
+                borderColor: colors.bg4,
+                shadowColor: "#000",
+              },
+            ]}
             onLayout={(e) => {
               const { y, height } = e.nativeEvent.layout;
               setSplitY(Math.max(0, Math.round(insets.top + y + height / 2)));
             }}
           >
             <Text style={[styles.streakTitle, { color: colors.textPrimary }]}>
-              🔥 Weekly Streak Progress
+              🔥 Weekly Streak
             </Text>
             <Text
-              style={[styles.streakSubtitle, { color: colors.textPrimary }]}
+              style={[styles.streakSubtitle, { color: colors.textSecondary }]}
             >
               {streakDays} {streakDays === 1 ? "Day" : "Days"} • {streakMsg}
             </Text>
+
             <View
               style={[styles.progressTrack, { backgroundColor: colors.bg3 }]}
             >
@@ -167,10 +186,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* BOTTOM content (cards) */}
+        {/* BOTTOM content */}
         <View style={styles.bottomArea}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Today’s Quizzes
+            Today's Quizzes
           </Text>
 
           {loading ? (
@@ -179,13 +198,15 @@ export default function HomeScreen() {
             </View>
           ) : error ? (
             <View style={styles.center}>
-              <Text style={{ color: colors.error }}>{error}</Text>
+              <Text style={[styles.messageText, { color: colors.error }]}>
+                {error}
+              </Text>
             </View>
           ) : (
             <FlatList
               data={attemptables || []}
               keyExtractor={(item) => item.scheduleId}
-              scrollEnabled={false} // outer ScrollView controls the scroll
+              scrollEnabled={false}
               contentContainerStyle={{
                 paddingBottom: 0,
                 paddingHorizontal: 16,
@@ -197,7 +218,7 @@ export default function HomeScreen() {
                   colorHex={item.subjectColor || colors.primary}
                   endDateISO={item.endDate}
                   onPress={() => {
-                    router.push({
+                    router.navigate({
                       pathname: "/(main)/quiz/[quizId]/start",
                       params: {
                         quizId: item.quizId,
@@ -212,9 +233,19 @@ export default function HomeScreen() {
                 />
               )}
               ListEmptyComponent={
-                <View style={styles.center}>
-                  <Text style={{ color: colors.textSecondary }}>
-                    No quizzes available right now.
+                <View style={styles.emptyWrap}>
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.textPrimary }]}
+                  >
+                    Nothing scheduled right now
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptySubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Check back later, or ask your teacher to assign a quiz.
                   </Text>
                 </View>
               }
@@ -226,7 +257,6 @@ export default function HomeScreen() {
   );
 }
 
-// ------- styles (kept local to the screen) -------
 const getStyles = (colors: any) =>
   StyleSheet.create({
     topArea: {
@@ -243,21 +273,46 @@ const getStyles = (colors: any) =>
       justifyContent: "space-between",
       marginBottom: 12,
     },
-    hi: { fontSize: 24, fontWeight: "700" },
+
+    hi: { fontSize: 28, fontWeight: "900" },
+    subHi: { fontSize: 18, fontWeight: "700", marginTop: 2 },
+
     streakCard: {
-      borderRadius: 12,
-      padding: 14,
+      borderRadius: 5,
+      padding: 16,
       marginBottom: 4,
+      borderWidth: StyleSheet.hairlineWidth,
+
+      // subtle shadow
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 2,
     },
-    streakTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
-    streakSubtitle: { fontSize: 13, marginBottom: 10, fontWeight: "600" },
-    progressTrack: { height: 8, borderRadius: 8, overflow: "hidden" },
-    progressFill: { height: "100%", borderRadius: 8 },
+
+    streakTitle: { fontSize: 21, fontWeight: "900", marginBottom: 4 },
+    streakSubtitle: { fontSize: 18, marginBottom: 12, fontWeight: "700" },
+
+    progressTrack: { height: 10, borderRadius: 10, overflow: "hidden" },
+    progressFill: { height: "100%", borderRadius: 10 },
+
     sectionTitle: {
-      fontSize: 18,
-      fontWeight: "700",
+      fontSize: 29,
+      fontWeight: "900",
       marginBottom: 10,
       paddingHorizontal: 16,
     },
-    center: { alignItems: "center", justifyContent: "center", minHeight: 120 },
+
+    center: { alignItems: "center", justifyContent: "center", minHeight: 140 },
+    messageText: { fontSize: 15, fontWeight: "700" },
+
+    emptyWrap: {
+      borderRadius: 5,
+      padding: 16,
+      backgroundColor: colors.bg2,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.bg4,
+    },
+    emptyTitle: { fontSize: 21, fontWeight: "900", marginBottom: 6 },
+    emptySubtitle: { fontSize: 18, fontWeight: "700", lineHeight: 21 },
   });

@@ -59,7 +59,7 @@ export function MultiSelectTrigger({
       <button
         type="button"
         onClick={onToggle}
-        className={`flex h-10 min-w-40 ${FilterTriggerStyles}`}
+        className={`flex h-11 min-w-40 ${FilterTriggerStyles}`}
       >
         <MultiSelectSummary
           options={options}
@@ -68,7 +68,7 @@ export function MultiSelectTrigger({
         />
         <span className="flex items-center gap-2">
           {loading && (
-            <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+            <span className="inline-flex h-4 w-4 animate-spin rounded-full border border-[var(--color-primary)] border-t-transparent" />
           )}
           <Icon
             icon={open ? "mingcute:up-line" : "mingcute:down-line"}

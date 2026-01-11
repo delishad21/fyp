@@ -1,4 +1,3 @@
-// components/classes/scheduler/PillsGrid.tsx
 import {
   LaneItem,
   RESIZE_SPRING,
@@ -20,6 +19,7 @@ export const PillsGrid = memo(function PillsGrid({
   draggingUid,
   onEditRequest,
   readOnly = false,
+  classTimezone,
 }: {
   lanes: LaneItem[];
   laneCountVisible: number;
@@ -31,6 +31,7 @@ export const PillsGrid = memo(function PillsGrid({
   draggingUid?: string;
   onEditRequest?: (clientId: string) => void;
   readOnly?: boolean;
+  classTimezone: string;
 }) {
   const suppress = Boolean(isSliding || isSettling);
 
@@ -68,6 +69,7 @@ export const PillsGrid = memo(function PillsGrid({
               suppressLayoutId ? suppressLayoutId === it.clientId : false
             }
             onEditRequest={onEditRequest}
+            classTimezone={classTimezone}
           />
         )
       )}

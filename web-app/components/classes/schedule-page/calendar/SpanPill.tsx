@@ -1,10 +1,11 @@
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { memo, useRef, useEffect } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   LaneItem,
   RESIZE_SPRING,
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
+import ScheduleItemHoverCard from "./ScheduleItemHoverCard";
 
 export const SpanPill = memo(function SpanPill({
   item,
@@ -14,6 +15,7 @@ export const SpanPill = memo(function SpanPill({
   suppressLayoutId,
   isSettling,
   onEditRequest,
+  classTimezone,
 }: {
   item: LaneItem;
   isDragging?: boolean;
@@ -22,6 +24,7 @@ export const SpanPill = memo(function SpanPill({
   suppressLayoutId?: boolean;
   isSettling: boolean;
   onEditRequest?: (clientId: string) => void;
+  classTimezone: string;
 }) {
   const body = useDraggable({
     id: `pill-${item.clientId}`, // unique per instance
@@ -66,6 +69,11 @@ export const SpanPill = memo(function SpanPill({
 
   const gridColumn = `${item.colStart} / ${item.colEnd + 1}`;
   const gridRow = `${item.lane + 1} / ${item.lane + 2}`;
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const [hoverPos, setHoverPos] = useState<{ top: number; left: number } | null>(
+    null
+  );
 
   // Avoid suppressing layout on initial mount
   const didMountRef = useRef(false);
@@ -74,7 +82,8 @@ export const SpanPill = memo(function SpanPill({
   }, []);
 
   const shouldSuppressNow = didMountRef.current
-    ? (isSliding || isSettling || suppressLayoutId || isDragging) && !isResizing
+    ? isSliding ||
+      ((isSettling || suppressLayoutId || isDragging) && !isResizing)
     : false;
 
   const layoutAnimationProps = shouldSuppressNow
@@ -83,7 +92,11 @@ export const SpanPill = memo(function SpanPill({
 
   const layoutTextAnimationProps = shouldSuppressNow
     ? { layout: false }
-    : { layout: true, layoutId: `pill-text-${item.clientId}` };
+    : {
+        layout: "position" as const,
+        layoutId: `pill-text-${item.clientId}`,
+        transition: { duration: 0.1 },
+      };
 
   return (
     <motion.div
@@ -98,9 +111,16 @@ export const SpanPill = memo(function SpanPill({
       }}
       className="relative"
       style={{ gridColumn, gridRow, pointerEvents: "auto" }}
+      onMouseLeave={() => {
+        setHoverOpen(false);
+        setHoverPos(null);
+      }}
     >
       <div
-        ref={body.setNodeRef}
+        ref={(el) => {
+          anchorRef.current = el;
+          body.setNodeRef(el);
+        }}
         {...body.listeners}
         {...body.attributes}
         className={[
@@ -117,6 +137,15 @@ export const SpanPill = memo(function SpanPill({
         onContextMenu={(e) => {
           e.preventDefault();
           onEditRequest?.(item.clientId);
+        }}
+        onMouseEnter={(e) => {
+          if (body.isDragging || isResizing) return;
+          setHoverPos({ top: e.clientY + 12, left: e.clientX + 12 });
+          setHoverOpen(true);
+        }}
+        onMouseMove={(e) => {
+          if (!hoverOpen) return;
+          setHoverPos({ top: e.clientY + 12, left: e.clientX + 12 });
         }}
         title="Right-click to edit"
         style={{
@@ -143,6 +172,14 @@ export const SpanPill = memo(function SpanPill({
           </div>
         </motion.div>
       </div>
+      {!isDragging && !isResizing && hoverOpen && (
+        <ScheduleItemHoverCard
+          open={hoverOpen}
+          item={item}
+          classTimezone={classTimezone}
+          position={hoverPos}
+        />
+      )}
 
       {/* LEFT HANDLE (resize) */}
       {!item.clippedLeft && (

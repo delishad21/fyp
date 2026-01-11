@@ -1,4 +1,3 @@
-// components/common/WarningModal.tsx
 "use client";
 
 import Button from "@/components/ui/buttons/Button";

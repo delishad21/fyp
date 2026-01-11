@@ -32,7 +32,7 @@ const router = Router();
  */
 
 /** POST /attempt/spec/:quizId — Build render-safe attempt spec (eligibility-checked) */
-router.post("/spec/:quizId", verifyAccessToken, postAttemptSpec);
+router.post("/spec", verifyAccessToken, verifyStudentOnly, postAttemptSpec);
 
 /** POST /attempt — Start attempt (student only), writes snapshot */
 router.post("/", verifyAccessToken, verifyStudentOnly, startAttempt);

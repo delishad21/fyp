@@ -1,4 +1,3 @@
-// components/ui/date/DateField.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -21,12 +20,16 @@ function toYMD(d: Date) {
 }
 function parseYMD(s?: string) {
   if (!s) return undefined;
-  const d = new Date(s);
+  const [y, m, day] = s.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day))
+    return undefined;
+  const d = new Date(y, m - 1, day, 0, 0, 0, 0);
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 function fmtShort(s?: string) {
   if (!s) return "";
-  const d = new Date(s);
+  const d = parseYMD(s);
+  if (!d) return s;
   return d.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -165,12 +168,13 @@ export default function DateField({
   const maxDate = parseYMD(toDate);
 
   const triggerBase =
-    "flex h-10 min-w-[220px] items-center justify-between rounded-lg px-3 " +
-    "border bg-[var(--color-bg2)] text-[var(--color-text-primary)] " +
-    "hover:bg-[var(--color-bg2)]/70 focus:outline-none focus-visible:ring-2";
+    "flex h-11 min-w-[220px] items-center justify-between rounded-md px-3 " +
+    "border border-[var(--color-bg4)] bg-[var(--color-bg2)] " +
+    "text-[var(--color-text-primary)] text-sm leading-none " +
+    "hover:bg-[var(--color-bg2)] focus:outline-none focus:ring-2";
   const triggerBorder = errors.length
-    ? "border-[var(--color-error)] focus-visible:ring-[var(--color-error)]"
-    : "border-[var(--color-bg4)] focus-visible:ring-[var(--color-primary)]";
+    ? "border-[var(--color-error)] focus:ring-[var(--color-error)]"
+    : "border-[var(--color-bg4)] focus:ring-[var(--color-primary)]";
 
   const triggerDisabled = disabled ? "opacity-60 cursor-not-allowed" : "";
 
@@ -181,7 +185,7 @@ export default function DateField({
   return (
     <div ref={rootRef} className={`relative grid gap-1.5 ${className ?? ""}`}>
       {label && (
-        <label className="text-sm text-[var(--color-text-primary)]">
+        <label className="text-xs text-[var(--color-text-secondary)]">
           {label}
         </label>
       )}

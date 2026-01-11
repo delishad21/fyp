@@ -4,7 +4,6 @@ import {
   type RapidRenderSpec,
 } from "@/src/api/quiz-service";
 import { AwardPill } from "@/src/components/ui/AwardPill";
-import { Chip } from "@/src/components/ui/Chip";
 import { OptionRow } from "@/src/components/ui/OptionRow";
 import { useTheme } from "@/src/theme";
 import React, { useMemo } from "react";
@@ -78,27 +77,13 @@ export default function RapidAttemptViewer({ doc }: { doc: AttemptDoc }) {
                     : colors.error
                   : colors.bg3,
                 borderWidth: StyleSheet.hairlineWidth,
+                shadowColor: "#000",
               },
             ]}
           >
             {/* Header row: left = time + image + question; right = awarded pill */}
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  <Chip
-                    text={`${it.timeLimit ?? 0}s`}
-                    bg={colors.bg3}
-                    fg={colors.textPrimary}
-                  />
-                </View>
-
                 {it.image?.url ? (
                   <View style={{ marginBottom: 8 }}>
                     <Image
@@ -155,13 +140,21 @@ export default function RapidAttemptViewer({ doc }: { doc: AttemptDoc }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 12, padding: 12 },
+  card: {
+    borderRadius: 10,
+    padding: 14,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+    gap: 2,
+  },
   cardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  itemQ: { fontSize: 15, fontWeight: "800" },
+  itemQ: { fontSize: 16, fontWeight: "800" },
   image: {
     width: "100%",
-    height: 180,
+    height: 170,
     borderRadius: 8,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#d9d9d9",
   },
 });

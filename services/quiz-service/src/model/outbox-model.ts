@@ -2,7 +2,7 @@ import { Schema, model, models } from "mongoose";
 
 /**
  * @model  OutboxEvent
- * @purpose Durable outbox for S2S events to the Class service.
+ * @purpose Durable outbox for events published to kafka
  * @notes  Event `_id` is the eventId (uuid) to guarantee idempotency/dedupe.
  */
 
@@ -10,11 +10,11 @@ export type OutboxStatus = "pending" | "publishing" | "published" | "dead";
 
 export type OutboxEventType =
   | "AttemptFinalized"
-  | "AttemptEdited"
   | "AttemptInvalidated"
   | "QuizDeleted"
-  | "QuizContentReset"
-  | "QuizMetaUpdated";
+  | "QuizVersionUpdated"
+  | "QuizMetaUpdated"
+  | "ScheduleUpdated";
 
 export interface IOutboxEvent {
   _id: string; // eventId (uuid)

@@ -17,7 +17,8 @@ function toSearchParams(q: Query) {
 }
 
 export type QuizLite = {
-  id: string;
+  id: string; // rootQuizId (logical id)
+  version?: number; // latest version for that root
   title: string;
   subject?: string;
   subjectColorHex?: string;
@@ -27,16 +28,17 @@ export type QuizLite = {
 };
 
 function toRowData(doc: any): RowData {
-  const id = String(doc._id);
+  const id = String(doc.rootQuizId);
 
   const subjectColorHex =
     typeof doc.subjectColorHex === "string" ? doc.subjectColorHex : undefined;
 
   const payload: QuizLite = {
     id,
+    version: Number(doc.version ?? 1),
     title: doc.name ?? "",
     subject: doc.subject ?? "",
-    subjectColorHex: subjectColorHex,
+    subjectColorHex,
     topic: doc.topic ?? "",
     type: String(doc.quizType ?? ""),
     createdAt: doc.createdAt,
@@ -52,9 +54,9 @@ function toRowData(doc: any): RowData {
           text: doc.subject ?? "",
           dotColor: subjectColorHex,
         },
-      }, // Subject
-      { variant: "normal", data: { text: doc.topic ?? "" } }, // Topic
-      { variant: "date", data: { iso: doc.createdAt } }, // Created
+      },
+      { variant: "normal", data: { text: doc.topic ?? "" } },
+      { variant: "date", data: { iso: doc.createdAt } },
       {
         variant: "tags",
         data: {

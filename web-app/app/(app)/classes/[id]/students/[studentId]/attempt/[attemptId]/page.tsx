@@ -1,7 +1,10 @@
 import AttemptHeader from "@/components/classes/attempt-page/AttemptHeader";
 import BasicOrRapidAttempt from "@/components/classes/attempt-page/BasicOrRapidAttempt";
 import CrosswordAttempt from "@/components/classes/attempt-page/CrosswordAttempt";
-import { getQuizAttempt } from "@/services/quiz/actions/get-quiz-attempt";
+import {
+  getQuizAttempt,
+  type QuizAttemptDto,
+} from "@/services/quiz/actions/get-quiz-attempt";
 import {
   getAttemptsForScheduleByStudent,
   getStudentInClass,
@@ -17,9 +20,9 @@ export default async function AttemptPage({
 
   // Current attempt
   const resp = await getQuizAttempt(attemptId);
-  console.log("AttemptPage: got attempt", resp);
   if (!resp?.ok || !resp.data) return notFound();
-  const attempt = resp.data;
+
+  const attempt = resp.data as QuizAttemptDto;
 
   // Guard ownership
   if (
@@ -58,7 +61,11 @@ export default async function AttemptPage({
     ? studentRes.data?.stats?.canonicalBySchedule?.[scheduleId]?.attemptId
     : undefined;
 
-  const type = attempt?.quizVersionSnapshot?.quizType;
+  // Prefer live quiz meta for quizType; fall back to snapshot if needed
+  const type =
+    attempt.quiz?.quizType ??
+    (attempt.quizVersionSnapshot as any)?.quizType ??
+    null;
 
   return (
     <div className="mx-auto space-y-2 p-2">
@@ -71,13 +78,13 @@ export default async function AttemptPage({
       />
 
       <div className="h-2 p-6">
-        {type === "basic" && <BasicOrRapidAttempt attempt={attempt} />}
-        {type === "rapid" && <BasicOrRapidAttempt attempt={attempt} />}
-        {type === "crossword" && <CrosswordAttempt attempt={attempt} />}
+        {type === "basic" && <BasicOrRapidAttempt attempt={attempt as any} />}
+        {type === "rapid" && <BasicOrRapidAttempt attempt={attempt as any} />}
+        {type === "crossword" && <CrosswordAttempt attempt={attempt as any} />}
 
         {type !== "basic" && type !== "rapid" && type !== "crossword" && (
           <div className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg3)] p-4 text-[var(--color-text-primary)]">
-            This quiz type isn't supported for viewing yet.
+            This quiz type isn&apos;t supported for viewing yet.
           </div>
         )}
       </div>

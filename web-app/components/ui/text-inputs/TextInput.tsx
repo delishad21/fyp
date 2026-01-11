@@ -9,6 +9,7 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> & {
   readOnly?: boolean;
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
   onValueChange?: (value: string) => void;
+  description?: string;
 };
 
 export default function TextInput({
@@ -19,6 +20,7 @@ export default function TextInput({
   onChange,
   onValueChange,
   className,
+  description,
   ...rest
 }: Props) {
   const errors = Array.isArray(error) ? error : error ? [error] : [];
@@ -33,7 +35,7 @@ export default function TextInput({
       {label && (
         <label
           htmlFor={id}
-          className="text-sm text-[var(--color-text-primary)]"
+          className="text-xs text-[var(--color-text-secondary)]"
         >
           {label}
         </label>
@@ -42,14 +44,16 @@ export default function TextInput({
         id={id}
         onChange={handleChange}
         readOnly={readOnly}
-        className={`rounded-sm bg-[var(--color-bg2)] px-4 py-3 text-[var(--color-text-primary)]
-             outline-2 outline-[var(--color-bg4)] text-sm
-             focus:outline-2 focus:outline-[var(--color-primary)]
-             ${
-               readOnly
-                 ? "cursor-not-allowed text-[var(--color-text-secondary)]"
-                 : ""
-             } ${className}`}
+        className={[
+          "h-11 w-full rounded-md border border-[var(--color-bg4)]",
+          "bg-[var(--color-bg2)] px-3 text-sm text-[var(--color-text-primary)]",
+          "placeholder:text-[var(--color-text-tertiary)]",
+          "hover:bg-[var(--color-bg2)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]",
+          readOnly
+            ? "cursor-not-allowed text-[var(--color-text-secondary)]"
+            : "",
+          className || "",
+        ].join(" ")}
         {...rest}
       />
 

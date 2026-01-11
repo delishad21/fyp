@@ -125,6 +125,11 @@ export default function AccountSettingsForm({
   >();
   const [emailError, setEmailError] = useState<string | string[] | undefined>();
 
+  // loading states
+  const [savingName, setSavingName] = useState(false);
+  const [savingHonorific, setSavingHonorific] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+
   // unlock (password verification) flow
   const unlock = useUnlockFlow({
     onVerified: (target) => {
@@ -160,6 +165,7 @@ export default function AccountSettingsForm({
     onConfirmed: (newEmail) => {
       setOrigEmail(newEmail || email.trim());
       setEmailUnlocked(false);
+      setSavingEmail(false);
     },
     onErrorToast: (msg) =>
       showToast({
@@ -184,6 +190,7 @@ export default function AccountSettingsForm({
   // save handlers
 
   async function saveName() {
+    setSavingName(true);
     setNameError(undefined);
     const trimmed = name.trim();
     if (!trimmed) {
@@ -195,10 +202,12 @@ export default function AccountSettingsForm({
       setNameError(
         res.fieldErrors?.name || res.error || "Failed to update name."
       );
+      setSavingName(false);
       return;
     }
     setOrigName(res.data?.name ?? trimmed);
     setNameUnlocked(false);
+    setSavingName(false);
     showToast({
       variant: "success",
       title: "Name updated",
@@ -215,6 +224,7 @@ export default function AccountSettingsForm({
   }
 
   async function saveHonorific() {
+    setSavingHonorific(true);
     setHonorificError(undefined);
     const value = (honorific || "").trim();
     const res = await updateHonorificAction({ honorific: value });
@@ -222,10 +232,12 @@ export default function AccountSettingsForm({
       setHonorificError(
         res.fieldErrors?.honorific || res.error || "Failed to update honorific."
       );
+      setSavingHonorific(false);
       return;
     }
     setOrigHonorific(res.data?.honorific ?? value);
     setHonorificUnlocked(false);
+    setSavingHonorific(false);
     showToast({
       variant: "success",
       title: "Honorific updated",
@@ -242,16 +254,25 @@ export default function AccountSettingsForm({
   }
 
   async function saveEmail() {
+    setSavingEmail(true);
     setEmailError(undefined);
     const trimmed = email.trim();
     if (!trimmed) {
       setEmailError("Email is required.");
+      setSavingEmail(false);
       return;
     }
     // Start email change (opens confirm modal)
     const ok = await emailFlow.start(trimmed);
-    if (!ok.ok) return;
+    if (!ok.ok) {
+      setEmailError(
+        ok.error || "Failed to initiate email change. Please try again."
+      );
+      setSavingEmail(false);
+      return;
+    }
     // Stay unlocked; we lock on confirm success
+    setSavingEmail(false);
   }
 
   function cancelEmail() {
@@ -282,7 +303,7 @@ export default function AccountSettingsForm({
       <EditableField
         label="Honorific"
         locked={!honorificUnlocked}
-        saving={false}
+        saving={savingHonorific}
         error={honorificError}
         onEdit={() => unlock.request("honorific")}
         onSave={saveHonorific}
@@ -294,7 +315,6 @@ export default function AccountSettingsForm({
           onChange={setHonorific}
           options={HONORIFICS}
           disabled={!honorificUnlocked}
-          error={honorificError}
         />
       </EditableField>
 
@@ -302,7 +322,7 @@ export default function AccountSettingsForm({
       <EditableField
         label="Name"
         locked={!nameUnlocked}
-        saving={false}
+        saving={savingName}
         error={nameError}
         onEdit={() => unlock.request("name")}
         onSave={saveName}
@@ -313,7 +333,6 @@ export default function AccountSettingsForm({
           value={name}
           onChange={(e) => setName(e.currentTarget.value)}
           readOnly={!nameUnlocked}
-          error={nameError}
         />
       </EditableField>
 
@@ -321,7 +340,7 @@ export default function AccountSettingsForm({
       <EditableField
         label="Email"
         locked={!emailUnlocked}
-        saving={false}
+        saving={savingEmail}
         error={emailError}
         onEdit={() => unlock.request("email")}
         onSave={saveEmail}
@@ -332,7 +351,6 @@ export default function AccountSettingsForm({
           value={email}
           onChange={(e) => setEmail(e.currentTarget.value)}
           readOnly={!emailUnlocked}
-          error={emailError}
         />
       </EditableField>
 

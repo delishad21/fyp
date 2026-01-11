@@ -6,10 +6,14 @@ import {
 } from "../middleware/access-control";
 import { uploadQuizImages } from "../middleware/uploads";
 import {
+  batchGetCanonicalQuizzesInternal,
   batchGetQuizzesInternal,
+  cloneQuiz,
   createQuiz,
   deleteQuiz,
+  getQuizTypeColors,
   getQuiz,
+  getQuizVersionsInternal,
   listAllQuizzes,
   listMyQuizzes,
   updateQuiz,
@@ -27,6 +31,9 @@ const router = Router();
 
 /** GET /quiz/admin/all — Admin-only listing with filters/pagination */
 router.get("/admin/all", verifyAccessToken, verifyIsAdmin, listAllQuizzes);
+
+/** GET /quiz/type-colors — Static quiz-type colors */
+router.get("/type-colors", verifyAccessToken, getQuizTypeColors);
 
 /** GET /quiz — List my quizzes (owner=auth user) with filters/pagination */
 router.get("/", verifyAccessToken, listMyQuizzes);
@@ -71,7 +78,12 @@ router.patch("/:id", verifyAccessToken, verifyQuizOwnerOrAdmin, updateQuiz);
 /** DELETE /quiz/:id — Delete quiz (owner/admin). Emits QuizDeleted event. */
 router.delete("/:id", verifyAccessToken, verifyQuizOwnerOrAdmin, deleteQuiz);
 
-// New internal route guarded by shared secret
+/** POST /quiz/:id/clone — Duplicate a quiz as a new quiz (version = 1). */
+router.post("/:id/clone", verifyAccessToken, verifyQuizOwnerOrAdmin, cloneQuiz);
+
+// internal routes guarded by shared secret
 router.post("/internal/batch", batchGetQuizzesInternal);
+router.post("/internal/versions", getQuizVersionsInternal);
+router.post("/internal/canonical-batch", batchGetCanonicalQuizzesInternal); // ⬅️ new
 
 export default router;

@@ -1,4 +1,3 @@
-// app/classes/[id]/TabsNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -33,7 +32,7 @@ export default function TabsNav({ id }: { id: string }) {
                 className={[
                   "inline-flex items-center rounded-sm px-3 py-1.5 text-md transition",
                   active
-                    ? "bg-[var(--color-primary)] text-[var(--color-text-primary)]"
+                    ? "bg-[var(--color-primary)] text-white"
                     : "text-[var(--color-text-primary)] hover:bg-[var(--color-bg3)]",
                 ].join(" ")}
               >

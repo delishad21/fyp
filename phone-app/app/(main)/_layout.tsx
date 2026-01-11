@@ -13,7 +13,8 @@ export default function MainLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       {/* Non-tab stacks registered here */}
       <Stack.Screen name="quiz" options={{ headerShown: false }} />
-      <Stack.Screen name="attempt" options={{ headerShown: false }} />
+      <Stack.Screen name="attempt/index" options={{ headerShown: false }} />
+      <Stack.Screen name="change-password" options={{ headerShown: false }} />
     </Stack>
   );
 }

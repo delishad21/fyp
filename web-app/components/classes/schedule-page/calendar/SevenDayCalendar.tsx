@@ -3,28 +3,25 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { motion, useAnimationControls } from "framer-motion";
 
-import { enUS } from "date-fns/locale";
 import DateField from "@/components/ui/selectors/DateField";
 import { PillsGrid } from "./PillsGrid";
 import {
-  ymdToLocalDate,
-  dateToLocalYMD,
-  endOfLocalDate,
-  addLocalDays,
+  addDaysToDayKey,
+  diffDayKeys,
+  formatMonthDayInTZ,
+  formatWeekdayInTZ,
+  dayKeyFromDateInTZ,
   VISIBLE_DAYS,
   BUFFER,
-  diffLocalDays,
   BASE_DAY_MIN,
   ROW_PX,
   ROW_GAP,
-  isoDayUTC,
   TRACK_COLS,
   HEIGHT_SPRING,
   tzDayKey,
   buildLanes,
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
 import { ScheduleItem } from "@/services/class/types/class-types";
-import { format } from "date-fns";
 import { DayCellStatic } from "./DayCellStatic";
 import { DayDroppable } from "./DayDroppable";
 import { DragAutoSlideMonitor } from "./DragAutoSlideMonitor";
@@ -42,6 +39,7 @@ export default function SevenDayCalendar({
   onEditRequest, // right-click callback
   readOnly = false,
   titleComponent, // optional title JSX
+  showGoToDate = true,
 }: {
   schedule: ScheduleItem[];
   previewById?: Record<
@@ -59,25 +57,30 @@ export default function SevenDayCalendar({
   /** If true -> no drag/resize/right-click; no DnD provider required. */
   readOnly?: boolean;
   titleComponent?: React.ReactNode;
+
+  showGoToDate?: boolean;
 }) {
-  // Visible window start (local midnight today)
-  const [start, setStart] = useState<Date>(() => {
-    const ymd = dateToLocalYMD(new Date());
-    return ymdToLocalDate(ymd);
-  });
+  // Visible window start (class-local day key)
+  const [startKey, setStartKey] = useState<string>(() =>
+    dayKeyFromDateInTZ(new Date(), classTimezone)
+  );
+
+  useEffect(() => {
+    setStartKey(dayKeyFromDateInTZ(new Date(), classTimezone));
+  }, [classTimezone]);
 
   // Derived bounds for this render
-  const visibleEnd = useMemo(
-    () => endOfLocalDate(dateToLocalYMD(addLocalDays(start, VISIBLE_DAYS - 1))),
-    [start]
+  const visibleEndKey = useMemo(
+    () => addDaysToDayKey(startKey, VISIBLE_DAYS - 1),
+    [startKey]
   );
-  const trackStart = useMemo(() => addLocalDays(start, -BUFFER), [start]);
-  const trackEnd = useMemo(
-    () =>
-      endOfLocalDate(
-        dateToLocalYMD(addLocalDays(start, VISIBLE_DAYS - 1 + BUFFER))
-      ),
-    [start]
+  const trackStartKey = useMemo(
+    () => addDaysToDayKey(startKey, -BUFFER),
+    [startKey]
+  );
+  const trackEndKey = useMemo(
+    () => addDaysToDayKey(startKey, VISIBLE_DAYS - 1 + BUFFER),
+    [startKey]
   );
 
   // Paging slide animation (Framer)
@@ -104,7 +107,7 @@ export default function SevenDayCalendar({
         transition: { type: "tween", duration: 0.22, ease: [0.2, 0.8, 0.2, 1] },
       });
 
-      setStart((s) => addLocalDays(s, dir));
+      setStartKey((s) => addDaysToDayKey(s, dir));
 
       slideTargetRef.current = BUFFER;
       controls.set({ ["--slide" as any]: BUFFER });
@@ -129,10 +132,6 @@ export default function SevenDayCalendar({
   // Which pill instance (clientId) is currently being dragged, for local fading
   const [draggingUid, setDraggingUid] = useState<string | undefined>(undefined);
 
-  const isOurDragKind = useCallback((k?: string) => {
-    return k === "pill" || k === "pill-resize" || k === "quiz-row";
-  }, []);
-
   // Auto-slide on wheel
   useEffect(() => {
     const el = viewportRef.current;
@@ -154,11 +153,17 @@ export default function SevenDayCalendar({
   // Go to date control (keep animation path intact)
   const onGoToDate = useCallback(
     async (ymd?: string) => {
-      const next = ymd
-        ? ymdToLocalDate(ymd)
-        : ymdToLocalDate(new Date().toISOString().slice(0, 10));
-      const diff = diffLocalDays(next, start);
+      const next = ymd ? ymd : dayKeyFromDateInTZ(new Date(), classTimezone);
+      const diff = diffDayKeys(next, startKey);
       if (diff === 0) return;
+
+      // Manual date pick should jump without slide animation.
+      if (ymd) {
+        setStartKey(next);
+        slideTargetRef.current = BUFFER;
+        controls.set({ ["--slide" as any]: BUFFER });
+        return;
+      }
 
       const steps = Math.min(12, Math.abs(diff));
       const dir: 1 | -1 = diff > 0 ? 1 : -1;
@@ -167,12 +172,12 @@ export default function SevenDayCalendar({
         await slideOnce(dir);
       }
       if (Math.abs(diff) > steps) {
-        setStart(next);
+        setStartKey(next);
         slideTargetRef.current = BUFFER;
         controls.set({ ["--slide" as any]: BUFFER });
       }
     },
-    [controls, slideOnce, start]
+    [classTimezone, controls, slideOnce, startKey]
   );
 
   /** ======================
@@ -208,10 +213,11 @@ export default function SevenDayCalendar({
     () =>
       buildLanes(
         itemsForTrack,
-        trackStart,
-        trackEnd,
-        start,
-        visibleEnd,
+        trackStartKey,
+        trackEndKey,
+        startKey,
+        visibleEndKey,
+        classTimezone,
         singleFreezeMap
           ? (new Map(Object.entries(singleFreezeMap)) as Map<string, number>)
           : undefined,
@@ -226,10 +232,11 @@ export default function SevenDayCalendar({
       ),
     [
       itemsForTrack,
-      trackStart,
-      trackEnd,
-      start,
-      visibleEnd,
+      trackStartKey,
+      trackEndKey,
+      startKey,
+      visibleEndKey,
+      classTimezone,
       singleFreezeMap,
       usingSticky,
     ]
@@ -363,24 +370,26 @@ export default function SevenDayCalendar({
    * Render
    * ======= */
   return (
-    <div className="space-y-3">
+    <div className="space-y-1">
       {/* Top controls */}
       <div className="flex items-end justify-between gap-3">
         {titleComponent}
-        <div className="flex items-center gap-3">
-          <DateField
-            label="Go to date"
-            value={isoDayUTC(start)}
-            onChange={onGoToDate}
-          />
-        </div>
+        {showGoToDate && (
+          <div className="flex items-center gap-3">
+            <DateField
+              label="Go to date"
+              value={startKey}
+              onChange={onGoToDate}
+            />
+          </div>
+        )}
       </div>
 
       {/* Viewport container */}
       <div
         ref={viewportRef}
         data-cal-root="1"
-        className="overscroll-contain overflow-hidden border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 pb-3"
+        className="overscroll-contain overflow-hidden border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 pb-3 px-2 rounded-lg"
       >
         {/* Track that slides horizontally using a CSS var animated by Framer */}
         <motion.div
@@ -400,15 +409,15 @@ export default function SevenDayCalendar({
             }}
           >
             {Array.from({ length: TRACK_COLS }, (_, i) =>
-              addLocalDays(trackStart, i)
-            ).map((d) => (
+              addDaysToDayKey(trackStartKey, i)
+            ).map((dayKey) => (
               <div
-                key={isoDayUTC(d)}
+                key={dayKey}
                 className="text-xs font-semibold text-[var(--color-text-secondary)]"
               >
-                {format(d, "EEE", { locale: enUS })}{" "}
+                {formatWeekdayInTZ(dayKey, classTimezone)}{" "}
                 <span className="font-normal">
-                  {format(d, "MMM d", { locale: enUS })}
+                  {formatMonthDayInTZ(dayKey, classTimezone)}
                 </span>
               </div>
             ))}
@@ -429,25 +438,24 @@ export default function SevenDayCalendar({
               }}
             >
               {Array.from({ length: TRACK_COLS }, (_, i) =>
-                addLocalDays(trackStart, i)
-              ).map((d) => {
-                const iso = isoDayUTC(d);
+                addDaysToDayKey(trackStartKey, i)
+              ).map((dayKey) => {
                 const todayTZ = tzDayKey(new Date(), classTimezone);
-                const isPast = iso < todayTZ;
-                const isToday = iso === todayTZ;
+                const isPast = dayKey < todayTZ;
+                const isToday = dayKey === todayTZ;
 
                 return readOnly ? (
                   <DayCellStatic
-                    key={iso}
-                    dateISO={iso}
+                    key={dayKey}
+                    dateISO={dayKey}
                     isToday={isToday}
                     isPast={isPast}
                     minPx={dayMinHeightPx}
                   />
                 ) : (
                   <DayDroppable
-                    key={iso}
-                    dateISO={iso}
+                    key={dayKey}
+                    dateISO={dayKey}
                     isToday={isToday}
                     isPast={isPast}
                     minPx={dayMinHeightPx}
@@ -471,6 +479,7 @@ export default function SevenDayCalendar({
                 isSettling={isSettling}
                 draggingUid={readOnly ? undefined : draggingUid}
                 onEditRequest={readOnly ? undefined : onEditRequest}
+                classTimezone={classTimezone}
                 readOnly={readOnly}
               />
             </div>

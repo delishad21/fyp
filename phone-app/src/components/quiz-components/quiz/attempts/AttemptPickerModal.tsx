@@ -41,7 +41,8 @@ export function AttemptPickerModal({
             styles.modalCard,
             {
               backgroundColor: colors.bg1,
-              borderColor: colors.bg2,
+              borderColor: colors.bg4,
+              shadowColor: "#000",
               // Ensure list stays above home indicator
               paddingBottom: 24 + Math.max(insets.bottom, 0),
             },
@@ -73,16 +74,24 @@ export function AttemptPickerModal({
                     styles.row,
                     {
                       opacity: pressed ? 0.92 : 1,
-                      backgroundColor: isSel ? colors.bg2 : "transparent",
-                      borderColor: colors.bg3,
+                      backgroundColor: isSel ? colors.bg2 : colors.bg1,
+                      borderColor: colors.bg4,
+                      shadowColor: "#000",
                     },
                   ]}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text
-                      style={{ color: colors.textPrimary, fontWeight: "800" }}
-                    >
+                    <Text style={{ color: colors.textPrimary, fontWeight: "900" }}>
                       {date}
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontWeight: "700",
+                        marginTop: 2,
+                      }}
+                    >
+                      Attempt #{attempts.length - attempts.indexOf(item)}
                     </Text>
                   </View>
                   <Text
@@ -97,9 +106,18 @@ export function AttemptPickerModal({
 
           <Pressable
             onPress={onClose}
-            style={{ alignSelf: "center", marginTop: 14, padding: 8 }}
+            style={({ pressed }) => [
+              styles.closeBtn,
+              {
+                opacity: pressed ? 0.9 : 1,
+                borderColor: colors.bg4,
+                backgroundColor: colors.bg2,
+              },
+            ]}
           >
-            <Text style={{ color: colors.textSecondary }}>Close</Text>
+            <Text style={{ color: colors.textPrimary, fontWeight: "800" }}>
+              Close
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -123,6 +141,10 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: "70%",
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 6,
   },
   modalTitle: { fontSize: 16, fontWeight: "900", marginBottom: 10 },
   row: {
@@ -133,5 +155,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  closeBtn: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    marginTop: 14,
   },
 });

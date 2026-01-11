@@ -99,7 +99,7 @@ export const validateName = (name: string): string[] => {
   //  - spaces
   //  - apostrophes ' and ’
   //  - hyphen -, period ., slash /, ampersand &, comma , and parentheses ().
-  //  - digits 0-9 (for suffixes like II, III, 2nd) — OPTIONAL but commonly needed.
+  //  - digits 0-9 (for suffixes like II, III, 2nd)
   const allowedCharsRE = /^[\p{L}\p{M}0-9\s.'’\-\/&,()]+$/u;
 
   // Require at least one letter (prevents inputs like "----" or "123")

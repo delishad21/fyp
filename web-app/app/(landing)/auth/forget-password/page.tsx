@@ -1,7 +1,6 @@
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import ForgetPasswordForm from "@/components/auth/forms/ForgetPasswordForm";
 import { AppTitle } from "@/components/navigation/AppTitle";
-import Link from "next/link";
 
 export default function ForgotPasswordPage() {
   return (

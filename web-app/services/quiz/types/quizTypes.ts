@@ -179,20 +179,26 @@ export type BaseQuizFormItemsConfig = {
 /** ------- Types returned to forms (match components' initialData) ------- */
 
 export type RapidInitial = {
-  id: string;
+  id: string; // rootQuizId
+  version: number; // current version number
   name: string;
   subject: string;
+  subjectColorHex: string;
   topic: string;
   quizType: "rapid";
+  typeColorHex: string;
   items: BaseFormItemDraft[];
 };
 
 export type CrosswordInitial = {
-  id: string;
+  id: string; // rootQuizId
+  version: number;
   name: string;
   subject: string;
+  subjectColorHex: string;
   topic: string;
   quizType: "crossword";
+  typeColorHex: string;
   totalTimeLimit: number | null;
   entries: { id: string; answer: string; clue: string }[];
   placedEntries?: CrosswordPlacedEntry[];
@@ -200,11 +206,14 @@ export type CrosswordInitial = {
 };
 
 export type BasicInitial = {
-  id: string;
+  id: string; // rootQuizId
+  version: number;
   name: string;
   subject: string;
+  subjectColorHex: string;
   topic: string;
   quizType: "basic";
+  typeColorHex: string;
   totalTimeLimit?: number | null;
   items: BaseFormItemDraft[];
 };

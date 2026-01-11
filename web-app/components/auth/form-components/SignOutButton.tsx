@@ -11,7 +11,7 @@ export default function SignOutButton() {
     <form action={signOutAction}>
       <button
         type="submit"
-        className="px-4 py-2 rounded-sm text-[--color-text-primary] bg-[var(--color-error)] hover:opacity-90 transition"
+        className="px-4 py-2 rounded-sm text-white bg-[var(--color-error)] hover:opacity-90 transition"
       >
         Sign Out
       </button>

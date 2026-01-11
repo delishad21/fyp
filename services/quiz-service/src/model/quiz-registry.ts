@@ -67,7 +67,10 @@ export function getQuizTypeDef(type: QuizTypeKey): QuizTypeDef | undefined {
   return REGISTRY.get(type);
 }
 
-/** Register all built-in quiz types (extend here when adding new types) */
+/** Register all built-in quiz types
+ * NOTE: This must be called once at server startup.
+ * For new quiz types, add a new registerXYZQuiz() call here.
+ */
 export async function registerAllQuizzes() {
   registerBasicQuiz();
   registerCrosswordQuiz();

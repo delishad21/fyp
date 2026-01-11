@@ -15,6 +15,8 @@ export default function CardTable({
   columns,
   rows,
   onEdit,
+  onView,
+  onDuplicate,
   onDelete,
   onRowClick,
   spacing,
@@ -24,17 +26,19 @@ export default function CardTable({
   columns: ColumnDef[];
   rows: RowData[];
   onEdit?: (row: RowData) => void | Promise<void>;
+  onView?: (row: RowData) => void | Promise<void>;
+  onDuplicate?: (row: RowData) => void | Promise<void>;
   onDelete?: (row: RowData) => void | Promise<void>;
   onRowClick?: (row: RowData) => void | Promise<void>;
   spacing?: "compact" | "normal" | "expanded";
   dragConfig?: DragConfig;
   draggable?: boolean;
 }) {
-  const hasActions = Boolean(onEdit || onDelete);
+  const hasActions = Boolean(onEdit || onView || onDuplicate || onDelete);
   const colTracks = columns
     .map((c) => `minmax(0, ${c.width ?? 1}fr)`)
     .join(" ");
-  const ACTIONS_COL = 60; // tweak to your buttons' actual width
+  const ACTIONS_COL = hasActions ? 140 : 0;
   const gridTemplate = `${colTracks}${hasActions ? ` ${ACTIONS_COL}px` : ""}`;
 
   return (
@@ -81,7 +85,9 @@ export default function CardTable({
             columns={columns}
             row={row}
             gridTemplate={gridTemplate}
+            onView={onView}
             onEdit={onEdit}
+            onDuplicate={onDuplicate}
             onDelete={onDelete}
             onRowClick={onRowClick}
             dragData={

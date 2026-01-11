@@ -16,7 +16,6 @@ export function useTimezoneOptions() {
       "America/Los_Angeles",
     ];
     try {
-      // @ts-ignore (Node 20+/modern browsers)
       const list: string[] = Intl.supportedValuesOf?.("timeZone") ?? fallback;
       const preferred = new Set([
         "Asia/Singapore",

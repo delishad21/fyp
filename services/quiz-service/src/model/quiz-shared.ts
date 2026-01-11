@@ -10,6 +10,7 @@ export function isQuizType(x: unknown): x is QuizTypeKey {
   );
 }
 
+/** ----------- Hardcoded colors/labels for quiz types ---------- */
 export const QUIZ_TYPE_COLORS: Record<QuizTypeKey, string> = {
   basic: "#22c55e",
   rapid: "#f59e0b",
@@ -96,18 +97,13 @@ export type GradingKeyItem =
 
 export type AttemptSpecEnvelope = {
   quizId: string;
+  quizRootId: string;
+  quizVersion: number;
   quizType: QuizTypeKey;
   contentHash?: string;
   requiresRemoteGrader?: boolean;
   renderSpec: { items: RenderItem[]; totalTimeLimit?: number | null };
   gradingKey: { items: GradingKeyItem[] };
-  meta: {
-    name: string;
-    subject: string;
-    subjectColorHex: string;
-    topic: string;
-    owner: string;
-  };
   versionTag?: string;
 };
 
@@ -215,7 +211,6 @@ export type RapidItem = {
 export type CrosswordEntry = {
   id: string;
   clue?: string;
-  // optionally: answer?: string; row?: number; col?: number; dir?: "across"|"down"; length?: number;
 };
 
 export type CrosswordQuizDoc = { entries?: CrosswordEntry[] };
@@ -224,9 +219,8 @@ export type RapidQuizDoc = { items?: RapidItem[] };
 
 export type AttemptBreakdownRow = {
   itemId?: string;
-  // accept both naming schemes:
-  awarded?: number; // optional
-  max?: number; // optional
+  awarded?: number;
+  max?: number;
   meta?: any; // e.g. { selected: string[] } or { value: string }
 };
 

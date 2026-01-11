@@ -32,6 +32,13 @@ export default function ImageUpload({
   const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
+  // Sync local state when the question changes (i.e. initialUrl changes)
+  React.useEffect(() => {
+    setPreviewUrl(initialUrl);
+    setOpen(!!initialUrl); // open preview automatically if there *is* an image
+    setError(null); // clear any old upload error when switching questions
+  }, [initialUrl]);
+
   const resetInput = () => {
     if (inputRef.current) inputRef.current.value = "";
   };

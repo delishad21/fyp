@@ -10,8 +10,16 @@ import {
 } from "@/services/quiz/types/quizTypes";
 import { getAuthHeader } from "@/services/user/session-definitions";
 import { quizSvcUrl } from "@/utils/utils";
+
+type QuizInitial = BasicInitial | RapidInitial | CrosswordInitial;
+
 export type GetQuizResult =
-  | { ok: true; data: BasicInitial | RapidInitial | CrosswordInitial }
+  | {
+      ok: true;
+      data: QuizInitial;
+      versions: number[];
+      currentVersion: number;
+    }
   | { ok: false; message: string; status?: number };
 
 /** ---------------- Normalizers ---------------- */
@@ -25,6 +33,7 @@ function pickImageMeta(img: any | null | undefined) {
     size: img.size,
   };
 }
+
 function normalizeNullableSeconds(v: unknown): number | null {
   if (v == null) return null; // null/undefined -> null
   if (typeof v === "string" && v.trim() === "") return null; // "" -> null
@@ -52,6 +61,7 @@ function normalizeBasic(doc: any): BasicInitial {
                 correct: !!o?.correct,
               }))
             : [],
+          timeLimit: normalizeNullableSeconds(it?.timeLimit ?? null),
         };
       }
 
@@ -68,6 +78,7 @@ function normalizeBasic(doc: any): BasicInitial {
                 caseSensitive: !!a?.caseSensitive,
               }))
             : [],
+          timeLimit: normalizeNullableSeconds(it?.timeLimit ?? null),
         };
       }
 
@@ -84,11 +95,14 @@ function normalizeBasic(doc: any): BasicInitial {
     .filter(Boolean) as BasicInitial["items"];
 
   return {
-    id: String(doc._id),
+    id: String(doc.rootQuizId ?? doc._id), // rootQuizId
+    version: Number(doc.version ?? 1),
     name: String(doc.name ?? ""),
     subject: String(doc.subject ?? ""),
+    subjectColorHex: String(doc.subjectColorHex ?? ""),
     topic: String(doc.topic ?? ""),
     quizType: "basic",
+    typeColorHex: doc.typeColorHex ? String(doc.typeColorHex) : "",
     totalTimeLimit: normalizeNullableSeconds(doc?.totalTimeLimit),
     items: normItems,
   };
@@ -100,11 +114,10 @@ function normalizeRapid(doc: any): RapidInitial {
     const base = {
       id: String(it?.id ?? crypto.randomUUID()),
       text: String(it?.text ?? ""),
-      timeLimit: normalizeNullableSeconds(it?.timeLimit), // <-- changed
+      timeLimit: normalizeNullableSeconds(it?.timeLimit),
       image: pickImageMeta(it?.image),
     };
 
-    // keep the 4 options logic as-is
     let options: { id: string; text: string; correct: boolean }[] =
       Array.isArray(it?.options)
         ? it.options.map((o: any) => ({
@@ -113,6 +126,7 @@ function normalizeRapid(doc: any): RapidInitial {
             correct: !!o?.correct,
           }))
         : [];
+
     if (options.length < 4) {
       const needed = 4 - options.length;
       for (let i = 0; i < needed; i++) {
@@ -121,20 +135,25 @@ function normalizeRapid(doc: any): RapidInitial {
     } else if (options.length > 4) {
       options = options.slice(0, 4);
     }
+
     const firstCorrect = options.findIndex((o) => o.correct);
     if (firstCorrect < 0) options[0].correct = true;
     if (firstCorrect > 0) {
       options = options.map((o, i) => ({ ...o, correct: i === firstCorrect }));
     }
+
     return { ...base, options };
   });
 
   return {
-    id: String(doc._id),
+    id: String(doc.rootQuizId ?? doc._id),
+    version: Number(doc.version ?? 1),
     name: String(doc.name ?? ""),
     subject: String(doc.subject ?? ""),
+    subjectColorHex: String(doc.subjectColorHex ?? ""),
     topic: String(doc.topic ?? ""),
     quizType: "rapid",
+    typeColorHex: doc.typeColorHex ? String(doc.typeColorHex) : "",
     items: normItems,
   };
 }
@@ -148,7 +167,6 @@ function normalizeCrossword(doc: any): CrosswordInitial {
     clue: String(e?.clue ?? ""),
   }));
 
-  // Try to pick placed data (direction/positions) if present
   const placedEntries = entries
     .map((e: any) => {
       const dir = e?.direction;
@@ -167,34 +185,49 @@ function normalizeCrossword(doc: any): CrosswordInitial {
             row: Number(p?.row ?? 0),
             col: Number(p?.col ?? 0),
           })),
-        } as CrosswordPlacedEntry;
+        };
       }
       return null;
     })
-    .filter(Boolean) as CrosswordPlacedEntry[];
+    .filter(Boolean) as CrosswordInitial["placedEntries"];
 
-  const grid: Cell[][] | undefined = Array.isArray(doc?.grid)
-    ? (doc.grid as Cell[][])
+  const grid = Array.isArray(doc?.grid)
+    ? (doc.grid as CrosswordInitial["grid"])
     : undefined;
 
   return {
-    id: String(doc._id),
+    id: String(doc.rootQuizId ?? doc._id),
+    version: Number(doc.version ?? 1),
     name: String(doc.name ?? ""),
     subject: String(doc.subject ?? ""),
+    subjectColorHex: String(doc.subjectColorHex ?? ""),
     topic: String(doc.topic ?? ""),
     quizType: "crossword",
+    typeColorHex: String(doc.typeColorHex ?? ""),
     totalTimeLimit: normalizeNullableSeconds(doc?.totalTimeLimit),
     entries: normEntries,
-    placedEntries: placedEntries.length ? placedEntries : undefined,
+    placedEntries:
+      placedEntries && placedEntries.length ? placedEntries : undefined,
     grid,
   };
 }
 
-export async function getQuizForEdit(id: string): Promise<GetQuizResult> {
+export async function getQuizForEdit(
+  id: string,
+  version?: number
+): Promise<GetQuizResult> {
   const auth = await getAuthHeader();
   if (!auth) return { ok: false, message: "Not authenticated", status: 401 };
 
-  const url = quizSvcUrl(`/quiz/${encodeURIComponent(id)}`);
+  const sp = new URLSearchParams();
+  if (typeof version === "number" && Number.isFinite(version)) {
+    sp.set("version", String(version));
+  }
+
+  const url = quizSvcUrl(
+    `/quiz/${encodeURIComponent(id)}${sp.toString() ? `?${sp.toString()}` : ""}`
+  );
+
   try {
     const resp = await fetch(url, {
       method: "GET",
@@ -214,10 +247,40 @@ export async function getQuizForEdit(id: string): Promise<GetQuizResult> {
     const doc = json.data;
     const type = String(doc?.quizType ?? "") as QuizType;
 
-    if (type === "rapid") return { ok: true, data: normalizeRapid(doc) };
-    if (type === "crossword")
-      return { ok: true, data: normalizeCrossword(doc) };
-    if (type === "basic") return { ok: true, data: normalizeBasic(doc) };
+    const versions: number[] = Array.isArray(json.versions)
+      ? json.versions
+          .map((v: any) => Number(v))
+          .filter((n: number) => Number.isFinite(n))
+      : [Number(doc.version ?? 1)];
+
+    const currentVersion = Number(
+      doc.version ?? versions[versions.length - 1] ?? 1
+    );
+
+    if (type === "rapid") {
+      return {
+        ok: true,
+        data: normalizeRapid(doc),
+        versions,
+        currentVersion,
+      };
+    }
+    if (type === "crossword") {
+      return {
+        ok: true,
+        data: normalizeCrossword(doc),
+        versions,
+        currentVersion,
+      };
+    }
+    if (type === "basic") {
+      return {
+        ok: true,
+        data: normalizeBasic(doc),
+        versions,
+        currentVersion,
+      };
+    }
 
     return { ok: false, message: "Unsupported quiz type", status: 400 };
   } catch (e: any) {

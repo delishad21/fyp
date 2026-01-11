@@ -5,26 +5,10 @@
  *
  * Purpose:
  *   - Renders a reusable `DataTable` specifically for quizzes.
- *   - Provides querying, editing, and deletion logic via server actions.
- *
- * Props:
- *   @param {InitialPayload} initial
- *     - Initial data payload for the table (rows, pagination, filters).
- *
- *   @param {ColumnDef[]} columns
- *     - Column definitions describing how quiz data is displayed.
- *
- * Behavior:
- *   - `onQuery`: Calls `queryQuizzes` server action to fetch filtered/paginated data.
- *   - `onEdit`: Navigates to `/quizzes/edit/:id` for the selected quiz.
- *   - `onDelete`: Calls `deleteQuizAction` server action to remove a quiz by ID.
- *
- * Integration:
- *   - Wraps `DataTable` and injects quiz-specific handlers.
- *   - Designed for quizzes page
+ *   - Provides querying, editing, deletion, viewing, duplication.
  */
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import DataTable from "@/components/table/DataTable";
 import type {
@@ -34,6 +18,10 @@ import type {
 } from "@/services/quiz/types/quiz-table-types";
 import { queryQuizzes } from "@/services/quiz/actions/query-quiz-action";
 import { deleteQuizAction } from "@/services/quiz/actions/delete-quiz-action";
+import type { DragConfig } from "@/components/table/CardTable";
+import { QuizLite } from "@/services/class/types/class-types";
+import EmptyStateBox from "../ui/EmptyStateBox";
+import Button from "../ui/buttons/Button";
 
 export default function QuizzesTable({
   initial,
@@ -59,22 +47,88 @@ export default function QuizzesTable({
     [router]
   );
 
-  const onDelete = useCallback(
-    async (row: RowData) => {
-      return await deleteQuizAction(String(row.id));
+  const onView = useCallback(
+    (row: RowData) => {
+      router.push(`/quizzes/view/${row.id}`);
     },
     [router]
   );
+
+  const onDuplicate = useCallback(
+    (row: RowData) => {
+      const payload = row.payload as any;
+      const quizType = payload?.quizType || payload?.type;
+
+      if (
+        quizType === "basic" ||
+        quizType === "crossword" ||
+        quizType === "rapid"
+      ) {
+        router.push(`/quizzes/create/${quizType}?from=${row.id}`);
+      } else {
+        router.push(`/quizzes/duplicate/${row.id}`);
+      }
+    },
+    [router]
+  );
+
+  const onDelete = useCallback(async (row: RowData) => {
+    return await deleteQuizAction(String(row.id));
+  }, []);
+
+  // Quiz-specific drag payload for SchedulerBoard
+  const dragConfig: DragConfig | undefined = useMemo(() => {
+    if (!draggable) return undefined;
+
+    return {
+      enabled: true,
+      getDragData: (row: RowData) => {
+        const payload = row.payload as QuizLite | undefined;
+        if (!payload) return undefined;
+
+        return {
+          kind: "quiz-row",
+          rowId: row.id,
+          quiz: {
+            id: payload.id ?? String(row.id),
+            title: payload.title,
+            subject: payload.subject,
+            subjectColorHex: payload.subjectColorHex,
+            topic: payload.topic,
+            type: payload.quizType ?? payload.type,
+            createdAt: payload.createdAt,
+            rootQuizId: payload.rootQuizId ?? payload.id ?? String(row.id),
+            version:
+              typeof payload.version === "number" ? payload.version : null,
+          },
+        };
+      },
+    };
+  }, [draggable]);
 
   return (
     <DataTable
       columns={columns}
       initial={initial}
       onQuery={onQuery}
-      onEdit={onEdit}
-      onDelete={onDelete}
+      onEdit={editable ? onEdit : undefined}
+      onView={editable ? onView : undefined}
+      onDuplicate={editable ? onDuplicate : undefined}
+      onDelete={editable ? onDelete : undefined}
       draggable={draggable}
       editable={editable}
+      dragConfig={dragConfig}
+      renderEmpty={() => (
+        <EmptyStateBox
+          title="You don't have any quizzes yet"
+          description="Create your first quiz to get started."
+          action={
+            <Button href="/quizzes/create" variant="primary">
+              Create New Quiz
+            </Button>
+          }
+        />
+      )}
     />
   );
 }

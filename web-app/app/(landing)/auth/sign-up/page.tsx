@@ -1,5 +1,5 @@
 import ThemeToggle from "@/components/ui/ThemeToggle";
-import SignUpForm from "@/components/dashboard/SignUpForm";
+import SignUpForm from "@/components/auth/forms/SignUpForm";
 import { AppTitle } from "@/components/navigation/AppTitle";
 
 export default function SignUpPage() {

@@ -3,5 +3,8 @@ node_modules
 setup-project.sh
 .env
 mongo
+mongo_old
 uploads
 .code-workspace
+issued-credentials.csv
+archive

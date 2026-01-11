@@ -8,61 +8,11 @@
  *   - Collects quiz metadata (name, subject, topic), overall timer, and word/clue entries.
  *   - Supports generating and previewing a crossword grid before submission.
  *
- *     (Edit-mode safeguard):
- *   - Detects *question content* changes (NOT metadata) by normalizing the crossword
- *     content and comparing it against the initial snapshot from edit mode.
- *     If changed, a WarningModal appears on submit indicating all previous attempts
- *     will be invalidated (backend remains the source of truth — e.g. contentHash).
- *   - Content considered for crossword:
- *       • Entries (answers + clues), normalized and order-insensitive
- *       • Generated preview when present (grid + placed entries)
- *     Timer changes are treated as metadata and do not trigger the warning.
- *
- * Props:
- *   @param {FilterMeta} meta
- *     - Metadata containing available subjects and topics.
- *
- *   @param {"create"|"edit"} mode
- *     - Whether the form is used to create a new crossword quiz or edit an existing one.
- *
- *   @param {CrosswordInitial} [initialData]
- *     - Optional quiz data for edit mode (id, metadata, grid, placed entries, and timer).
- *
- * Behavior / Logic:
- *   - Uses `useActionState` with `processQuiz` to handle submission, validation, and errors.
- *   - Redirects on success after `REDIRECT_TIMEOUT` (via `useRedirectOnSuccess`).
- *   - Prevents accidental form submission on Enter (`useEnterSubmitGuard`).
- *   - Supports adding new subjects/topics with `useMetaAdders`.
- *   - Tracks crossword entries (answer + clue) in local state.
- *   - Handles optional prefilled crossword grid & entries on edit:
- *       • If existing grid/placed entries are present, rehydrates preview.
- *       • Marks preview invalid if user edits entries afterward.
- *   - `handleGenerate`:
- *       • Calls server action `generateCrosswordPreview` with entries.
- *       • Populates crossword grid and placed entries if successful.
- *       • Displays error messages if generation fails.
- *   - Error handling:
- *       • `useFieldErrorMask` for metadata fields.
- *       • `useIndexedErrorMask` and local state for per-row entry errors.
- *
- * UI:
- *   - Header with quiz type ("Crossword Quiz").
- *   - <MetaFields> for top-level metadata (name, subject, topic).
- *   - Entry-level validation errors displayed as lists.
- *   - <TimerField> for setting overall quiz time limit.
- *   - <CrosswordAnswerEditor> for adding/editing/removing word/clue pairs (max 10).
- *   - Optional <CrosswordGrid> preview after generation.
- *   - Hidden fields:
- *       • quizType, entriesJson, gridJson, mode, and quizId (if edit).
- *   - Actions:
- *       • “Generate crossword” button (triggers preview generation).
- *       • Submit button (disabled until a crossword is generated).
- *   - Displays success/error messages after generation or submission.
- *
- * Constraints:
- *   - Max 10 entries allowed.
- *   - Timer must be between 60 seconds and 7200 seconds (2 hours).
- *   - Submission disabled until a crossword has been successfully generated.
+ *   Versioning + schedules:
+ *   - Any edit creates a NEW version of the quiz.
+ *   - A confirmation modal asks whether to update active/scheduled quizzes
+ *     to the new version. If crossword content changed and the teacher opts in,
+ *     downstream services can reset attempts for those quizzes.
  */
 
 import * as React from "react";
@@ -92,7 +42,6 @@ import {
   CrosswordInitial,
   CrosswordPlacedEntry,
   CrosswordTopFields,
-  Direction,
 } from "@/services/quiz/types/quizTypes";
 import MetaFields from "./quiz-form-helper-components/MetaFields";
 import TimerField from "./quiz-form-helper-components/TimerField";
@@ -101,17 +50,69 @@ import { generateCrosswordPreview } from "@/services/quiz/actions/generate-cross
 import CrosswordAnswerEditor from "./quiz-form-helper-components/question-editors/CrosswordAnswerEditor";
 import { REDIRECT_TIMEOUT } from "@/utils/utils";
 import { useToast } from "@/components/ui/toast/ToastProvider";
-import WarningModal from "@/components/ui/WarningModal";
+import VersionSelector from "./quiz-form-helper-components/VersionSelector";
+import QuizVersionModal from "./quiz-form-helper-components/QuizVersionModal";
+import TutorialModal, { TutorialStep } from "@/components/ui/TutorialModal";
 
 type Props = {
   meta: FilterMeta;
   mode: "create" | "edit";
   initialData?: CrosswordInitial;
+  versions?: number[];
+  currentVersion?: number;
+  /** When true, this is a "duplicate" flow (prefilled create). */
+  isClone?: boolean;
+  typeColorHex?: string;
 };
 
 const makeEntry = () => ({ id: crypto.randomUUID(), answer: "", clue: "" });
+const tutorialSteps: TutorialStep[] = [
+  {
+    title: "Introduction to Crossword Quizzes",
+    subtitle:
+      "Crossword Quizzes allow you to create engaging crossword puzzles for your students. \
+      This quiz type is ideal for vocabulary practice, language learning, and reinforcing key concepts in a fun way.",
+  },
+  {
+    title: "Set quiz details",
+    subtitle: "Enter a name, subject, and topic to identify the quiz.",
+    media: { src: "/tutorials/quiz-creation/crossword/1.mp4" },
+  },
+  {
+    title: "Add an overall timer",
+    subtitle:
+      "Optionally set a time limit for completing the entire crossword quiz.",
+    media: { src: "/tutorials/quiz-creation/crossword/2.mp4" },
+  },
+  {
+    title: "Add entries",
+    subtitle:
+      "Fill in answers and clues for each word in the crossword. Up to 10 words can be added using the add word button. Words used are limited to 20 characters.",
+    media: { src: "/tutorials/quiz-creation/crossword/3.mp4" },
+  },
+  {
+    title: "Generate the crossword",
+    subtitle:
+      "Click 'Generate crossword' to create a grid based on your entries. Check that entries fit and clues are clear. \
+      You may need to tweak your entries and regenerate to get a satisfactory layout.",
+    media: { src: "/tutorials/quiz-creation/crossword/4.mp4" },
+  },
+  {
+    title: "Create the quiz",
+    subtitle: "Review errors, then submit to create the quiz.",
+    media: { src: "/tutorials/quiz-creation/crossword/5.mp4" },
+  },
+];
 
-export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
+export default function CrosswordQuizForm({
+  meta,
+  mode,
+  initialData,
+  versions,
+  currentVersion,
+  isClone = false,
+  typeColorHex,
+}: Props) {
   const initial: CreateQuizState = {
     ok: false,
     fieldErrors: {},
@@ -132,7 +133,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
 
   // entries & timer
   const [entries, setEntries] = React.useState(
-    mode === "edit" && initialData?.entries?.length
+    (mode === "edit" || isClone) && initialData?.entries?.length
       ? initialData.entries
       : [makeEntry()]
   );
@@ -157,7 +158,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
     Record<string, string | string[] | undefined>
   >({});
 
-  // action-state error helpers (refactored names)
+  // action-state error helpers
   const { clearFieldError, getVisibleFieldError } =
     useFieldErrorMask<CrosswordTopFields>(state.fieldErrors);
 
@@ -187,7 +188,8 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
   const userEditedRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (mode !== "edit" || !initialData) return;
+    if (!initialData) return;
+    if (mode !== "edit" && !isClone) return;
 
     const hasGrid =
       Array.isArray(initialData.grid) &&
@@ -230,8 +232,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       hydratedRef.current = false;
       userEditedRef.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, initialData?.id]);
+  }, [mode, isClone, initialData?.id]);
 
   const lastEntriesJsonRef = React.useRef<string>(
     JSON.stringify(
@@ -308,15 +309,10 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
   }
 
   /** ──────────────────────────────────────────────────────────────────────
-   * Edit-mode safeguard: detect QUESTION CONTENT changes (NOT metadata)
-   * If changed, show WarningModal on submit.
-   * Content includes:
-   *  - Entries (answers + clues), normalized and order-insensitive
-   *  - Generated preview (grid + placed entries), when present
-   *  - Global timer changes
+   * Edit-mode: detect QUESTION CONTENT changes
+   * Used only to tweak modal copy; backend is source of truth.
    * ───────────────────────────────────────────────────────────────────── */
 
-  // Helpers for normalization
   const normalizeStr = (s: unknown) =>
     String(s ?? "")
       .trim()
@@ -334,7 +330,6 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       a: normalizeAnswer(e.answer),
       c: normalizeStr(e.clue),
     }));
-    // order-insensitive
     mapped.sort((x, y) => (x.a + "|" + x.c).localeCompare(y.a + "|" + y.c));
     return mapped;
   }
@@ -342,8 +337,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
   function normalizePlaced(placed: CrosswordPlacedEntry[]) {
     const mapped =
       (placed || []).map((p) => ({
-        a: normalizeAnswer((p as any).answer ?? ""), // some impls keep `answer` in placed
-        // positions signature (row,col) pairs stable order
+        a: normalizeAnswer((p as any).answer ?? ""),
         pos: (p.positions || []).map((t) => [
           Number(t.row || 0),
           Number(t.col || 0),
@@ -361,7 +355,6 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
 
   function normalizeGrid(grid: Cell[][] | null) {
     if (!grid) return null;
-    // Only structural + visible content: blocked + letter (upper)
     return grid.map((row) =>
       row.map((cell) => ({
         b: !!cell.isBlocked,
@@ -377,7 +370,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
     entries: Array<{ answer: string; clue: string }>;
     grid: Cell[][] | null;
     placed: CrosswordPlacedEntry[] | null;
-    totalTimeLimit: number | null; // <-- add
+    totalTimeLimit: number | null;
   }) {
     return {
       entries: normalizeEntries(opts.entries),
@@ -386,7 +379,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       totalTimeLimit:
         opts.totalTimeLimit === null || opts.totalTimeLimit === undefined
           ? null
-          : Number(opts.totalTimeLimit), // normalize number|null
+          : Number(opts.totalTimeLimit),
     };
   }
 
@@ -417,7 +410,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       totalTimeLimit:
         initialData.totalTimeLimit === undefined
           ? null
-          : (initialData.totalTimeLimit as number | null), // <-- include timer
+          : (initialData.totalTimeLimit as number | null),
     });
 
     return JSON.stringify(snapshot);
@@ -433,7 +426,7 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       entries: nowEntries,
       grid: generated ? genGrid : null,
       placed: generated ? genEntries : [],
-      totalTimeLimit: totalTime ?? null, // <-- include current timer
+      totalTimeLimit: totalTime ?? null,
     });
 
     return JSON.stringify(snapshot);
@@ -444,36 +437,78 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       ? initialContentNormJson !== currentContentNormJson
       : false;
 
-  // Submission guard + modal flow
+  // Submission guard + version modal (EDIT only)
   const formRef = useRef<HTMLFormElement | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const confirmedRef = useRef(false); // <-- ref instead of state
+  const updateActiveSchedulesInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSubmitGuard = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
-      if (mode !== "edit") return;
-      if (!contentChanged) return; // only warn if question content changed
-      if (!confirmed) {
-        e.preventDefault();
-        setConfirmOpen(true);
+      if (mode !== "edit") return; // only prompt on edit
+      if (confirmedRef.current) return; // already confirmed; let it submit
+
+      e.preventDefault();
+
+      // Detect metadata changes (name/subject/topic)
+      let metadataChanged = false;
+      if (initialData && formRef.current) {
+        const fd = new FormData(formRef.current);
+        const name = ((fd.get("name") as string) || "").trim();
+        const subject = ((fd.get("subject") as string) || "").trim();
+        const topic = ((fd.get("topic") as string) || "").trim();
+
+        metadataChanged =
+          name !== (initialData.name ?? "") ||
+          subject !== (initialData.subject ?? "") ||
+          topic !== (initialData.topic ?? "");
       }
+
+      const hasChanges = metadataChanged || contentChanged;
+
+      if (!hasChanges) {
+        showToast({
+          title: "No changes to save",
+          description: "This quiz is identical to the current version.",
+          variant: "error",
+        });
+        return;
+      }
+
+      setConfirmOpen(true);
     },
-    [mode, contentChanged, confirmed]
+    [mode, initialData, contentChanged, showToast]
   );
 
-  const onContinue = useCallback(() => {
+  const handleModalCancel = useCallback(() => {
     setConfirmOpen(false);
-    setConfirmed(true);
-    // submit programmatically after confirmation
+  }, []);
+
+  const handleModalConfirm = useCallback((updateActiveSchedules: boolean) => {
+    if (updateActiveSchedulesInputRef.current) {
+      updateActiveSchedulesInputRef.current.value = updateActiveSchedules
+        ? "true"
+        : "false";
+    }
+
+    // mark as confirmed synchronously before requestSubmit
+    confirmedRef.current = true;
+
+    setConfirmOpen(false);
     formRef.current?.requestSubmit();
   }, []);
 
-  const onCancel = useCallback(() => setConfirmOpen(false), []);
-
+  // ------------------------------------------------------------------------
+  // Labels / Version selector
   // ------------------------------------------------------------------------
 
   const headerLabel = "Crossword Quiz";
-  const submitLabel = mode === "edit" ? "Save Changes" : "Create Quiz";
+  const submitLabel =
+    mode === "edit" ? "Save Changes" : isClone ? "Create Copy" : "Create Quiz";
+  const headerStyle =
+    typeColorHex && typeColorHex.startsWith("#")
+      ? { backgroundColor: `${typeColorHex}1A`, color: typeColorHex }
+      : undefined;
 
   const rowErrorsToShow = (i: number) =>
     visibleRowErrors[i] || genQuestionErrors[i];
@@ -488,10 +523,30 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
       className="grid grid-cols-1 gap-6 lg:grid-cols-12"
     >
       <div className="space-y-4 lg:col-span-8">
-        <div className="flex items-center gap-2">
-          <span className="bg-[var(--color-primary)]/20 px-2 rounded-sm py-1 text-sm font-medium text-[var(--color-primary)]">
+        {/* Header + version selector */}
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="bg-[var(--color-primary)]/20 px-2 rounded-sm py-1 text-sm font-medium text-[var(--color-primary)]"
+            style={headerStyle}
+          >
             {headerLabel}
           </span>
+
+          <div className="flex items-center gap-2">
+            <TutorialModal
+              steps={tutorialSteps}
+              triggerLabel="How to Use"
+              triggerIcon="mdi:help-circle-outline"
+              triggerVariant="ghost"
+              triggerClassName="gap-2 rounded-full px-3 py-1.5"
+              triggerTitle="How to use the crossword quiz form"
+            />
+            <VersionSelector
+              mode={mode}
+              versions={versions}
+              currentVersion={currentVersion ?? initialData?.version}
+            />
+          </div>
         </div>
 
         {/* Top meta */}
@@ -500,13 +555,13 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
           defaults={{
             name:
               state.values.name ||
-              (mode === "edit" ? initialData?.name ?? "" : ""),
+              (mode === "edit" || isClone ? initialData?.name ?? "" : ""),
             subject:
               state.values.subject ||
-              (mode === "edit" ? initialData?.subject ?? "" : ""),
+              (mode === "edit" || isClone ? initialData?.subject ?? "" : ""),
             topic:
               state.values.topic ||
-              (mode === "edit" ? initialData?.topic ?? "" : ""),
+              (mode === "edit" || isClone ? initialData?.topic ?? "" : ""),
           }}
           errorFor={(k) => getVisibleFieldError(k) || genFieldErrors[k]}
           clearError={(k) => {
@@ -534,11 +589,8 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
           );
         })()}
 
-        {/* Overall timer (does not participate in content-change detection) */}
-        <div className="flex items-end justify-between">
-          <label className="text-md text-[var(--color-text-primary)]">
-            Overall Timer
-          </label>
+        {/* Overall timer */}
+        <div className="flex flex-row-reverse ">
           <TimerField
             id="crossword-total-time"
             name="totalTimeLimit"
@@ -596,7 +648,22 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
         <input type="hidden" name="mode" value={mode} />
         <input type="hidden" name="gridJson" value={gridJson} />
         {mode === "edit" && initialData?.id && (
-          <input type="hidden" name="quizId" value={initialData.id} />
+          <>
+            <input type="hidden" name="quizId" value={initialData.id} />
+            {typeof (initialData as any).version === "number" && (
+              <input
+                type="hidden"
+                name="baseVersion"
+                value={(initialData as any).version}
+              />
+            )}
+            <input
+              ref={updateActiveSchedulesInputRef}
+              type="hidden"
+              name="updateActiveSchedules"
+              defaultValue="false"
+            />
+          </>
         )}
 
         {/* Actions */}
@@ -621,22 +688,14 @@ export default function CrosswordQuizForm({ meta, mode, initialData }: Props) {
         </div>
       </div>
 
-      {/* Warning modal for content changes in edit mode */}
-      <WarningModal
-        open={confirmOpen}
-        title="Update will invalidate previous attempts"
-        message={
-          <>
-            You changed the crossword content (answers/clues, generated layout,
-            or the overall timer). Submitting will invalidate all previous
-            attempts for this quiz. Do you want to continue?
-          </>
-        }
-        cancelLabel="Cancel"
-        continueLabel="Continue"
-        onCancel={onCancel}
-        onContinue={onContinue}
-      />
+      {mode === "edit" && (
+        <QuizVersionModal
+          open={confirmOpen}
+          onCancel={handleModalCancel}
+          onConfirm={handleModalConfirm}
+          contentChanged={contentChanged}
+        />
+      )}
     </form>
   );
 }

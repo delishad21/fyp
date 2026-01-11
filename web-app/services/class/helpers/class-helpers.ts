@@ -91,7 +91,7 @@ export function clampPct(n: unknown) {
   return Math.max(0, Math.min(100, r));
 }
 
-export function fmtDate(d?: string) {
+export function fmtDate(d?: string | null) {
   if (!d) return "—";
   try {
     return new Date(d).toLocaleString(undefined, {

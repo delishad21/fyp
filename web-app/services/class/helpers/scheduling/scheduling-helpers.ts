@@ -1,11 +1,3 @@
-import {
-  startOfDay,
-  endOfDay,
-  addDays,
-  differenceInCalendarDays,
-  isAfter,
-  isBefore,
-} from "date-fns";
 import { ScheduleItem } from "../../types/class-types";
 
 export const RESIZE_SPRING = {
@@ -33,41 +25,143 @@ export const HEIGHT_SPRING = {
   mass: 0.8,
 };
 
-// Local day utilities (DST-safe)
-export function ymdToLocalDate(ymd: string) {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function parseDayKey(ymd: string) {
   const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
+  return { y, m, d };
 }
-export function endOfLocalDate(ymd: string) {
-  return endOfDay(ymdToLocalDate(ymd));
+
+export function dayKeyFromUTCDate(d: Date) {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
-export function dateToLocalYMD(d: Date) {
-  const yy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
+
+export function dayKeyToUTCDate(ymd: string) {
+  const { y, m, d } = parseDayKey(ymd);
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
 }
-export function addLocalDays(d: Date, n: number) {
-  return startOfDay(addDays(d, n));
+
+export function addDaysToDayKey(ymd: string, n: number) {
+  const d = dayKeyToUTCDate(ymd);
+  d.setUTCDate(d.getUTCDate() + n);
+  return dayKeyFromUTCDate(d);
 }
-export function diffLocalDays(a: Date, b: Date) {
-  return differenceInCalendarDays(a, b);
+
+export function diffDayKeys(a: string, b: string) {
+  const aUtc = dayKeyToUTCDate(a).getTime();
+  const bUtc = dayKeyToUTCDate(b).getTime();
+  return Math.round((aUtc - bUtc) / DAY_MS);
 }
-export function clampToRangeUTC(d: Date, startUTC: Date, endUTC: Date) {
-  return new Date(
-    Math.min(endUTC.getTime(), Math.max(startUTC.getTime(), d.getTime()))
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const vals: Record<string, string> = {};
+  for (const p of parts) {
+    if (p.type !== "literal") vals[p.type] = p.value;
+  }
+  const asUTC = Date.UTC(
+    Number(vals.year),
+    Number(vals.month) - 1,
+    Number(vals.day),
+    Number(vals.hour),
+    Number(vals.minute),
+    Number(vals.second)
   );
+  return asUTC - date.getTime();
 }
-export function colIndexForUTCDate(d: Date, baseStartUTC: Date) {
-  // returns 1..TRACK_COLS inclusive (CSS grid columns are 1-based)
-  const idx = diffLocalDays(
-    ymdToLocalDate(dateToLocalYMD(d)),
-    ymdToLocalDate(dateToLocalYMD(baseStartUTC))
-  );
-  return Math.min(TRACK_COLS - 1, Math.max(0, idx)) + 1;
+
+export function makeDateInTZ(
+  dayKey: string,
+  timeZone: string,
+  hour = 0,
+  minute = 0,
+  second = 0,
+  ms = 0
+) {
+  const { y, m, d } = parseDayKey(dayKey);
+  const utcMillis = Date.UTC(y, m - 1, d, hour, minute, second, ms);
+  let dt = new Date(utcMillis);
+  for (let i = 0; i < 3; i += 1) {
+    const offset = getTimeZoneOffsetMs(dt, timeZone);
+    const next = new Date(utcMillis - offset);
+    if (next.getTime() === dt.getTime()) break;
+    dt = next;
+  }
+  return dt;
 }
-export function isoDayUTC(d: Date) {
-  return dateToLocalYMD(d);
+
+export function startOfDayInTZ(dayKey: string, timeZone: string) {
+  return makeDateInTZ(dayKey, timeZone, 0, 0, 0, 0);
+}
+
+export function endOfDayInTZ(dayKey: string, timeZone: string) {
+  return makeDateInTZ(dayKey, timeZone, 23, 59, 59, 0);
+}
+
+export function dayKeyFromDateInTZ(d: Date, timeZone: string) {
+  return tzDayKey(d, timeZone);
+}
+
+export function formatWeekdayInTZ(dayKey: string, timeZone: string) {
+  const d = makeDateInTZ(dayKey, timeZone, 12, 0, 0, 0);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+  }).format(d);
+}
+
+export function formatMonthDayInTZ(dayKey: string, timeZone: string) {
+  const d = makeDateInTZ(dayKey, timeZone, 12, 0, 0, 0);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "short",
+    day: "numeric",
+  }).format(d);
+}
+
+export function formatTimeInTZ(d: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const vals: Record<string, string> = {};
+  for (const p of parts) {
+    if (p.type !== "literal") vals[p.type] = p.value;
+  }
+  return `${vals.hour}:${vals.minute}`;
+}
+
+export function getTimePartsInTZ(d: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const vals: Record<string, string> = {};
+  for (const p of parts) {
+    if (p.type !== "literal") vals[p.type] = p.value;
+  }
+  return {
+    hour: Number(vals.hour || 0),
+    minute: Number(vals.minute || 0),
+    second: Number(vals.second || 0),
+  };
 }
 export function tzDayKey(d: Date, timeZone: string) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -90,32 +184,44 @@ export type LaneItem = ScheduleItem & {
   clippedRight: boolean;
 };
 
+export function colIndexForDayKey(dayKey: string, baseStartKey: string) {
+  // returns 1..TRACK_COLS inclusive (CSS grid columns are 1-based)
+  const idx = diffDayKeys(dayKey, baseStartKey);
+  return Math.min(TRACK_COLS - 1, Math.max(0, idx)) + 1;
+}
+
 export function buildLanes(
   items: ScheduleItem[],
-  trackStart: Date,
-  trackEnd: Date,
-  visibleStart: Date,
-  visibleEnd: Date,
+  trackStartKey: string,
+  trackEndKey: string,
+  visibleStartKey: string,
+  visibleEndKey: string,
+  classTimezone: string,
   laneLockMap?: Map<string, number>, // lock by clientId (resizing)
   stickyLaneMap?: Map<string, number> // prefer previous lanes (during interaction)
 ): LaneItem[] {
   // Normalize & clip to track range
   const normalized = items
     .map((it) => {
-      const itStartUTC = ymdToLocalDate(dateToLocalYMD(new Date(it.startDate)));
-      const itEndUTC = endOfLocalDate(dateToLocalYMD(new Date(it.endDate)));
+      const itStartKey = dayKeyFromDateInTZ(
+        new Date(it.startDate),
+        classTimezone
+      );
+      const itEndKey = dayKeyFromDateInTZ(
+        new Date(it.endDate),
+        classTimezone
+      );
 
-      if (isAfter(itStartUTC, trackEnd) || isBefore(itEndUTC, trackStart))
-        return null;
+      if (itStartKey > trackEndKey || itEndKey < trackStartKey) return null;
 
-      const clippedLeft = isBefore(itStartUTC, visibleStart);
-      const clippedRight = isAfter(itEndUTC, visibleEnd);
+      const clippedLeft = itStartKey < visibleStartKey;
+      const clippedRight = itEndKey > visibleEndKey;
 
-      const s = clampToRangeUTC(itStartUTC, trackStart, trackEnd);
-      const e = clampToRangeUTC(itEndUTC, trackStart, trackEnd);
+      const sKey = itStartKey < trackStartKey ? trackStartKey : itStartKey;
+      const eKey = itEndKey > trackEndKey ? trackEndKey : itEndKey;
 
-      const cs = colIndexForUTCDate(s, trackStart);
-      const ce = colIndexForUTCDate(e, trackStart);
+      const cs = colIndexForDayKey(sKey, trackStartKey);
+      const ce = colIndexForDayKey(eKey, trackStartKey);
 
       return {
         it,
@@ -123,8 +229,8 @@ export function buildLanes(
         colEnd: Math.max(cs, ce),
         clippedLeft,
         clippedRight,
-        startTime: itStartUTC.getTime(),
-        duration: itEndUTC.getTime() - itStartUTC.getTime(),
+        startTime: diffDayKeys(sKey, trackStartKey),
+        duration: diffDayKeys(eKey, sKey),
       } as const;
     })
     .filter(Boolean) as Array<{
@@ -236,9 +342,8 @@ export function buildLanes(
  * ============================== */
 
 export function hasStarted(it: { startDate: string }, classTimezone: string) {
-  const today = tzDayKey(new Date(), classTimezone);
-  const startYMD = tzDayKey(new Date(it.startDate), classTimezone);
-  return startYMD <= today;
+  const start = new Date(it.startDate);
+  return start.getTime() <= Date.now();
 }
 
 /** Find the day cell under the pointer by scanning the entire stack */

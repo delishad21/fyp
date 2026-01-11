@@ -60,7 +60,7 @@ const TextInput = forwardRef<RNTextInput, Props>(function TextInput(
     () =>
       StyleSheet.create({
         wrap: { gap: 6 },
-        label: { fontSize: 12, color: colors.textPrimary },
+        label: { fontSize: 15, color: colors.textPrimary },
         input: {
           borderWidth: 1,
           borderRadius: 6,
@@ -69,7 +69,7 @@ const TextInput = forwardRef<RNTextInput, Props>(function TextInput(
           backgroundColor: colors.bg2,
           borderColor: focused ? colors.primary : colors.bg4,
           color: colors.textPrimary,
-          fontSize: 14,
+          fontSize: 15,
         },
         errorText: { fontSize: 12, color: colors.error, marginTop: 4 },
         errorList: { marginTop: 4, paddingLeft: 16, gap: 2 },

@@ -1,15 +1,16 @@
 import { Schema, model, models, Document } from "mongoose";
 
-/** Idempotency + audit of inbound quiz events (attempt + lifecycle) */
+// type union:
+type InboundType =
+  | "AttemptFinalized"
+  | "AttemptInvalidated"
+  | "QuizDeleted"
+  | "QuizMetaUpdated"
+  | "QuizVersionUpdated";
+
 export interface InboundQuizEventDoc extends Document {
   _id: string; // eventId
-  type:
-    | "AttemptFinalized"
-    | "AttemptEdited"
-    | "AttemptInvalidated"
-    | "QuizDeleted"
-    | "QuizContentReset"
-    | "QuizMetaUpdated";
+  type: InboundType;
   attemptId: string; // "n/a" for lifecycle events
   attemptVersion?: number;
   occurredAt: Date;

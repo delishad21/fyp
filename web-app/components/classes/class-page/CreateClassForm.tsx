@@ -19,7 +19,6 @@ import TextInput from "@/components/ui/text-inputs/TextInput";
 import { useTimezoneOptions } from "@/services/class/helpers/scheduling/hooks/useTimezoneOptions";
 import { ClassFields } from "./ClassFields";
 import IssuedCredentialsPanel from "./IssuedCredentialsPanel";
-import { StudentCsvRow } from "@/services/class/helpers/csv-utils";
 import StudentCsvProcessor from "./StudentCsvProcessor";
 import { deriveUsername } from "@/services/class/helpers/class-helpers";
 

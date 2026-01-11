@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { AttemptModel } from "../model/quiz-attempt-model";
-import { QuizBaseModel, BaseQuizLean } from "../model/quiz-base-model";
+import {
+  QuizBaseModel,
+  BaseQuizLean,
+  getFamilyMetaMap,
+} from "../model/quiz-base-model";
 import { CustomRequest } from "../middleware/access-control";
 import { getQuizTypeDef } from "../model/quiz-registry";
 import {
@@ -10,102 +14,51 @@ import {
   QUIZ_TYPE_COLORS,
   QuizTypeKey,
 } from "../model/quiz-shared";
-import { buildAttemptEvent } from "../utils/events/attempt-events";
-import { enqueueEvent } from "../utils/events/outbox-enqueue";
+import { emitAttemptEvent } from "../events/outgoing/attempt-events";
 import {
   checkAttemptEligibilityBySchedule,
   sharedSecret,
   shouldShowAnswersForAttempt,
-  type EligibilityByScheduleResult,
 } from "../utils/class-svc-client";
-import { stringToColorHex } from "../utils/color";
 import { redactGradingKey } from "../utils/quiz-utils";
-
-/** ---------- Types used for outbound events ---------- */
-type AttemptDocForEvent = {
-  _id: any;
-  attemptVersion?: number;
-  quizId: any;
-  classId: any;
-  scheduleId: any;
-  studentId: any;
-  startedAt?: Date;
-  finishedAt?: Date;
-  score?: number;
-  maxScore?: number;
-};
+import {
+  clearAttemptExpiry,
+  scheduleAttemptExpiryFromSpec,
+} from "../events/internal/attempt-expiry";
+import {
+  getLiveMetaForRoot,
+  getLiveMetaMapFromRows,
+} from "../utils/quiz-attempt-utils";
 
 /** ---------- Helpers ---------- */
 
-function subjectTopicFromAttempt(
-  attempt: AttemptDocForEvent & { quizVersionSnapshot?: any }
-) {
-  const meta = (attempt as any)?.quizVersionSnapshot?.meta || {};
-  const subject = typeof meta.subject === "string" ? meta.subject : undefined;
-  const topic = typeof meta.topic === "string" ? meta.topic : undefined;
-  return { subject, topic };
-}
-
-async function emitAttemptEvent(
-  type: "AttemptFinalized" | "AttemptEdited" | "AttemptInvalidated",
-  attempt: AttemptDocForEvent & { quizVersionSnapshot?: any }
-) {
-  const { subject, topic } = subjectTopicFromAttempt(attempt);
-
-  const body = buildAttemptEvent({
-    type,
-    attemptId: String(attempt._id),
-    attemptVersion: attempt.attemptVersion ?? 1,
-    quizId: String(attempt.quizId),
-    classId: attempt.classId ? String(attempt.classId) : null,
-    scheduleId: attempt.scheduleId ? String(attempt.scheduleId) : "",
-    studentId: String(attempt.studentId),
-    startedAt: attempt.startedAt,
-    finishedAt: attempt.finishedAt,
-    score: attempt.score,
-    maxScore: attempt.maxScore,
-    subject,
-    topic,
-  });
-
-  await enqueueEvent(type, body);
-}
-
 /**
- * @route  POST /attempt/spec/:quizId
+ * @route  POST /attempt/spec
  * @auth   verifyAccessToken (any authenticated student)
  *
  * @input
- *   Params:  quizId?            // optional if provided in body; params take precedence
- *   Body:    { quizId?, classId: string, scheduleId: string }
+ *   Body: { scheduleId: string }
  *
  * @notes
- *   - Uses (classId, scheduleId, quizId, studentId) to gate access via class-service.
- *   - **Only FINALIZED attempts** count toward the attempts cap.
- *   - If there is an **in-progress** attempt for this schedule, the response includes
- *     `inProgressAttemptId` so the client can resume; no answers or sensitive data are returned here.
+ *   - Uses (scheduleId, studentId) to gate access via class-service.
+ *   - Class-service returns the canonical quiz identity (quizRootId + quizVersion) for this schedule.
+ *   - Only FINALIZED attempts count toward the attempts cap.
+ *   - If there is an in-progress attempt for this schedule, the response includes
+ *     `inProgressAttemptId` so the client can resume.
  *   - Returns a render-safe AttemptSpecEnvelope (no grading key leakage) plus policy context.
- *
- * @logic
- *   1) Validate quizId/classId/scheduleId.
- *   2) Load quiz base; 404 if missing.
- *   3) Count attempts for (studentId, scheduleId) with state=finalized (cap counter).
- *   4) Check if an in-progress attempt exists; keep its id if found.
- *   5) Call class-service to verify eligibility, passing the **finalized-only** count.
- *   6) Build render-safe envelope from quiz type def.
- *   7) Respond with envelope + attempts policy fields (+ inProgressAttemptId if present).
  *
  * @returns 200 {
  *   ok: true,
  *   data: {
  *     quizId, quizType, contentHash?, renderSpec, meta, versionTag?,
+ *     quizRootId, quizVersion,
  *     attemptsAllowed, attemptsCount, attemptsRemaining, showAnswersAfterAttempt,
- *     inProgressAttemptId? // present only if a resumable attempt exists
+ *     inProgressAttemptId?
  *   }
  * }
  *
  * @errors
- *   400 invalid quizId/classId/scheduleId
+ *   400 invalid scheduleId
  *   401 unauthenticated
  *   403 eligibility denied (outside window / not enrolled / attempts exceeded)
  *   404 quiz not found
@@ -119,40 +72,24 @@ export async function postAttemptSpec(req: CustomRequest, res: Response) {
     if (!studentId)
       return res.status(401).json({ ok: false, message: "Unauthorized" });
 
-    // ── 2) parse + validate IDs (params win over body)
+    // ── 2) parse payload: scheduleId only
     const body = (req.body ?? {}) as {
-      quizId?: string;
-      classId?: string;
       scheduleId?: string;
     };
-    const quizId = (req.params?.quizId as string) || body.quizId;
-    const { classId, scheduleId } = body;
+    const scheduleId = body.scheduleId;
 
-    if (!quizId || !Types.ObjectId.isValid(quizId)) {
-      return res.status(400).json({ ok: false, message: "Invalid quizId" });
-    }
-    if (!classId || !Types.ObjectId.isValid(classId)) {
-      return res.status(400).json({ ok: false, message: "Invalid classId" });
-    }
     if (!scheduleId || !Types.ObjectId.isValid(scheduleId)) {
       return res.status(400).json({ ok: false, message: "Invalid scheduleId" });
     }
 
-    // ── 3) load quiz base
-    const quiz = await QuizBaseModel.findById(
-      quizId
-    ).lean<BaseQuizLean | null>();
-    if (!quiz)
-      return res.status(404).json({ ok: false, message: "Quiz not found" });
-
-    // ── 4) attempts toward cap: FINALIZED only
+    // ── 3) attempts toward cap: FINALIZED only (per schedule)
     const attemptsCountFinalized = await AttemptModel.countDocuments({
       studentId: new Types.ObjectId(studentId),
       scheduleId: new Types.ObjectId(scheduleId),
       state: { $in: ["finalized"] },
     });
 
-    // ── 5) check if a resumable in-progress attempt exists (id only)
+    // ── 4) check if a resumable in-progress attempt exists (id only)
     const inProgress = await AttemptModel.findOne({
       studentId: new Types.ObjectId(studentId),
       scheduleId: new Types.ObjectId(scheduleId),
@@ -161,17 +98,15 @@ export async function postAttemptSpec(req: CustomRequest, res: Response) {
       .select({ _id: 1 })
       .lean();
 
-    // ── 6) eligibility (class-svc) with finalized-only count
+    // ── 5) eligibility (class-svc) with finalized-only count
     const elig = await checkAttemptEligibilityBySchedule({
       studentId,
-      classId: String(classId),
       scheduleId: String(scheduleId),
-      quizId: String(quiz._id),
       attemptsCount: attemptsCountFinalized,
     });
 
     console.log(
-      `[AttemptSpec] Eligibility for student ${studentId} on quiz ${quizId} in schedule ${scheduleId}:`,
+      `[AttemptSpec] Eligibility for student ${studentId} on schedule ${scheduleId}:`,
       elig
     );
 
@@ -184,11 +119,41 @@ export async function postAttemptSpec(req: CustomRequest, res: Response) {
       });
     }
 
+    // ── 6) resolve quiz from canonical identity (root + version)
+    const { quizRootId, quizVersion } = elig;
+
+    if (
+      !quizRootId ||
+      !Types.ObjectId.isValid(quizRootId) ||
+      typeof quizVersion !== "number" ||
+      !Number.isFinite(quizVersion)
+    ) {
+      return res.status(500).json({
+        ok: false,
+        message:
+          "Class service did not return a valid quizRootId/quizVersion for this schedule.",
+      });
+    }
+
+    const quiz = await QuizBaseModel.findOne({
+      rootQuizId: new Types.ObjectId(quizRootId),
+      version: quizVersion,
+    }).lean<BaseQuizLean | null>();
+
+    if (!quiz) {
+      return res
+        .status(404)
+        .json({ ok: false, message: "Quiz version not found" });
+    }
+
     // ── 7) build render-safe envelope
     const def = getQuizTypeDef(quiz.quizType);
     if (!def)
       return res.status(400).json({ ok: false, message: "Unknown quiz type" });
     const envelope = def.buildAttemptSpec(quiz);
+
+    const familyMeta = await getFamilyMetaMap([String(quiz.rootQuizId)]);
+    const liveMeta = familyMeta.get(String(quiz.rootQuizId)) || {};
 
     // ── 8) respond — include only the resumable attemptId if present
     return res.json({
@@ -198,8 +163,14 @@ export async function postAttemptSpec(req: CustomRequest, res: Response) {
         quizType: envelope.quizType,
         contentHash: envelope.contentHash,
         renderSpec: envelope.renderSpec,
-        meta: envelope.meta,
+        meta: liveMeta,
         versionTag: envelope.versionTag,
+
+        // canonical identity (from class svc)
+        quizRootId: elig.quizRootId ?? null,
+        quizVersion:
+          typeof elig.quizVersion === "number" ? elig.quizVersion : null,
+
         attemptsAllowed: elig.attemptsAllowed,
         attemptsCount: attemptsCountFinalized,
         attemptsRemaining: elig.attemptsRemaining,
@@ -220,34 +191,34 @@ export async function postAttemptSpec(req: CustomRequest, res: Response) {
  * @auth   verifyAccessToken + verifyStudentOnly
  *
  * @input
- *   Body: { quizId: string, classId: string, scheduleId: string }
+ *   Body: { scheduleId: string }
  *
  * @notes
- *   - **Idempotent for an in-progress attempt**:
+ *   - Idempotent for an in-progress attempt:
  *       If a matching attempt with state="in_progress" already exists for
- *       (studentId, scheduleId), **no new attempt is created**. The existing attempt
- *       is returned (including its current `answers` and snapshot).
- *   - Attempts cap is enforced using **FINALIZED attempts only**; in-progress does
- *     not count toward the cap but can be resumed.
- *   - Snapshots a render-safe AttemptSpecEnvelope into the attempt on first creation.
+ *       (studentId, scheduleId), no new attempt is created. A lightweight
+ *       resume payload is returned:
+ *         { attemptId, answers, attemptVersion, lastSavedAt, startedAt }.
+ *   - Attempts cap is enforced using FINALIZED attempts only.
+ *   - The canonical quiz identity (quizRootId + quizVersion + classId)
+ *     is resolved via class-service.
  *
  * @logic
- *   1) Validate quizId/classId/scheduleId; load quiz.
- *   2) If an in-progress attempt exists for (studentId, scheduleId), return it directly.
- *   3) Count attempts for (studentId, scheduleId) with state=finalized (cap counter).
- *   4) Verify eligibility with class-service (passes finalized-only count).
- *   5) Build AttemptSpecEnvelope from quiz type def.
- *   6) Create a new attempt with state="in_progress", attemptVersion=1, answers={} (if none exists).
- *   7) Return { attemptId } for newly created; OR full existing attempt (incl. answers) when resuming.
+ *   1) Validate scheduleId.
+ *   2) If an in-progress attempt exists for (studentId, scheduleId), return resume payload.
+ *   3) Count FINALIZED attempts.
+ *   4) Verify eligibility with class-service.
+ *   5) Resolve quiz via (quizRootId, quizVersion); build AttemptSpecEnvelope.
+ *   6) Create a new attempt with state="in_progress".
  *
  * @returns
- *   - 201 { ok: true, data: { attemptId } }                      // new attempt created
- *   - 200 { ok: true, data: AttemptDocWithSnapshotAndAnswers }   // resumed existing in-progress attempt
+ *   - 201 { ok: true, data: { attemptId, answers, attemptVersion, lastSavedAt, startedAt } }
+ *   - 200 { ok: true, data: { attemptId, answers, attemptVersion, lastSavedAt, startedAt } }
  *
  * @errors
- *   400 invalid quizId/classId/scheduleId
+ *   400 invalid scheduleId
  *   401 unauthenticated / not a student
- *   403 eligibility denied (outside window / not enrolled / attempts exceeded)
+ *   403 eligibility denied
  *   404 quiz not found
  *   500 internal server error
  */
@@ -259,35 +230,23 @@ export async function startAttempt(req: CustomRequest, res: Response) {
     if (!studentId)
       return res.status(401).json({ ok: false, message: "Unauthorized" });
 
-    // ── 2) parse
-    const { quizId, classId, scheduleId } = (req.body ?? {}) as {
-      quizId?: string;
-      classId?: string;
+    // ── 2) parse: scheduleId only
+    const { scheduleId } = (req.body ?? {}) as {
       scheduleId?: string;
     };
 
-    // ── 3) validate IDs
-    if (!quizId || !Types.ObjectId.isValid(quizId)) {
-      return res.status(400).json({ ok: false, message: "Invalid quizId" });
-    }
-    if (!classId || !Types.ObjectId.isValid(classId)) {
-      return res.status(400).json({ ok: false, message: "Invalid classId" });
-    }
+    // ── 3) validate scheduleId
     if (!scheduleId || !Types.ObjectId.isValid(scheduleId)) {
       return res.status(400).json({ ok: false, message: "Invalid scheduleId" });
     }
 
-    // ── 4) load quiz
-    const quiz = await QuizBaseModel.findById(
-      quizId
-    ).lean<BaseQuizLean | null>();
-    if (!quiz)
-      return res.status(404).json({ ok: false, message: "Quiz not found" });
+    const scheduleObjectId = new Types.ObjectId(scheduleId);
+    const studentObjectId = new Types.ObjectId(studentId);
 
-    // ── 5) if an in-progress attempt exists, return it (resume) instead of creating new
+    // ── 4) if an in-progress attempt exists, return it (resume) instead of creating new
     const existing = await AttemptModel.findOne({
-      studentId: new Types.ObjectId(studentId),
-      scheduleId: new Types.ObjectId(scheduleId),
+      studentId: studentObjectId,
+      scheduleId: scheduleObjectId,
       state: "in_progress",
     })
       .select({
@@ -312,21 +271,20 @@ export async function startAttempt(req: CustomRequest, res: Response) {
       });
     }
 
-    // ── 6) compute attemptsCount for this schedule (FINALIZED only)
+    // ── 5) compute attemptsCount for this schedule (FINALIZED only)
     const attemptsCountFinalized = await AttemptModel.countDocuments({
-      studentId: new Types.ObjectId(studentId),
-      scheduleId: new Types.ObjectId(scheduleId),
+      studentId: studentObjectId,
+      scheduleId: scheduleObjectId,
       state: { $in: ["finalized"] },
     });
 
-    // ── 7) schedule eligibility (includes attempts policy)
+    // ── 6) schedule eligibility (includes canonical quiz identity)
     const elig = await checkAttemptEligibilityBySchedule({
       studentId,
-      classId: String(classId),
       scheduleId: String(scheduleId),
-      quizId: String(quiz._id),
       attemptsCount: attemptsCountFinalized,
     });
+
     if (!elig.allowed) {
       return res.status(403).json({
         ok: false,
@@ -336,6 +294,46 @@ export async function startAttempt(req: CustomRequest, res: Response) {
       });
     }
 
+    const classId = elig.classId;
+    if (!classId || !Types.ObjectId.isValid(classId)) {
+      return res.status(500).json({
+        ok: false,
+        message:
+          "Class service did not return a valid classId for this schedule.",
+      });
+    }
+
+    // canonical quiz identity from class-svc
+    const { quizRootId, quizVersion } = elig;
+
+    if (
+      !quizRootId ||
+      !Types.ObjectId.isValid(quizRootId) ||
+      typeof quizVersion !== "number" ||
+      !Number.isFinite(quizVersion)
+    ) {
+      return res.status(500).json({
+        ok: false,
+        message:
+          "Class service did not return a valid quizRootId/quizVersion for this schedule.",
+      });
+    }
+
+    // ── 7) load quiz by (root, version)
+    const quiz = await QuizBaseModel.findOne({
+      rootQuizId: new Types.ObjectId(quizRootId),
+      version: quizVersion,
+    }).lean<BaseQuizLean | null>();
+
+    if (!quiz) {
+      return res
+        .status(404)
+        .json({ ok: false, message: "Quiz version not found" });
+    }
+
+    // derive concrete quizId from the resolved doc
+    const quizId = String(quiz._id);
+
     // ── 8) attempt spec snapshot
     const def = getQuizTypeDef(quiz.quizType);
     if (!def)
@@ -344,10 +342,14 @@ export async function startAttempt(req: CustomRequest, res: Response) {
 
     // ── 9) create attempt
     const attempt = await AttemptModel.create({
-      quizId: quiz._id,
-      studentId,
+      quizId: new Types.ObjectId(quizId),
+      quizRootId: new Types.ObjectId(quizRootId),
+      quizVersion,
+
+      studentId: studentObjectId,
       classId: new Types.ObjectId(classId),
-      scheduleId: new Types.ObjectId(scheduleId),
+      scheduleId: scheduleObjectId,
+
       state: "in_progress",
       startedAt: new Date(),
       answers: {},
@@ -356,6 +358,19 @@ export async function startAttempt(req: CustomRequest, res: Response) {
     });
 
     console.log("[startAttempt] New attempt created:", attempt);
+
+    // ── 9b) schedule auto-expiry (best-effort)
+    try {
+      await scheduleAttemptExpiryFromSpec({
+        attemptId: String(attempt._id),
+        startedAt: attempt.startedAt!, // Date
+        spec: envelope, // AttemptSpecEnvelope
+        window: elig.window ?? null, // { openAt?, closeAt? } or null
+      });
+    } catch (err) {
+      console.error("[startAttempt] Failed to schedule attempt expiry", err);
+      // do NOT throw – starting the attempt should still succeed
+    }
 
     // ── 10) respond
     return res.status(201).json({
@@ -531,6 +546,13 @@ export async function finalizeAttempt(req: CustomRequest, res: Response) {
     if (!updated)
       return res.status(404).json({ ok: false, message: "Not found" });
 
+    // ── 3b) schedule attempt expiry cleanup (best-effort)
+    try {
+      await clearAttemptExpiry(String(updated._id));
+    } catch (err) {
+      console.error("[finalizeAttempt] Failed to clear expiry", err);
+    }
+
     // ── 4) emit event (full doc)
     await emitAttemptEvent("AttemptFinalized", updated);
     console.log("[finalizeAttempt] Attempt finalized:", updated);
@@ -544,38 +566,52 @@ export async function finalizeAttempt(req: CustomRequest, res: Response) {
     const canShow = await shouldShowAnswersForAttempt(updated, isPrivileged);
     const answersAvailable = isPrivileged ? true : !!canShow;
 
-    // Prepare snapshot with type color enrichment (optional)
-    let snapshotWithTypeColor =
+    // Only students AND when canShow=false ⇒ remove breakdown + gradingKey from response
+    // Redact snapshot for non-privileged when cannot show
+    const snapshotRaw =
       updated.quizVersionSnapshot &&
       typeof updated.quizVersionSnapshot === "object"
-        ? {
-            ...updated.quizVersionSnapshot,
-            meta: {
-              ...(updated as any)?.quizVersionSnapshot?.meta,
-              typeColorHex:
-                (updated as any)?.quizVersionSnapshot?.meta?.typeColorHex ??
-                QUIZ_TYPE_COLORS[
-                  ((updated as any)?.quizVersionSnapshot?.quizType ||
-                    (updated as any)?.quizType) as QuizTypeKey
-                ],
-            },
-          }
+        ? updated.quizVersionSnapshot
         : undefined;
 
-    // Only students AND when canShow=false ⇒ remove breakdown + gradingKey from response
-    let responseDoc: any = { ...updated };
+    let safeSnapshot =
+      snapshotRaw && !isPrivileged && !canShow
+        ? redactGradingKey(snapshotRaw)
+        : snapshotRaw;
 
-    responseDoc.answersAvailable = answersAvailable;
+    let responseDoc: any = {
+      ...updated,
+      ...(safeSnapshot ? { quizVersionSnapshot: safeSnapshot } : {}),
+      answersAvailable,
+    };
 
     if (!isPrivileged && !canShow) {
-      responseDoc.breakdown = undefined; // or [] if preferred
-      if (snapshotWithTypeColor) {
-        snapshotWithTypeColor = redactGradingKey(snapshotWithTypeColor);
-        responseDoc.quizVersionSnapshot = snapshotWithTypeColor;
-      }
-    } else if (snapshotWithTypeColor) {
-      responseDoc.quizVersionSnapshot = snapshotWithTypeColor;
+      responseDoc.breakdown = undefined;
     }
+
+    // Enrich response with live quiz metadata
+    const liveMeta = await getLiveMetaForRoot((updated as any)?.quizRootId);
+    const quizTypeForResp =
+      (updated as any)?.quizVersionSnapshot?.quizType ||
+      (updated as any)?.quizType;
+
+    const respQuiz = {
+      quizId: updated.quizId,
+      name: liveMeta?.name ?? null,
+      subject: liveMeta?.subject ?? null,
+      subjectColorHex: liveMeta.subjectColorHex || null,
+      topic: liveMeta?.topic ?? null,
+      quizType: quizTypeForResp ?? null,
+      typeColorHex: quizTypeForResp
+        ? QUIZ_TYPE_COLORS[quizTypeForResp as QuizTypeKey]
+        : undefined,
+      contentHash:
+        (updated as any)?.quizVersionSnapshot?.contentHash ??
+        (updated as any)?.contentHash ??
+        null,
+    };
+
+    responseDoc.quiz = respQuiz;
 
     // ── 6) respond (now includes answersAvailable)
     return res.json({ ok: true, answersAvailable, data: responseDoc });
@@ -591,8 +627,7 @@ export async function finalizeAttempt(req: CustomRequest, res: Response) {
  * @route  GET /attempt/:attemptId
  * @auth   verifyAccessToken + verifyAttemptOwnerOrPrivileged
  * @input  Params: attemptId
- * @logic  Enrich snapshot.meta.typeColorHex (derived from quizType).
- *         Teachers/admins always see gradingKey + breakdown.
+ * @logic  Teachers/admins always see gradingKey + breakdown.
  *         Students only see them if /helper/can-show-answers says true.
  * @returns 200 { ok, data }
  */
@@ -625,18 +660,10 @@ export async function getAttemptById(
     const isTeacher = role === "teacher";
     const isPrivileged = isAdmin || isTeacher;
 
-    // 5) enrich snapshot
-    const snapshotWithTypeColor =
+    // 5) extract snapshot
+    const snapshotRaw =
       doc.quizVersionSnapshot && typeof doc.quizVersionSnapshot === "object"
-        ? {
-            ...doc.quizVersionSnapshot,
-            meta: {
-              ...(doc as any)?.quizVersionSnapshot?.meta,
-              typeColorHex:
-                (doc as any)?.quizVersionSnapshot?.meta?.typeColorHex ??
-                computedTypeColorHex,
-            },
-          }
+        ? doc.quizVersionSnapshot
         : undefined;
 
     // 6) check can-show for students; teachers/admins bypass
@@ -645,9 +672,9 @@ export async function getAttemptById(
 
     // 7) redact gradingKey + breakdown if needed
     let safeSnapshot =
-      snapshotWithTypeColor && !isPrivileged && !canShow
-        ? redactGradingKey(snapshotWithTypeColor)
-        : snapshotWithTypeColor;
+      snapshotRaw && !isPrivileged && !canShow
+        ? redactGradingKey(snapshotRaw)
+        : snapshotRaw;
 
     let data: any = safeSnapshot
       ? { ...doc, quizVersionSnapshot: safeSnapshot }
@@ -658,6 +685,25 @@ export async function getAttemptById(
     }
 
     data.answersAvailable = answersAvailable;
+
+    // Enrich response with live quiz metadata
+    const liveMeta = await getLiveMetaForRoot((doc as any)?.quizRootId);
+
+    const quizForResp = {
+      quizId: doc.quizId,
+      name: liveMeta?.name ?? null,
+      subject: liveMeta?.subject ?? null,
+      subjectColorHex: liveMeta.subjectColorHex || null,
+      topic: liveMeta?.topic ?? null,
+      quizType: quizType ?? null,
+      typeColorHex: computedTypeColorHex,
+      contentHash:
+        (doc as any)?.quizVersionSnapshot?.contentHash ??
+        (doc as any)?.contentHash ??
+        null,
+    };
+
+    data.quiz = quizForResp;
 
     // 8) respond (now includes answersAvailable)
     return res.json({ ok: true, data });
@@ -701,6 +747,8 @@ export async function listMyAttempts(req: CustomRequest, res: Response) {
       .select({
         scheduleId: 1,
         quizId: 1,
+        quizRootId: 1,
+        quizVersion: 1,
         studentId: 1,
         classId: 1,
         state: 1,
@@ -718,10 +766,36 @@ export async function listMyAttempts(req: CustomRequest, res: Response) {
       .limit(pageSize)
       .lean();
 
-    // ── 5) respond
+    // ── 5) join live family meta and respond
+    const metaMap = await getLiveMetaMapFromRows(rows);
+
+    const outRows = rows.map((r: any) => {
+      const liveMeta = metaMap.get(String(r.quizRootId)) || null;
+      const quizType: QuizTypeKey | null =
+        (r as any)?.quizVersionSnapshot?.quizType ||
+        (r as any)?.quizType ||
+        null;
+      return {
+        ...r,
+        quiz: {
+          quizId: r.quizId,
+          name: liveMeta?.name ?? null,
+          subject: liveMeta?.subject ?? null,
+          subjectColorHex: liveMeta.subjectColorHex || null,
+          topic: liveMeta?.topic ?? null,
+          quizType,
+          typeColorHex: quizType ? QUIZ_TYPE_COLORS[quizType] : undefined,
+          contentHash:
+            (r as any)?.quizVersionSnapshot?.contentHash ??
+            (r as any)?.contentHash ??
+            null,
+        },
+      };
+    });
+
     return res.json({
       ok: true,
-      rows,
+      rows: outRows,
       page,
       pageCount: Math.max(1, Math.ceil(total / pageSize)),
       total,
@@ -738,7 +812,7 @@ export async function listMyAttempts(req: CustomRequest, res: Response) {
  * @route  GET /attempt/student/:studentId
  * @auth   verifyAccessToken + verifyTeacherOfStudent
  * @input  Params: studentId, Query: { page?, pageSize? }
- * @logic  Paginated list for a student, enriched with snapshot quiz meta and type colors.
+ * @logic  Paginated list for a student
  * @returns 200 { ok, rows[], page, pageCount, total }
  * @errors  400 invalid studentId
  *          401/403 handled by middleware
@@ -760,6 +834,7 @@ export async function listAttemptsForStudent(req: Request, res: Response) {
     );
 
     // ── 3) query + fetch
+    // 3) query + fetch
     const filter = { studentId: new Types.ObjectId(studentId) };
     const total = await AttemptModel.countDocuments(filter);
 
@@ -767,6 +842,8 @@ export async function listAttemptsForStudent(req: Request, res: Response) {
       .select({
         scheduleId: 1,
         quizId: 1,
+        quizRootId: 1,
+        quizVersion: 1,
         studentId: 1,
         classId: 1,
         state: 1,
@@ -786,22 +863,24 @@ export async function listAttemptsForStudent(req: Request, res: Response) {
         "quizVersionSnapshot.meta.topic": 1,
         "quizVersionSnapshot.meta.owner": 1,
       })
-      .sort({ finishedAt: -1, startedAt: -1 })
+      .sort({ startedAt: -1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .lean();
 
-    // ── 4) transform for UI
+    // ── 4) transform for UI (live meta)
+    const metaMap = await getLiveMetaMapFromRows(rowsRaw);
     const rows = rowsRaw.map((r: any) => {
-      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || {};
-      const meta = snap.meta || {};
-      const subject = meta.subject ?? "";
-      const subjectColorHex =
-        meta.subjectColorHex || (subject ? stringToColorHex(subject) : null);
+      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || ({} as any);
+      const liveMeta = metaMap.get(String(r.quizRootId)) || null;
+      const quizType = snap.quizType ?? null;
+
       return {
         _id: r._id,
         scheduleId: r.scheduleId,
         quizId: r.quizId,
+        quizRootId: r.quizRootId ?? null,
+        quizVersion: typeof r.quizVersion === "number" ? r.quizVersion : null,
         studentId: r.studentId,
         classId: r.classId,
         state: r.state,
@@ -815,12 +894,14 @@ export async function listAttemptsForStudent(req: Request, res: Response) {
         maxScore: r.maxScore,
         quiz: {
           quizId: r.quizId,
-          name: meta.name ?? null,
-          subject: subject || null,
-          subjectColorHex: subjectColorHex || null,
-          topic: meta.topic ?? null,
-          quizType: snap.quizType ?? null,
-          typeColorHex: QUIZ_TYPE_COLORS[snap.quizType] || undefined,
+          name: liveMeta?.name ?? null,
+          subject: liveMeta?.subject ?? null,
+          subjectColorHex: liveMeta.subjectColorHex || null,
+          topic: liveMeta?.topic ?? null,
+          quizType,
+          typeColorHex: quizType
+            ? QUIZ_TYPE_COLORS[quizType as QuizTypeKey]
+            : undefined,
           contentHash: snap.contentHash ?? null,
         },
       };
@@ -843,7 +924,7 @@ export async function listAttemptsForStudent(req: Request, res: Response) {
 }
 
 /**
- * @route  GET /attempt/schedule/:scheduleId
+ * @route  GET /attempt/quiz/schedule/:scheduleId
  * @auth   verifyAccessToken + verifyTeacherOfSchedule
  * @input  Params: scheduleId, Query: { page?, pageSize? }
  * @logic  Paginated list of attempts bound to a specific schedule entry.
@@ -877,46 +958,43 @@ export async function listAttemptsForSchedule(req: Request, res: Response) {
     const filter = { scheduleId: new Types.ObjectId(scheduleId) };
     const total = await AttemptModel.countDocuments(filter);
 
-    const rowsRaw = await AttemptModel.find(filter)
-      .select({
-        scheduleId: 1,
-        quizId: 1,
-        studentId: 1,
-        classId: 1,
-        state: 1,
-        startedAt: 1,
-        lastSavedAt: 1,
-        finishedAt: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        score: 1,
-        maxScore: 1,
-        attemptVersion: 1,
-        "quizVersionSnapshot.quizType": 1,
-        "quizVersionSnapshot.contentHash": 1,
-        "quizVersionSnapshot.meta.name": 1,
-        "quizVersionSnapshot.meta.subject": 1,
-        "quizVersionSnapshot.meta.subjectColorHex": 1,
-        "quizVersionSnapshot.meta.topic": 1,
-        "quizVersionSnapshot.meta.owner": 1,
-      })
-      .sort({ finishedAt: -1, startedAt: -1 })
-      .skip((page - 1) * pageSize)
-      .limit(pageSize)
-      .lean();
-
-    // ── 4) transform
+    const rowsRaw = await AttemptModel.find(filter).select({
+      scheduleId: 1,
+      quizId: 1,
+      quizRootId: 1,
+      quizVersion: 1,
+      studentId: 1,
+      classId: 1,
+      state: 1,
+      startedAt: 1,
+      lastSavedAt: 1,
+      finishedAt: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      score: 1,
+      maxScore: 1,
+      attemptVersion: 1,
+      "quizVersionSnapshot.quizType": 1,
+      "quizVersionSnapshot.contentHash": 1,
+      "quizVersionSnapshot.meta.name": 1,
+      "quizVersionSnapshot.meta.subject": 1,
+      "quizVersionSnapshot.meta.subjectColorHex": 1,
+      "quizVersionSnapshot.meta.topic": 1,
+      "quizVersionSnapshot.meta.owner": 1,
+    });
+    // ── 4) transform (live meta)
+    const metaMap = await getLiveMetaMapFromRows(rowsRaw);
     const rows = rowsRaw.map((r: any) => {
-      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || {};
-      const meta = snap.meta || {};
-      const subject = meta.subject ?? "";
-      const subjectColorHex =
-        meta.subjectColorHex || (subject ? stringToColorHex(subject) : null);
+      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || ({} as any);
+      const liveMeta = metaMap.get(String(r.quizRootId)) || null;
+      const quizType = snap.quizType ?? null;
 
       return {
         _id: r._id,
         scheduleId: r.scheduleId,
         quizId: r.quizId,
+        quizRootId: r.quizRootId ?? null,
+        quizVersion: typeof r.quizVersion === "number" ? r.quizVersion : null,
         studentId: r.studentId,
         classId: r.classId,
         state: r.state,
@@ -930,13 +1008,13 @@ export async function listAttemptsForSchedule(req: Request, res: Response) {
         maxScore: r.maxScore,
         quiz: {
           quizId: r.quizId,
-          name: meta.name ?? null,
-          subject: subject || null,
-          subjectColorHex: subjectColorHex || null,
-          topic: meta.topic ?? null,
-          quizType: snap.quizType ?? null,
-          typeColorHex: snap.quizType
-            ? QUIZ_TYPE_COLORS[snap.quizType as QuizTypeKey]
+          name: liveMeta?.name ?? null,
+          subject: liveMeta?.subject ?? null,
+          subjectColorHex: liveMeta.subjectColorHex || null,
+          topic: liveMeta?.topic ?? null,
+          quizType,
+          typeColorHex: quizType
+            ? QUIZ_TYPE_COLORS[quizType as QuizTypeKey]
             : undefined,
           contentHash: snap.contentHash ?? null,
         },
@@ -986,6 +1064,13 @@ export async function deleteAttempt(req: Request, res: Response) {
     ).lean();
     if (!updated)
       return res.status(404).json({ ok: false, message: "Not found" });
+
+    // ── 2b) clear expiry (best-effort)
+    try {
+      await clearAttemptExpiry(String(updated._id));
+    } catch (err) {
+      console.error("[deleteAttempt] Failed to clear expiry", err);
+    }
 
     // ── 3) event
     await emitAttemptEvent("AttemptInvalidated", updated);
@@ -1231,6 +1316,8 @@ export async function listAttemptsForScheduleByStudent(
       .select({
         scheduleId: 1,
         quizId: 1,
+        quizRootId: 1,
+        quizVersion: 1,
         studentId: 1,
         classId: 1,
         state: 1,
@@ -1244,6 +1331,7 @@ export async function listAttemptsForScheduleByStudent(
         attemptVersion: 1,
         "quizVersionSnapshot.quizType": 1,
         "quizVersionSnapshot.contentHash": 1,
+        // snapshot meta is still selected for fallback safety
         "quizVersionSnapshot.meta.name": 1,
         "quizVersionSnapshot.meta.subject": 1,
         "quizVersionSnapshot.meta.subjectColorHex": 1,
@@ -1253,17 +1341,20 @@ export async function listAttemptsForScheduleByStudent(
       .sort({ finishedAt: -1, startedAt: -1, createdAt: -1 })
       .lean();
 
+    // Resolve live meta for all families in one shot
+    const metaMap = await getLiveMetaMapFromRows(rowsRaw);
+
     const rows = (rowsRaw || []).map((r: any) => {
-      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || {};
-      const meta = snap.meta || {};
-      const subject = meta.subject ?? "";
-      const subjectColorHex =
-        meta.subjectColorHex || (subject ? stringToColorHex(subject) : null);
+      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || ({} as any);
+      const liveMeta = metaMap.get(String(r.quizRootId)) || null;
+      const quizType = snap.quizType ?? null;
 
       return {
         _id: r._id,
         scheduleId: r.scheduleId,
         quizId: r.quizId,
+        quizRootId: r.quizRootId ?? null,
+        quizVersion: typeof r.quizVersion === "number" ? r.quizVersion : null,
         studentId: r.studentId,
         classId: r.classId,
         state: r.state,
@@ -1277,13 +1368,14 @@ export async function listAttemptsForScheduleByStudent(
         maxScore: r.maxScore,
         quiz: {
           quizId: r.quizId,
-          name: meta.name ?? null,
-          subject: subject || null,
-          subjectColorHex: subjectColorHex || null,
-          topic: meta.topic ?? null,
-          quizType: snap.quizType ?? null,
-          typeColorHex: snap.quizType
-            ? QUIZ_TYPE_COLORS[snap.quizType as QuizTypeKey]
+          // prefer live meta; fallback to snapshot.meta
+          name: liveMeta?.name ?? null,
+          subject: liveMeta?.subject ?? null,
+          subjectColorHex: liveMeta.subjectColorHex || null,
+          topic: liveMeta?.topic ?? null,
+          quizType,
+          typeColorHex: quizType
+            ? QUIZ_TYPE_COLORS[quizType as QuizTypeKey]
             : undefined,
           contentHash: snap.contentHash ?? null,
         },
@@ -1325,6 +1417,8 @@ export async function getStudentAttemptsInternal(req: Request, res: Response) {
       .select({
         scheduleId: 1,
         quizId: 1,
+        quizRootId: 1,
+        quizVersion: 1,
         studentId: 1,
         classId: 1,
         state: 1,
@@ -1346,17 +1440,18 @@ export async function getStudentAttemptsInternal(req: Request, res: Response) {
       .sort({ finishedAt: -1, startedAt: -1, createdAt: -1 })
       .lean();
 
+    const metaMap = await getLiveMetaMapFromRows(rowsRaw);
     const rows = (rowsRaw || []).map((r: any) => {
-      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || {};
-      const meta = snap.meta || {};
-      const subject = meta.subject ?? "";
-      const subjectColorHex =
-        meta.subjectColorHex || (subject ? stringToColorHex(subject) : null);
+      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || ({} as any);
+      const liveMeta = metaMap.get(String(r.quizRootId)) || null;
+      const quizType = snap.quizType ?? null;
 
       return {
         _id: r._id,
         scheduleId: r.scheduleId,
         quizId: r.quizId,
+        quizRootId: r.quizRootId ?? null,
+        quizVersion: typeof r.quizVersion === "number" ? r.quizVersion : null,
         studentId: r.studentId,
         classId: r.classId,
         state: r.state,
@@ -1370,13 +1465,13 @@ export async function getStudentAttemptsInternal(req: Request, res: Response) {
         maxScore: r.maxScore,
         quiz: {
           quizId: r.quizId,
-          name: meta.name ?? null,
-          subject: subject || null,
-          subjectColorHex: subjectColorHex || null,
-          topic: meta.topic ?? null,
-          quizType: snap.quizType ?? null,
-          typeColorHex: snap.quizType
-            ? QUIZ_TYPE_COLORS[snap.quizType as QuizTypeKey]
+          name: liveMeta?.name ?? null,
+          subject: liveMeta?.subject ?? null,
+          subjectColorHex: liveMeta.subjectColorHex || null,
+          topic: liveMeta?.topic ?? null,
+          quizType,
+          typeColorHex: quizType
+            ? QUIZ_TYPE_COLORS[quizType as QuizTypeKey]
             : undefined,
           contentHash: snap.contentHash ?? null,
         },
@@ -1436,6 +1531,8 @@ export async function getAttemptsForScheduleByStudentInternal(
       .select({
         scheduleId: 1,
         quizId: 1,
+        quizRootId: 1,
+        quizVersion: 1,
         studentId: 1,
         classId: 1,
         state: 1,
@@ -1457,17 +1554,18 @@ export async function getAttemptsForScheduleByStudentInternal(
       .sort({ finishedAt: -1, startedAt: -1, createdAt: -1 })
       .lean();
 
+    const metaMap = await getLiveMetaMapFromRows(rowsRaw);
     const rows = (rowsRaw || []).map((r: any) => {
-      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || {};
-      const meta = snap.meta || {};
-      const subject = meta.subject ?? "";
-      const subjectColorHex =
-        meta.subjectColorHex || (subject ? stringToColorHex(subject) : null);
+      const snap: AttemptSpecEnvelope = r.quizVersionSnapshot || ({} as any);
+      const liveMeta = metaMap.get(String(r.quizRootId)) || null;
+      const quizType = snap.quizType ?? null;
 
       return {
         _id: r._id,
         scheduleId: r.scheduleId,
         quizId: r.quizId,
+        quizRootId: r.quizRootId ?? null,
+        quizVersion: typeof r.quizVersion === "number" ? r.quizVersion : null,
         studentId: r.studentId,
         classId: r.classId,
         state: r.state,
@@ -1481,13 +1579,13 @@ export async function getAttemptsForScheduleByStudentInternal(
         maxScore: r.maxScore,
         quiz: {
           quizId: r.quizId,
-          name: meta.name ?? null,
-          subject: subject || null,
-          subjectColorHex: subjectColorHex || null,
-          topic: meta.topic ?? null,
-          quizType: snap.quizType ?? null,
-          typeColorHex: snap.quizType
-            ? QUIZ_TYPE_COLORS[snap.quizType as QuizTypeKey]
+          name: liveMeta?.name ?? null,
+          subject: liveMeta?.subject ?? null,
+          subjectColorHex: liveMeta.subjectColorHex || null,
+          topic: liveMeta?.topic ?? null,
+          quizType,
+          typeColorHex: quizType
+            ? QUIZ_TYPE_COLORS[quizType as QuizTypeKey]
             : undefined,
           contentHash: snap.contentHash ?? null,
         },

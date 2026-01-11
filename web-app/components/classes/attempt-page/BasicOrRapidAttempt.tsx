@@ -55,7 +55,6 @@ export default function BasicOrRapidAttempt({
 
             {/* Optional image */}
             {(it as any).image?.url ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={(it as any).image.url}
                 alt="item"

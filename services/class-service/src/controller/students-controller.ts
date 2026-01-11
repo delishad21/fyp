@@ -17,6 +17,7 @@ import {
   fetchAttemptsForScheduleByStudentInternal,
   fetchMyQuizMeta,
   fetchStudentAttemptsInternal,
+  QuizCanonicalSelector,
 } from "../utils/quiz-svc-client";
 import {
   AttemptableRow,
@@ -26,35 +27,63 @@ import {
 import { escapeRegex, applyFilters } from "../utils/student-utils";
 
 /**
- * @route  GET /students/:studentId/profile
- *         Also supports /students/me/profile (student self)
- * @auth   verifyAccessToken + verifyTeacherOfStudentOrSelf
- * @input  Params: { studentId | "me" }
- * @notes  - Class-agnostic entry point that infers the student's (single) class by roster membership.
- *         - For now we assume the student belongs to exactly one class; if multiple are found, the most recently updated is used.
- *         - Mirrors the shape of the class-scoped student profile endpoint.
- *         - Enriches subjects with colorHex via quiz-svc `/quiz/meta` (fallback to schedule/live meta).
- * @logic  1) Resolve target studentId (honor "me"); load ONE class containing the student (by updatedAt desc).
- *         2) Load the student’s class-scoped stats; compute participationPct/avgScorePct.
- *         3) Compute rank within the class (standard competition ranking) using all students’ overallScore.
- *         4) Fetch subject palette from quiz-svc and attach color to each `stats.bySubject` bucket.
+ * @route   GET /students/:studentId/profile
+ *          Also supports /students/me/profile (student self).
+ * @auth    verifyAccessToken + verifyTeacherOfStudentOrSelf
+ * @input   Path param: :studentId (string, "me" allowed to mean the authenticated user).
+ *
+ * @logic   1) Resolve the effective studentId (handling "me").
+ *          2) Find the most recently updated class that contains this student
+ *             (ClassModel.findOne({ "students.userId": studentId }).sort({ updatedAt: -1 })).
+ *          3) Load the StudentClassStats row for (classId, studentId).
+ *          4) Compute:
+ *               - participationPct and avgScorePct from participationCount/sumScore/sumMax
+ *               - projected streakDays using projectedStreak(lastStreakDate, class timezone)
+ *               - rank within the class using overallScore (standard competition ranking).
+ *          5) Return a class-scoped profile payload with display info + stats.
+ *
+ * @notes   - For now, we maintain the invariant that each student belongs to a single class.
+ *            Under this invariant, this endpoint behaves "as if" it were class-agnostic,
+ *            since there is only one class to read from.
+ *          - The sort({ updatedAt: -1 }) is defensive: if the invariant is temporarily
+ *            violated (e.g. during a migration), we pick a consistent "primary" class
+ *            for this profile.
+ *          - In future, when students may belong to multiple classes, this endpoint is
+ *            expected to evolve into a truly class-agnostic / multi-class profile
+ *            (e.g. aggregate view and/or per-class breakdown), and this assumption
+ *            should be revisited.
+ *
  * @returns 200 {
- *   ok, data: {
- *     userId, displayName, photoUrl?, className, rank,
- *     stats: {
- *       classId, studentId,
- *       sumScore, sumMax, participationCount, participationPct, avgScorePct,
- *       streakDays, bestStreakDays, lastStreakDate, overallScore,
- *       canonicalBySchedule, attendanceDays,
- *       bySubject: { [subject]: { attempts, sumMax, sumScore, color? } },
- *       byTopic, subjectsAvgPct, topicsAvgPct, subjectColors, version, updatedAt
- *     }
- *   }
- * }
- * @errors  400 invalid studentId
- *          404 class or student not found
- *          500 internal server error
+ *            ok: true,
+ *            data: {
+ *              userId: string,
+ *              displayName: string,
+ *              photoUrl: string | null,
+ *              className: string,
+ *              rank: number,
+ *              stats: {
+ *                classId: string,
+ *                studentId: string,
+ *                sumScore: number,
+ *                sumMax: number,
+ *                participationCount: number,
+ *                participationPct: number,
+ *                avgScorePct: number,
+ *                streakDays: number,
+ *                bestStreakDays: number,
+ *                lastStreakDate: string | null,
+ *                overallScore: number,
+ *                version: number,
+ *                updatedAt: string | null,
+ *              },
+ *            },
+ *          }
+ *
+ * @errors  400 Invalid studentId.
+ *          404 Class or student not found for this studentId.
+ *          500 Internal server error.
  */
+
 export async function getStudentProfile(req: CustomRequest, res: Response) {
   try {
     // ── 1) Resolve studentId ("me" supported)
@@ -67,6 +96,10 @@ export async function getStudentProfile(req: CustomRequest, res: Response) {
     }
 
     // ── 2) Find ONE class containing this student (latest updated if multiple)
+
+    // NOTE: We currently rely on the invariant that each student belongs to at most
+    // one class. The sort({ updatedAt: -1 }) is defensive in case that invariant
+    // is temporarily violated; it picks a consistent "primary" class.
     const klass = await ClassModel.findOne({ "students.userId": studentId })
       .select({ students: 1, schedule: 1, name: 1, timezone: 1, updatedAt: 1 })
       .sort({ updatedAt: -1 })
@@ -154,18 +187,62 @@ export async function getStudentProfile(req: CustomRequest, res: Response) {
 }
 
 /**
- * @route  GET /students/:studentId/attemptable-schedules
- * @auth   verifyAccessToken + verifyTeacherOfStudentOrSelf
- * @input  Params: { studentId }  // supports "me"
- * @notes  - Aggregates all classes the student is enrolled in and returns only schedules whose window is currently open.
- *         - Counts the student's attempts per schedule via quiz-svc (internal), excluding invalidated attempts.
- *         - Applies attemptsAllowed (default 1, min 1, max 10) to compute attemptsRemaining.
- *         - Returns only schedules with attemptsRemaining > 0.
- *         - Attaches live quiz meta best-effort.
- * @returns 200 { ok, data: AttemptableRow[] }
- * @errors  400 invalid studentId
- *          401 unauthorized
- *          500 internal server error
+ * @route   GET /students/:studentId/attemptable-schedules
+ *          Also supports /students/me/attemptable-schedules
+ * @auth    verifyAccessToken + verifyTeacherOfStudentOrSelf
+ * @input   Path param: :studentId (string, "me" allowed to mean the authenticated user).
+ *
+ * @logic   1) Resolve the effective studentId (handling "me") and the viewerId (req.user.id).
+ *          2) Ensure the viewer is authenticated; otherwise 401.
+ *          3) Via aggregation on ClassModel:
+ *               - Match all classes where students.userId == studentId.
+ *               - Unwind schedule.
+ *               - Filter schedules where now is within [startDate, endDate].
+ *               - Project only the schedule fields needed for the API.
+ *          4) For each open schedule, call quiz-svc internally to fetch attempts
+ *             for (scheduleId, studentId) and count only finalized attempts.
+ *          5) Normalize attemptsAllowed to [1, 10] and compute attemptsRemaining
+ *             = max(0, attemptsAllowed - finalizedCount).
+ *          6) Filter out schedules where attemptsRemaining <= 0.
+ *          7) Enrich remaining rows with quiz meta via canonical identity
+ *             (quizRootId + quizVersion) using fetchQuizMetaBatch.
+ *          8) Sort the final list by the soonest endDate, then by startDate.
+ *
+ * @notes   - The current product invariant is that each student belongs to a single class.
+ *            Under this invariant, the "multi-class" aggregation behaves like a simple
+ *            class-scoped query because there is effectively only one class.
+ *          - The implementation is intentionally written to support multiple classes:
+ *              - It matches *all* classes containing the student.
+ *              - Each returned row carries a classId alongside scheduleId.
+ *          - In a future multi-class world, this endpoint is already positioned to
+ *            represent "all attemptable schedules across all of the student's classes",
+ *            and clients may later add filters (e.g. ?classId=...) for finer control.
+ *
+ * @returns 200 {
+ *            ok: true,
+ *            data: AttemptableRow[]
+ *          }
+ *          where AttemptableRow is:
+ *            {
+ *              classId: string;
+ *              scheduleId: string;
+ *              quizId: string;
+ *              quizRootId: string;              // empty string if canonical identity missing
+ *              quizVersion: number;             // defaults to 1 if not set on schedule
+ *              startDate: string;               // ISO
+ *              endDate: string;                 // ISO
+ *              attemptsAllowed: number;         // normalized [1,10]
+ *              showAnswersAfterAttempt: boolean;
+ *              attemptsCount: number;           // finalized attempts so far
+ *              attemptsRemaining: number;       // > 0 for all returned rows
+ *              quizName: string | null;
+ *              subject: string | null;
+ *              subjectColor: string | null;
+ *            }
+ *
+ * @errors  401 Unauthorized (missing viewer identity).
+ *          400 Invalid studentId.
+ *          500 Internal server error (including quiz-svc failures beyond the local fallback).
  */
 export async function getAttemptableSchedulesForStudent(
   req: CustomRequest,
@@ -188,7 +265,12 @@ export async function getAttemptableSchedulesForStudent(
       _id: any; // classId
       schedule: {
         _id: any;
+
+        // concrete + canonical quiz identity
         quizId: string;
+        quizRootId?: any;
+        quizVersion?: number;
+
         startDate: Date;
         endDate: Date;
         contribution?: number;
@@ -200,7 +282,7 @@ export async function getAttemptableSchedulesForStudent(
       };
     };
 
-    // Mongo does the heavy lifting: find only "open now" schedules for classes the student is in
+    // Mongo: find only "open now" schedules for classes the student is in
     const rows = await ClassModel.aggregate<OpenRow>([
       { $match: { "students.userId": String(studentId) } },
       { $unwind: "$schedule" },
@@ -216,6 +298,8 @@ export async function getAttemptableSchedulesForStudent(
           schedule: {
             _id: "$schedule._id",
             quizId: "$schedule.quizId",
+            quizRootId: "$schedule.quizRootId",
+            quizVersion: "$schedule.quizVersion",
             startDate: "$schedule.startDate",
             endDate: "$schedule.endDate",
             contribution: "$schedule.contribution",
@@ -233,7 +317,7 @@ export async function getAttemptableSchedulesForStudent(
       return res.json({ ok: true, data: [] as AttemptableRow[] });
     }
 
-    // Collect per-schedule attempt counts (exclude invalidated)
+    // Per-schedule attempt counts (exclude invalidated)
     const attemptsByScheduleId: Record<string, number> = {};
     await Promise.all(
       rows.map(async ({ schedule }) => {
@@ -244,10 +328,10 @@ export async function getAttemptableSchedulesForStudent(
             String(studentId)
           );
           attemptsByScheduleId[sid] = (r.rows || []).filter(
-            (a) => a.state == "finalized"
+            (a) => a.state === "finalized"
           ).length;
         } catch {
-          // On failure, assume 0 to be conservative (still attemptable if within limit)
+          // On failure, assume 0 (still attemptable if within limit)
           attemptsByScheduleId[sid] = 0;
         }
       })
@@ -260,10 +344,20 @@ export async function getAttemptableSchedulesForStudent(
       const count = attemptsByScheduleId[sid] ?? 0;
       const remaining = Math.max(0, allowed - count);
 
+      const root =
+        schedule.quizRootId != null ? String(schedule.quizRootId) : "";
+
       return {
         classId: String(classId),
         scheduleId: sid,
+
         quizId: String(schedule.quizId),
+
+        // Canonical identity: if missing, quizRootId will be empty string and skipped in meta fetch
+        quizRootId: root,
+        quizVersion:
+          typeof schedule.quizVersion === "number" ? schedule.quizVersion : 1,
+
         startDate: new Date(schedule.startDate).toISOString(),
         endDate: new Date(schedule.endDate).toISOString(),
         attemptsAllowed: allowed,
@@ -282,18 +376,31 @@ export async function getAttemptableSchedulesForStudent(
       return res.json({ ok: true, data: [] as AttemptableRow[] });
     }
 
-    // Attach live quiz meta (best-effort)
-    const quizIds = Array.from(new Set(attemptable.map((r) => r.quizId)));
-    const byId = await fetchQuizMetaBatch(quizIds);
+    // Attach live quiz meta via canonical identity
+    const selectors: QuizCanonicalSelector[] = [];
+    for (const r of attemptable) {
+      if (r.quizRootId && r.quizVersion) {
+        selectors.push({
+          rootQuizId: r.quizRootId,
+          version: r.quizVersion,
+        });
+      }
+    }
 
-    const data = attemptable.map((r) => {
-      const meta = byId[r.quizId];
+    const metaByCanonical = await fetchQuizMetaBatch(selectors);
+
+    const data: AttemptableRow[] = attemptable.map((r) => {
+      let meta: any;
+      if (r.quizRootId && r.quizVersion) {
+        const key = `${r.quizRootId}:${r.quizVersion}`;
+        meta = metaByCanonical[key];
+      }
+
       return {
         ...r,
         quizName: meta?.name ?? r.quizName ?? null,
         subject: meta?.subject ?? r.subject ?? null,
         subjectColor: meta?.subjectColorHex ?? r.subjectColor ?? null,
-        topic: meta?.topic ?? null,
       };
     });
 
@@ -314,43 +421,96 @@ export async function getAttemptableSchedulesForStudent(
 }
 
 /**
- * @route  GET /students/:studentId/schedule-summary
- *         Also supports /students/me/schedule-summary
- * @query  ?name=&subject=&topic=&latestFrom=&latestTo=
- *         - name: case-insensitive substring on quizName
- *         - subject, topic: case-insensitive exact match
- *         - latestFrom/latestTo: ISO datetime bounds on latestAt (inclusive)
- * @auth   verifyAccessToken + verifyTeacherOfStudentOrSelf
- * @input  Params: { studentId | "me" }
- * @notes  - Aggregates across ALL classes the student is enrolled in.
- *         - ONE row per schedule the student has attempted (per class).
- *         - Surfaces quiz meta from the latest attempt per schedule (by finishedAt, fallback startedAt/createdAt).
- *         - Attaches canonical contribution if present in the *class-scoped* stats for that schedule.
- *         - **Fix A**: prunes schedules that no longer exist in each class’s embedded `schedule` array.
+ * @route   GET /students/:studentId/schedule-summary
+ *          Also supports /students/me/schedule-summary
+ * @auth    verifyAccessToken + verifyTeacherOfStudentOrSelf
+ *
+ * @input   Path param: :studentId (string, "me" allowed to mean the authenticated user).
+ *
+ * @query   name        (optional string) – fuzzy match on quiz name (case-insensitive).
+ *          subject     (optional string) – exact subject filter.
+ *          topic       (optional string) – exact topic filter.
+ *          latestFrom  (optional ISO date) – include only schedules where the latest
+ *                        attempt time is >= this date.
+ *          latestTo    (optional ISO date) – include only schedules where the latest
+ *                        attempt time is <= this date.
+ *
+ * @logic   1) Resolve the effective studentId (handling "me").
+ *          2) Load ALL classes that contain this student in students.userId, selecting:
+ *               - name, students, and schedule._id for ghost-schedule pruning.
+ *          3) If no classes are found, return an empty schedules array.
+ *          4) Build:
+ *               - classIds: all class _id strings.
+ *               - classNameById: map classId -> className.
+ *               - scheduleIdSetByClass: map classId -> Set of scheduleIds currently
+ *                 present in the embedded schedule array (used to prune ghosts).
+ *          5) Defensive roster check: ensure the student is indeed on the roster
+ *             of at least one of the loaded classes.
+ *          6) Load StudentClassStats rows for (classId ∈ classIds, studentId),
+ *             and build canonicalByClass[classId][scheduleId] from canonicalBySchedule.
+ *          7) Fetch ALL attempts for this student from quiz-svc via
+ *             fetchStudentAttemptsInternal(studentId).
+ *          8) Keep only attempts that:
+ *               - belong to one of the found classes (classId ∈ classIds), and
+ *               - have a scheduleId.
+ *          9) Group these attempts by (classId, scheduleId):
+ *               - accumulate all attempts per key.
+ *               - choose the "latest" attempt per key based on finishedAt / startedAt / createdAt.
+ *         10) Prune "ghost" schedule groups (Fix A): if a (classId, scheduleId) pair
+ *             does not exist in that class's embedded schedule array, drop it from the summary.
+ *         11) For each remaining (classId, scheduleId):
+ *               - Build a ScheduleRow including:
+ *                   - classId, className, scheduleId,
+ *                   - quiz display info (name, subject, subjectColorHex, topic),
+ *                   - latestAttemptId + latestAt (derived from chosen latest attempt),
+ *                   - attemptsCount,
+ *                   - canonical block (if present) with attemptId, score, maxScore, gradePct.
+ *         12) Apply filters (nameRegex, subject, topic, latestFrom, latestTo) via applyFilters.
+ *         13) Return the filtered schedules with the resolved studentId.
+ *
+ * @notes   - The current product invariant is that each student belongs to a single class.
+ *            Under this invariant, the response will effectively look like a per-class summary
+ *            even though the implementation is multi-class aware.
+ *          - The implementation is intentionally written to support multiple classes:
+ *              - It loads all classes that contain the student.
+ *              - It groups attempts by (classId, scheduleId) and returns classId + className
+ *                on each ScheduleRow.
+ *          - In a future multi-class setup, this endpoint naturally becomes a
+ *            cross-class "attempts by schedule" summary for the student, and
+ *            clients can treat classId as a first-class dimension (e.g. filter or group by class).
+ *
  * @returns 200 {
- *   ok: true,
- *   data: {
- *     studentId: string,
- *     schedules: Array<{
- *       classId: string,
- *       className: string,
- *       scheduleId: string,
- *       quizName: string,
- *       subject: string|null,
- *       subjectColorHex: string|null,
- *       topic: string|null,
- *       latestAttemptId?: string,
- *       latestAt?: string,          // ISO
- *       attemptsCount: number,
- *       canonical?: {
- *         attemptId: string,
- *         score: number,
- *         maxScore: number,
- *         gradePct: number
- *       }
- *     }>
- *   }
- * }
+ *            ok: true,
+ *            data: {
+ *              studentId: string,
+ *              schedules: ScheduleRow[]
+ *            }
+ *          }
+ *          where ScheduleRow is:
+ *            {
+ *              classId: string;
+ *              className: string;
+ *              scheduleId: string;
+ *              quizName: string;
+ *              subject: string | null;
+ *              subjectColorHex: string | null;
+ *              topic: string | null;
+ *              latestAttemptId?: string;
+ *              latestAt?: string;          // ISO, from finishedAt/startedAt/createdAt
+ *              attemptsCount: number;
+ *              canonical?: {
+ *                attemptId: string;
+ *                score: number;
+ *                maxScore: number;
+ *                gradePct: number;        // rounded percentage
+ *              };
+ *            }
+ *
+ * @errors  400 Invalid studentId.
+ *          404 Student not found in any class (defensive roster check).
+ *          401/403 Proxied from upstream when quiz-svc (or other upstream) returns auth errors.
+ *          502 Upstream error (for other 4xx/5xx statuses surfaced via e.status).
+ *          500 Internal server error.
  */
 export async function getStudentAttemptsScheduleSummary(
   req: CustomRequest,
@@ -489,12 +649,8 @@ export async function getStudentAttemptsScheduleSummary(
     }
 
     /**
-     * ──────────────────────────────────────────────────────────────────────────
-     *  FIX A (embedded schedules across all classes):
-     *    - We must prune any (classId, scheduleId) group whose scheduleId is NOT
-     *      present in that class’s embedded `schedule` array.
-     *    - This prevents the summary from showing schedules that were deleted.
-     * ──────────────────────────────────────────────────────────────────────────
+     * Fix A: prune schedule groups whose scheduleId no longer exists
+     * in the class’s embedded `schedule` array.
      */
     if (byKey.size > 0) {
       for (const key of Array.from(byKey.keys())) {
@@ -505,7 +661,6 @@ export async function getStudentAttemptsScheduleSummary(
         }
       }
     }
-    // ──────────────────────────────────────────────────────────────────────────
 
     // ── 5) Build rows
     const pct = (score?: number, max?: number) =>

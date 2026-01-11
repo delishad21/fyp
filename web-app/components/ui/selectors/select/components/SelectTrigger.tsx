@@ -65,19 +65,18 @@ export function SelectTrigger({
       disabled={disabled}
       onClick={onToggle}
       className={clsx(
-        "w-full rounded-sm bg-[var(--color-bg2)] px-4 py-3 text-left text-sm",
-        "text-[var(--color-text-primary)] outline-2 outline-[var(--color-bg4)]",
-        "focus:outline-2 focus:outline-[var(--color-primary)]",
+        "h-11 w-full rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 text-left text-sm",
+        "text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]",
         disabled
           ? "cursor-not-allowed text-[var(--color-text-secondary)]"
-          : "hover:bg-[var(--color-bg3)]"
+          : "hover:bg-[var(--color-bg2)]"
       )}
     >
       <div className="flex items-center justify-between">
         <span
           className={clsx(
             "flex items-center gap-2",
-            !hasValue && "text-[var(--color-text-secondary)]"
+            !hasValue && "text-[var(--color-text-tertiary)]"
           )}
         >
           {showColor && hasValue && (

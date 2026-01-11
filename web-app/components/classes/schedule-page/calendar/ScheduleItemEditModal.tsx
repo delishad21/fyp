@@ -3,35 +3,45 @@
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/buttons/Button";
 import TextInput from "@/components/ui/text-inputs/TextInput";
-import DateField from "@/components/ui/selectors/DateField";
+import NumberToggleInput from "@/components/ui/text-inputs/NumberToggleInput";
+import DateRangeField from "@/components/ui/selectors/DateRangeField";
 import ToggleButton from "@/components/ui/buttons/ToggleButton";
+import Select from "@/components/ui/selectors/select/Select";
+
 import {
   SaveResult,
   ScheduleItemLike,
 } from "@/services/class/types/class-types";
 import {
-  dateToLocalYMD,
-  ymdToLocalDate,
-  endOfLocalDate,
+  dayKeyFromDateInTZ,
+  endOfDayInTZ,
+  formatTimeInTZ,
+  makeDateInTZ,
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
 
 export default function ScheduleItemEditModal({
   open,
   item,
+  versionOptions,
+  versionLoading,
   onClose,
   onSave,
+  classTimezone,
 }: {
   open: boolean;
   item: ScheduleItemLike | null;
+  versionOptions: number[];
+  versionLoading: boolean;
   onClose: () => void;
   onSave: (patch: {
     startDate?: Date;
     endDate?: Date;
     contribution?: number;
-    // NEW
     attemptsAllowed?: number;
     showAnswersAfterAttempt?: boolean;
+    quizVersion?: number;
   }) => Promise<SaveResult>;
+  classTimezone: string;
 }) {
   const visible = open && !!item;
   const initial = item;
@@ -39,44 +49,82 @@ export default function ScheduleItemEditModal({
   // Controlled fields
   const [startYMD, setStartYMD] = useState<string>("");
   const [endYMD, setEndYMD] = useState<string>("");
+  const [startTime, setStartTime] = useState<string>("00:00");
+  const [endTime, setEndTime] = useState<string>("23:59");
   const [contribStr, setContribStr] = useState<string>("");
 
-  // NEW policy fields (controlled)
-  const [attemptsAllowedStr, setAttemptsAllowedStr] = useState<string>("");
+  // Policy fields
+  const [attemptsAllowed, setAttemptsAllowed] = useState<number>(1);
   const [showAnswersAfterAttempt, setShowAnswersAfterAttempt] =
     useState<boolean>(false);
 
+  // Version select (string value for <Select>)
+  const [quizVersionValue, setQuizVersionValue] = useState<string>("");
+
   const [saving, setSaving] = useState(false);
+  const isStarted = useMemo(
+    () =>
+      initial ? new Date(initial.startDate).getTime() <= Date.now() : false,
+    [initial]
+  );
 
   const [fieldErrors, setFieldErrors] = useState<
     Record<string, string | string[] | undefined>
   >({});
   const [localErr, setLocalErr] = useState<string | null>(null);
+  const dateErrors = [fieldErrors.startDate, fieldErrors.endDate].flatMap(
+    (err) => (Array.isArray(err) ? err : err ? [err] : [])
+  );
 
+  // When item OR versionOptions change, rehydrate modal state
   useEffect(() => {
     if (!initial) return;
+
     const s = new Date(initial.startDate);
     const e = new Date(initial.endDate);
-    setStartYMD(dateToLocalYMD(s));
-    setEndYMD(dateToLocalYMD(e));
+    setStartYMD(dayKeyFromDateInTZ(s, classTimezone));
+    setEndYMD(dayKeyFromDateInTZ(e, classTimezone));
+    setStartTime(formatTimeInTZ(s, classTimezone));
+    setEndTime(formatTimeInTZ(e, classTimezone));
+
     setContribStr(
       typeof initial.contribution === "number"
         ? String(initial.contribution)
         : ""
     );
 
-    // NEW: hydrate policy fields
-    setAttemptsAllowedStr(
-      typeof initial.attemptsAllowed === "number"
-        ? String(initial.attemptsAllowed)
-        : ""
+    setAttemptsAllowed(
+      typeof initial.attemptsAllowed === "number" ? initial.attemptsAllowed : 1
     );
     setShowAnswersAfterAttempt(Boolean(initial.showAnswersAfterAttempt));
+
+    // Prefer the schedule's current quizVersion; fall back to latest available
+    const currentVersion =
+      typeof (initial as any).quizVersion === "number"
+        ? (initial as any).quizVersion
+        : versionOptions.length
+        ? versionOptions[versionOptions.length - 1]
+        : undefined;
+
+    setQuizVersionValue(
+      typeof currentVersion === "number" ? String(currentVersion) : ""
+    );
 
     setFieldErrors({});
     setLocalErr(null);
     setSaving(false);
-  }, [initial]);
+  }, [initial, versionOptions, classTimezone]);
+
+  const versionSelectOptions = useMemo(
+    () =>
+      Array.from(new Set(versionOptions.filter((n) => Number.isFinite(n))))
+        .sort((a, b) => a - b)
+        .map((v) => ({
+          label: `v${v}`,
+          value: String(v),
+        })),
+    [versionOptions]
+  );
 
   const title = useMemo(
     () => (initial?.quizName ? `Edit “${initial.quizName}”` : "Edit schedule"),
@@ -94,8 +142,31 @@ export default function ScheduleItemEditModal({
       setLocalErr("Start and end dates are required.");
       return;
     }
-    const s = ymdToLocalDate(startYMD);
-    const e = endOfLocalDate(endYMD);
+    const startMatch = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(startTime.trim());
+    if (!startMatch) {
+      setLocalErr("Start time must be in 24-hour HH:mm format.");
+      return;
+    }
+    const startHour = Number(startMatch[1]);
+    const startMinute = Number(startMatch[2]);
+
+    const endMatch = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(endTime.trim());
+    if (!endMatch) {
+      setLocalErr("End time must be in 24-hour HH:mm format.");
+      return;
+    }
+    const endHour = Number(endMatch[1]);
+    const endMinute = Number(endMatch[2]);
+
+    const s = makeDateInTZ(
+      startYMD,
+      classTimezone,
+      startHour,
+      startMinute,
+      0,
+      0
+    );
+    const e = makeDateInTZ(endYMD, classTimezone, endHour, endMinute, 0, 0);
     if (e.getTime() < s.getTime()) {
       setLocalErr("End date cannot be earlier than the start date.");
       return;
@@ -115,31 +186,43 @@ export default function ScheduleItemEditModal({
       }
     }
 
-    // NEW: attemptsAllowed (optional; must be 1..10 when provided)
-    let attemptsAllowed: number | undefined;
-    {
-      const t = attemptsAllowedStr.trim();
-      if (t !== "") {
-        const n = Number(t);
-        if (!Number.isFinite(n) || n < 1 || n > 10) {
-          setFieldErrors({
-            attemptsAllowed: "Must be an integer between 1 and 10.",
-          });
-          return;
-        }
-        attemptsAllowed = Math.floor(n);
-      }
+    // attemptsAllowed (must be 1..10)
+    if (
+      !Number.isFinite(attemptsAllowed) ||
+      attemptsAllowed < 1 ||
+      attemptsAllowed > 10
+    ) {
+      setFieldErrors({
+        attemptsAllowed: "Must be an integer between 1 and 10.",
+      });
+      return;
     }
 
-    // NEW: showAnswersAfterAttempt (boolean already controlled)
+    // quizVersion (optional; positive int)
+    let quizVersion: number | undefined;
+    {
+      const t = quizVersionValue.trim();
+      if (t !== "") {
+        const n = Number(t);
+        if (!Number.isFinite(n) || n <= 0) {
+          setFieldErrors((prev) => ({
+            ...prev,
+            quizVersion: "Must be a valid version.",
+          }));
+          return;
+        }
+        quizVersion = Math.floor(n);
+      }
+    }
 
     setSaving(true);
     const res = await onSave({
       startDate: s,
       endDate: e,
       contribution,
-      attemptsAllowed, // only sent if defined
+      attemptsAllowed,
       showAnswersAfterAttempt,
+      quizVersion,
     });
     setSaving(false);
 
@@ -159,48 +242,85 @@ export default function ScheduleItemEditModal({
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40"
       role="dialog"
     >
-      <div className="w-full max-w-md rounded-2xl bg-[var(--color-bg1)] p-4 shadow">
+      <div className="w-full max-w-md rounded-lg bg-[var(--color-bg1)] p-6 shadow">
         <h3 className="text-lg font-semibold mb-3">{title}</h3>
 
         <div className="space-y-3">
-          <DateField
-            label="Start date"
-            value={startYMD}
-            onChange={(next) => setStartYMD(next || "")}
-            error={fieldErrors.startDate as any}
+          <DateRangeField
+            label="Date range"
+            start={startYMD || undefined}
+            end={endYMD || undefined}
+            onChange={({ start, end }) => {
+              setStartYMD(start || "");
+              setEndYMD(end || "");
+            }}
+            error={dateErrors.length ? dateErrors : undefined}
           />
-
-          <DateField
-            label="End date"
-            value={endYMD}
-            onChange={(next) => setEndYMD(next || "")}
-            error={fieldErrors.endDate as any}
+          <div>
+          <TextInput
+            id="start-time"
+            label={`Start time (${classTimezone})`}
+            type="time"
+            step={60}
+            value={startTime}
+            onValueChange={setStartTime}
+            readOnly={isStarted}
           />
+          {isStarted ? (
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Start time can’t be edited after the quiz has started.
+            </p>
+          ) : null}
+          <TextInput
+            id="end-time"
+            label={`End time (${classTimezone})`}
+            type="time"
+            step={60}
+            value={endTime}
+            onValueChange={setEndTime}
+          />
+          </div>
 
           <TextInput
             id="contribution"
-            label="Contribution"
+            label="Quiz Max Score (Score that students can earn)"
             placeholder="Enter a number greater than 0"
             value={contribStr}
             onValueChange={setContribStr}
             inputMode="decimal"
             pattern="[0-9]*"
             error={fieldErrors.contribution as any}
+            description="
+            The score a student can earn for completing this quiz."
           />
 
-          {/* NEW: Attempts allowed (1..10) */}
-          <TextInput
+          <NumberToggleInput
             id="attemptsAllowed"
-            label="Attempts allowed (1–10)"
-            placeholder="Leave blank to keep current/default (1)"
-            value={attemptsAllowedStr}
-            onValueChange={setAttemptsAllowedStr}
-            inputMode="numeric"
-            pattern="[0-9]*"
+            label="Attempts allowed (1-10)"
+            min={1}
+            max={10}
+            step={1}
+            value={attemptsAllowed}
+            onChange={setAttemptsAllowed}
             error={fieldErrors.attemptsAllowed as any}
           />
 
-          {/* NEW: Show answers after each attempt */}
+          <Select
+            id="quizVersion"
+            label="Quiz version"
+            value={quizVersionValue}
+            onChange={setQuizVersionValue}
+            options={versionSelectOptions}
+            placeholder={
+              versionSelectOptions.length
+                ? "Select a version"
+                : "No versions available"
+            }
+            error={fieldErrors.quizVersion as any}
+            disabled={versionSelectOptions.length === 0 || versionLoading}
+            colorMode="never"
+          />
+
           <ToggleButton
             id="show-answers-after-attempt"
             label="Show answers after each attempt"
@@ -213,11 +333,6 @@ export default function ScheduleItemEditModal({
           {localErr ? (
             <p className="text-xs text-[var(--color-error)]">{localErr}</p>
           ) : null}
-
-          <p className="text-xs text-[var(--color-text-secondary)]">
-            Full-day scheduling. You can still drag to move/resize pills on the
-            calendar.
-          </p>
         </div>
 
         <div className="mt-4 flex justify-end gap-2">

@@ -78,9 +78,7 @@ export async function createClass(req: CustomRequest, res: Response) {
     }
 
     const includePw =
-      String(
-        req.query?.includePasswords ?? req.body?.includePasswords ?? ""
-      ).toLowerCase() === "true";
+      String(req.body?.includePasswords ?? "").toLowerCase() === "true";
 
     try {
       createdStudents = await bulkCreateStudents(
@@ -288,14 +286,16 @@ export async function updateClass(req: CustomRequest, res: Response) {
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
  * @input  Params: { id }
  *         Query:  force?=true|false
- *         Notes:  - Attempts user-svc deletions first; if partial and force=false → abort.
- *                 - Deletes Class + stats collections in one transaction.
- * @logic  1) Load class and studentIds
- *         2) Best-effort user-svc deletion (respect ?force)
- *         3) TX: delete ClassStats, StudentClassStats, ScheduleStats, then Class
+ * @notes  - Attempts user-svc deletions first; if partial and force=false → abort.
+ *         - Deletes StudentClassStats, ScheduleStats, ClassAttempt rows and the Class itself in one transaction.
+ * @logic  1) Load class and studentIds.
+ *         2) Best-effort user-svc deletion (bulkDeleteStudents, status bubbled):
+ *              - If not all deleted and force=false → 4xx/5xx from user-svc, include upstream body when available.
+ *              - If force=true -> log failure and continue with local deletion.
+ *         3) TX: delete StudentClassStats, ScheduleStats, ClassAttemptModel rows, then Class.
  * @returns 200 { ok, data }
  * @errors  404 class not found
- *          502 user-svc failure (unless force=true)
+ *          4xx/5xx user-svc failure (unless force=true; status bubbled from user-svc)
  *          500 internal server error
  */
 export async function deleteClass(req: CustomRequest, res: Response) {

@@ -23,7 +23,7 @@ export default function TextSearch({
       <label className="mb-1 block text-xs text-[var(--color-text-secondary)]">
         {label}
       </label>
-      <div className={`flex h-10 ${FilterTriggerStyles}`}>
+      <div className={`flex h-11 ${FilterTriggerStyles}`}>
         <Icon
           icon="mingcute:search-line"
           width={16}
@@ -37,7 +37,7 @@ export default function TextSearch({
           className="w-50 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none"
         />
         {loading && (
-          <span className="ml-1 inline-flex h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+          <span className="ml-1 inline-flex h-4 w-4 animate-spin rounded-full border border-[var(--color-primary)] border-t-transparent" />
         )}
       </div>
     </div>

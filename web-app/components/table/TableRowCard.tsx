@@ -17,18 +17,6 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Icon } from "@iconify/react";
 
-type QuizLite = {
-  id: string;
-  title: string;
-  subject?: string;
-  subjectColorHex?: string;
-  topic?: string;
-  type?: string;
-  createdAt?: string | Date;
-};
-
-type DragPayload = { kind: "quiz-row"; rowId: string; quiz?: QuizLite } | any;
-
 const HANDLE_BTN = 28; // px (button square)
 const ICON_NAME = "mdi:drag-vertical";
 
@@ -37,6 +25,8 @@ export default function TableRowCard({
   row,
   gridTemplate,
   onEdit,
+  onView,
+  onDuplicate,
   onDelete,
   onRowClick,
   dragData,
@@ -46,28 +36,21 @@ export default function TableRowCard({
   row: RowData;
   gridTemplate: string;
   onEdit?: (row: RowData) => void | Promise<void>;
+  onView?: (row: RowData) => void | Promise<void>;
+  onDuplicate?: (row: RowData) => void | Promise<void>;
   onDelete?: (row: RowData) => void | Promise<void>;
   onRowClick?: (row: RowData) => void | Promise<void>;
-  dragData?: any;
+  dragData?: any; // any DnD payload; caller decides shape
   draggable?: boolean;
 }) {
-  const hasActions = Boolean(onEdit || onDelete);
+  const hasActions = Boolean(onEdit || onView || onDuplicate || onDelete);
   const isClickable = Boolean(onRowClick);
 
-  // Only treat as draggable if we actually have a payload
-  const finalDragData: DragPayload | undefined =
-    dragData ??
-    (row.payload
-      ? { kind: "quiz-row", rowId: row.id, quiz: row.payload as QuizLite }
-      : undefined);
+  const isDraggable = draggable && Boolean(dragData);
 
-  const isDraggable = draggable && Boolean(finalDragData);
-
-  // We keep the hook unconditionally (hooks can’t be conditional),
-  // but pass disabled when not draggable.
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `row-${row.id}`,
-    data: finalDragData,
+    data: dragData,
     disabled: !isDraggable,
   } as any);
 
@@ -102,6 +85,7 @@ export default function TableRowCard({
       setEditLoading(false);
     }
   };
+
   const handleDelete = async (e?: ReactMouseEvent) => {
     e?.stopPropagation();
     setDeleteLoading(true);
@@ -111,12 +95,22 @@ export default function TableRowCard({
       setDeleteLoading(false);
     }
   };
+
+  const handleView = (e?: ReactMouseEvent) => {
+    e?.stopPropagation();
+    onView?.(row);
+  };
+
+  const handleDuplicate = (e?: ReactMouseEvent) => {
+    e?.stopPropagation();
+    onDuplicate?.(row);
+  };
+
   const handleRowClick = async () => {
     if (!onRowClick) return;
     await onRowClick(row);
   };
 
-  // Only add the handle column when draggable
   const template = isDraggable ? `max-content ${gridTemplate}` : gridTemplate;
 
   return (
@@ -135,11 +129,10 @@ export default function TableRowCard({
           : undefined
       }
       className={[
-        "grid items-center rounded-xl bg-[var(--color-bg3)] min-h-11 transition-all duration-200 ease-out",
+        "grid items-center rounded-xl bg-[var(--color-bg3)] min-h-11 transition-all duration-200 ease-out shadow-sm",
         isClickable
           ? "hover:opacity-80 hover:scale-[1.01] hover:-translate-y-0.5 hover:shadow-[var(--drop-shadow)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
           : "",
-        // Hide row while dragging so it never intercepts pointer events
         isDragging ? "invisible pointer-events-none" : "",
       ].join(" ")}
       style={{ gridTemplateColumns: template }}
@@ -188,7 +181,9 @@ export default function TableRowCard({
         ))}
         {hasActions && (
           <RowActions
+            onView={onView ? handleView : undefined}
             onEdit={onEdit ? handleEdit : undefined}
+            onDuplicate={onDuplicate ? handleDuplicate : undefined}
             onDelete={onDelete ? handleDelete : undefined}
             editLoading={editLoading}
             deleteLoading={deleteLoading}

@@ -13,17 +13,14 @@ export default async function ClassLayout({
 }) {
   const classId = (await params).id;
   const cls = await getClass(classId);
+
   const imgUrl = cls?.image?.url || DEFAULT_IMG;
   const color = cls?.metadata?.color || "#3D5CFF";
 
   return (
     <>
-      <section
-        className="
-          relative overflow-hiddenbg-[var(--color-bg2)]
-        "
-      >
-        <div className="relative h-70 w-full">
+      <section className="relative overflow-hidden bg-[var(--color-bg2)]">
+        <div className="relative h-72 w-full">
           <img
             src={imgUrl}
             alt={`${cls?.name ?? "Class"} cover`}
@@ -31,31 +28,45 @@ export default async function ClassLayout({
             loading="lazy"
             decoding="async"
           />
-          {/* gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/10" />
 
-          {/* Title + level */}
-          <div className="absolute left-5 bottom-4">
-            <h1 className="text-4xl font-bold text-white drop-shadow">
-              {cls?.name ?? "Class"}
-            </h1>
-            {cls?.level && <p className="text-xl drop-shadow">{cls.level}</p>}
-          </div>
+          {/* Stronger bottom scrim for readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
 
-          {/* Edit button */}
-          <div className="absolute right-4 bottom-4">
+          {/* Title block (glass card) */}
+          <div className="absolute left-5 bottom-4 right-5 flex items-end justify-between gap-4">
+            <div
+              className={[
+                "max-w-[75%] rounded-lg px-4 py-3",
+                "bg-black/35 backdrop-blur-md",
+                "border border-white/10",
+              ].join(" ")}
+            >
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-white drop-shadow-sm">
+                  {cls?.name ?? "Class"}
+                </h1>
+              </div>
+
+              {cls?.level && (
+                <p className="mt-1 text-sm text-white/80 drop-shadow-sm">
+                  {cls.level}
+                </p>
+              )}
+            </div>
+
             <Button
               href={`/classes/${classId}/edit`}
               variant="primary"
               title="Edit Class info"
+              className="shrink-0"
             >
               Edit Class info
             </Button>
           </div>
         </div>
 
-        {/* Accent bar (uses class color) */}
-        <div className="h-4 w-full" style={{ backgroundColor: color }} />
+        {/* Accent bar (class color) */}
+        <div className="h-6 w-full" style={{ backgroundColor: color }} />
       </section>
 
       {/* Tabs */}

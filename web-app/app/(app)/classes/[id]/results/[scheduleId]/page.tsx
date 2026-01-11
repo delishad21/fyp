@@ -119,6 +119,7 @@ export default async function ScheduleResultPage({
     <div className="mx-auto space-y-6 p-4">
       <ScheduleHeader
         quizName={data.quizName}
+        quizVersion={data.quizVersion}
         subject={data.subject}
         subjectColor={data.subjectColor}
         quizType={data.quizType}

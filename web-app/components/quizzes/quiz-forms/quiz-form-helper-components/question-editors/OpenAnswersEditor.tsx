@@ -123,7 +123,7 @@ export default function OpenAnswersEditor({
       <div className="space-y-2 max-w-[600px]">
         <div className="px-2 text-md flex justify-between text-[var(--color-text-primary)] mb-3">
           <p>Accepted Answers</p>
-          <p>Case Sensitive</p>
+          <p>Case Sensitivity</p>
         </div>
 
         <ul className="space-y-2">
@@ -146,8 +146,8 @@ export default function OpenAnswersEditor({
               <ToggleButton
                 on={ans.caseSensitive}
                 onToggle={() => onToggleCaseSensitive(ans.id)}
-                titleOn="Case sensitive (on)"
-                titleOff="Case sensitive (off)"
+                titleOn="(on)"
+                titleOff="(off)"
               />
 
               <IconButton

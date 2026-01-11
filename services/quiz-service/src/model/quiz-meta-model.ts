@@ -8,6 +8,17 @@ import {
   Model,
 } from "mongoose";
 
+/**
+ * Schema for user quiz metadata. Each user has one document storing
+ * their subjects and topics used across quizzes. subjects are stored
+ * with both label and colorHex, while topics only store label.
+ *
+ *
+ * Note: This will be eventually deprecated. When quiz sharing is implemented,
+ * subjects, subject colors, and topics will be have to be standardized across users.
+ * For now, this is sufficient to provide per-user customization.
+ */
+
 /** subjects keep label + colorHex */
 const SubjectSchema = new Schema(
   {
@@ -50,7 +61,7 @@ export type UserQuizMeta = InferSchemaType<typeof UserQuizMetaSchema> & {
 /** Hydrated doc (when not using .lean()) */
 export type UserQuizMetaDoc = HydratedDocument<UserQuizMeta>;
 
-/** Model type (optional but nice to have if you add statics/methods later) */
+/** Model type */
 export type UserQuizMetaModelType = Model<UserQuizMeta>;
 
 /** ---------- Model ---------- */

@@ -11,7 +11,7 @@ const WORD_MAX = 20;
 /**
  * @internal validateWords
  * @purpose Validate crossword `words`/`clues` pairs before generation.
- * @input   words: string[]; clues: string[]      // same length; words[i] ↔ clues[i]
+ * @input   words: string[]; clues: string[]      // same length; words[i] <-> clues[i]
  * @rules   - At least 1 word; at most 10 words
  *          - Each answer required; letters A–Z only; no spaces; length ≤ WORD_MAX
  *          - Each clue required (non-empty)
@@ -57,28 +57,30 @@ function validateWords(words: string[], clues: string[]) {
 
 /**
  * @route   POST /quiz/generate-crossword
- * @auth    none
+ * @auth    verifyAccessToken + verifyIsTeacher
  * @input   Body: {
- *            words: string[],            // required; answers
- *            clues: string[],            // required; same length as words
- *            gridSize?: number           // optional; default 20 (square grid)
- *          }
- * @logic   1) Validate with validateWords; on failure → 400 with fieldErrors/questionErrors
- *          2) Map to InputWord[] (answer UPPERCASE trimmed; clue trimmed)
- *          3) generateCrossword(items, size, { allowIslandFallback: true })
- *          4) packTopLeftAndCrop(grid, entries) to minimize bounding box
+ *           words: string[],   // required; answers
+ *           clues: string[],   // required; same length as words
+ *           gridSize?: number  // optional; defaults to 20
+ *         }
+ * @logic   1) Validate word/clue pairs via `validateWords`:
+ *             - 1–10 entries.
+ *             - Answers required, A–Z only, no spaces, length ≤ WORD_MAX.
+ *             - Clues required (non-empty).
+ *         2) Map to `InputWord[]` with uppercase answers and trimmed clues.
+ *         3) Call `generateCrossword(items, gridSize, { allowIslandFallback: true })`.
+ *         4) Run `packTopLeftAndCrop` to minimize the bounding box of the grid.
  * @returns 200 {
- *            ok: true,
- *            grid: Cell[][],
- *            entries: Entry[],           // id, answer, clue, direction, positions[]
- *            packedHeight: number,
- *            packedWidth: number,
- *            unplaced: InputWord[]       // any answers that could not be placed
- *          }
+ *           ok: true,
+ *           grid: Cell[][],
+ *           entries: Entry[],
+ *           packedHeight: number,
+ *           packedWidth: number,
+ *           unplaced: InputWord[]
+ *         }
  * @errors  400 validation failure
+ *          401 unauthenticated
  *          500 server error
- * @sideEffects
- *          - No DB writes; CPU-bound generation only.
  */
 export async function generateCrosswordHandler(req: Request, res: Response) {
   try {

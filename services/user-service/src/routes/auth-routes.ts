@@ -10,6 +10,7 @@ const router = Router();
  */
 router.get("/me", verifyAccessToken, (req: CustomRequest, res) => {
   // req.user is populated by verifyAccessToken
+  console.log(`[AUTH] Returning user info for: ${req.user?.username}`);
   const { id, username, email, role, teacherId, isAdmin, mustChangePassword } =
     req.user!;
   res.json({
@@ -24,7 +25,7 @@ router.get("/me", verifyAccessToken, (req: CustomRequest, res) => {
 });
 
 /**
- * Optional: light-weight "is alive" for tokens
+ * light-weight "is alive" for tokens
  * Returns 204 if token valid, 401 otherwise.
  */
 router.head("/verify", verifyAccessToken, (_req, res) => res.sendStatus(204));

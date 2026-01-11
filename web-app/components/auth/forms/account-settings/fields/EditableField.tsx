@@ -62,17 +62,24 @@ export default function EditableField({
         {label}
       </label>
 
-      <div className="flex items-start h-[45px] gap-2">
-        <div className="flex-1 min-w-0">{children}</div>
+      <div className="flex items-start h-full gap-2">
+        <div className="flex-col flex-1 min-w-0">
+          <div className="flex-1 min-w-0">{children}</div>
+          {!!error && (
+            <p className="mt-3 text-xs text-[var(--color-error)]">
+              {Array.isArray(error) ? error.join(", ") : error}
+            </p>
+          )}
+        </div>
 
         {!readOnly && (
           <div className="w-[190px] h-full">
             {locked ? (
-              <div className="flex gap-2 h-full w-[90px] items-start">
+              <div className="flex gap-2 h-full mt-1">
                 <Button onClick={onEdit}>Edit</Button>
               </div>
             ) : (
-              <div className="flex gap-2 h-full">
+              <div className="flex gap-2 h-full mt-1">
                 <Button
                   onClick={onSave}
                   loading={saving}
@@ -88,12 +95,6 @@ export default function EditableField({
           </div>
         )}
       </div>
-
-      {!!error && (
-        <p className="mt-1 text-xs text-red-500">
-          {Array.isArray(error) ? error.join(", ") : error}
-        </p>
-      )}
     </div>
   );
 }

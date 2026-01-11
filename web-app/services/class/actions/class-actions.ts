@@ -17,7 +17,7 @@ async function createClassJSON(
   payload: Record<string, any>,
   authHeader: string
 ) {
-  const resp = await fetch(classSvcUrl("/classes?includePasswords=true"), {
+  const resp = await fetch(classSvcUrl("/classes"), {
     method: "POST",
     headers: { Authorization: authHeader, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -111,12 +111,12 @@ function parseJsonField(fd: FormData, key: string) {
     return undefined;
   }
 }
+
 function buildClassPayload(formData: FormData) {
   const name = (formData.get("name") as string | null)?.trim() ?? "";
   const level = (formData.get("level") as string | null)?.trim() ?? "";
   const color = (formData.get("color") as string | null)?.trim() || undefined;
 
-  // include class timezone only if present
   const tzRaw = (formData.get("timezone") as string | null)?.trim();
   const timezone = tzRaw && tzRaw.length ? tzRaw : undefined;
 
@@ -124,7 +124,12 @@ function buildClassPayload(formData: FormData) {
   const image = parseJsonField(formData, "imageJson");
   const schedule = parseJsonField(formData, "scheduleJson");
 
-  const payload: Record<string, any> = { name, level, metadata: {} };
+  const payload: Record<string, any> = {
+    name,
+    level,
+    metadata: {},
+    includePasswords: true,
+  };
   if (color) payload.metadata.color = color;
   if (timezone) payload.timezone = timezone;
   if (Array.isArray(students)) payload.students = students;

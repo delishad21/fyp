@@ -2,6 +2,7 @@
 
 import { quizSvcUrl } from "@/utils/utils";
 import { CrosswordApiEntry, Cell, Direction } from "../types/quizTypes";
+import { getAuthHeader } from "@/services/user/session-definitions";
 
 export type Entry = Omit<CrosswordApiEntry, "direction"> & {
   direction: Direction;
@@ -53,20 +54,25 @@ export async function generateCrosswordPreview(
     gridSize = 20,
     endpoint = quizSvcUrl("/quiz/generate-crossword"),
     signal,
-    authHeader,
   } = params;
 
   const words = entries.map((e) => e.answer);
   const clues = entries.map((e) => e.clue);
 
+  const auth = await getAuthHeader();
+
   let resp: Response;
   try {
+    if (!auth) {
+      return {
+        ok: false,
+        status: 401,
+        message: "Not authenticated",
+      };
+    }
     resp = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(authHeader ? { Authorization: authHeader } : {}),
-      },
+      headers: { Authorization: auth, "Content-Type": "application/json" },
       body: JSON.stringify({ words, clues, gridSize }),
       cache: "no-store",
       signal,

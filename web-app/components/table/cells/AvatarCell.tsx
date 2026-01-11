@@ -1,4 +1,3 @@
-// components/table/cells/AvatarCell.tsx
 "use client";
 
 import { useState } from "react";
