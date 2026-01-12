@@ -1,9 +1,14 @@
-import { Cell, CrosswordPlacedEntry } from "@/services/quiz/types/quizTypes";
+import { Cell } from "@/services/quiz/types/quizTypes";
 import * as React from "react";
+
+type GridEntry = {
+  id: string;
+  positions: { row: number; col: number }[];
+};
 
 type Props = {
   grid: Cell[][];
-  entries?: CrosswordPlacedEntry[];
+  entries?: GridEntry[];
   cellSize?: number; // px per cell (default 40)
   showCoords?: boolean;
 
@@ -23,7 +28,6 @@ export default function CrosswordGrid({
   showCoords = false,
   statusByCell,
 }: Props) {
-  const rows = grid.length;
   const cols = grid[0]?.length ?? 0;
 
   // number the first cell of each entry

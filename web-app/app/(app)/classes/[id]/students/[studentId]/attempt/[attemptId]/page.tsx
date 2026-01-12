@@ -5,6 +5,10 @@ import {
   getQuizAttempt,
   type QuizAttemptDto,
 } from "@/services/quiz/actions/get-quiz-attempt";
+import type {
+  BasicOrRapidAttemptType,
+  CrosswordAttemptType,
+} from "@/services/class/types/class-types";
 import {
   getAttemptsForScheduleByStudent,
   getStudentInClass,
@@ -64,8 +68,10 @@ export default async function AttemptPage({
   // Prefer live quiz meta for quizType; fall back to snapshot if needed
   const type =
     attempt.quiz?.quizType ??
-    (attempt.quizVersionSnapshot as any)?.quizType ??
-    null;
+    (typeof attempt.quizVersionSnapshot === "object" &&
+    attempt.quizVersionSnapshot !== null
+      ? (attempt.quizVersionSnapshot as { quizType?: string }).quizType
+      : null);
 
   return (
     <div className="mx-auto space-y-2 p-2">
@@ -78,9 +84,19 @@ export default async function AttemptPage({
       />
 
       <div className="h-2 p-6">
-        {type === "basic" && <BasicOrRapidAttempt attempt={attempt as any} />}
-        {type === "rapid" && <BasicOrRapidAttempt attempt={attempt as any} />}
-        {type === "crossword" && <CrosswordAttempt attempt={attempt as any} />}
+        {type === "basic" && (
+          <BasicOrRapidAttempt
+            attempt={attempt as BasicOrRapidAttemptType}
+          />
+        )}
+        {type === "rapid" && (
+          <BasicOrRapidAttempt
+            attempt={attempt as BasicOrRapidAttemptType}
+          />
+        )}
+        {type === "crossword" && (
+          <CrosswordAttempt attempt={attempt as CrosswordAttemptType} />
+        )}
 
         {type !== "basic" && type !== "rapid" && type !== "crossword" && (
           <div className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg3)] p-4 text-[var(--color-text-primary)]">

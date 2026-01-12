@@ -167,9 +167,11 @@ export default function CrosswordQuizForm({
 
   // show toast on state change
   const { showToast } = useToast();
+  const lastToastRef = useRef<string | null>(null);
   useEffect(() => {
     const msg = genMessage || state.message;
     if (!msg) return;
+    if (msg === lastToastRef.current) return;
 
     const isSuccess = (generated && genMessage) || state.ok;
 
@@ -180,7 +182,7 @@ export default function CrosswordQuizForm({
     });
 
     setGenMessage(null);
-    state.message = undefined;
+    lastToastRef.current = msg;
   }, [genMessage, state.message, state.ok, generated, showToast]);
 
   // ---------------- Hydration + invalidate-after-edit guards ----------------
@@ -232,7 +234,7 @@ export default function CrosswordQuizForm({
       hydratedRef.current = false;
       userEditedRef.current = false;
     }
-  }, [mode, isClone, initialData?.id]);
+  }, [mode, isClone, initialData]);
 
   const lastEntriesJsonRef = React.useRef<string>(
     JSON.stringify(
@@ -337,7 +339,7 @@ export default function CrosswordQuizForm({
   function normalizePlaced(placed: CrosswordPlacedEntry[]) {
     const mapped =
       (placed || []).map((p) => ({
-        a: normalizeAnswer((p as any).answer ?? ""),
+        a: normalizeAnswer(p.answer ?? ""),
         pos: (p.positions || []).map((t) => [
           Number(t.row || 0),
           Number(t.col || 0),
@@ -414,7 +416,7 @@ export default function CrosswordQuizForm({
     });
 
     return JSON.stringify(snapshot);
-  }, [mode, initialData]);
+  }, [mode, initialData, buildNormalizedCrosswordSnapshot]);
 
   const currentContentNormJson = useMemo(() => {
     const nowEntries = (entries || []).map((e) => ({
@@ -430,7 +432,7 @@ export default function CrosswordQuizForm({
     });
 
     return JSON.stringify(snapshot);
-  }, [entries, generated, genGrid, genEntries, totalTime]);
+  }, [entries, generated, genGrid, genEntries, totalTime, buildNormalizedCrosswordSnapshot]);
 
   const contentChanged =
     mode === "edit" && initialData?.id
@@ -565,7 +567,7 @@ export default function CrosswordQuizForm({
           }}
           errorFor={(k) => getVisibleFieldError(k) || genFieldErrors[k]}
           clearError={(k) => {
-            clearFieldError(k as any);
+            clearFieldError(k);
             setGenFieldErrors((prev) => ({ ...prev, [k]: undefined }));
           }}
           onAddSubject={addSubject}
@@ -574,9 +576,7 @@ export default function CrosswordQuizForm({
 
         {/* Entries-level error */}
         {(() => {
-          const e =
-            (getVisibleFieldError("entries") as any) ||
-            genFieldErrors["entries"];
+          const e = getVisibleFieldError("entries") || genFieldErrors["entries"];
           if (!e) return null;
           return Array.isArray(e) ? (
             <ul className="list-disc pl-5 text-xs text-[var(--color-error)] space-y-0.5">
@@ -650,11 +650,11 @@ export default function CrosswordQuizForm({
         {mode === "edit" && initialData?.id && (
           <>
             <input type="hidden" name="quizId" value={initialData.id} />
-            {typeof (initialData as any).version === "number" && (
+            {typeof initialData?.version === "number" && (
               <input
                 type="hidden"
                 name="baseVersion"
-                value={(initialData as any).version}
+                value={initialData.version}
               />
             )}
             <input

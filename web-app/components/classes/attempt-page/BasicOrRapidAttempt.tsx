@@ -6,6 +6,7 @@ import {
 import { BasicOrRapidAttemptType } from "@/services/class/types/class-types";
 import { MCAnswerBlock } from "./answer-blocks/MCAnswerBlock";
 import { OpenAnswerBlock } from "./answer-blocks/OpenAnswerBlock";
+import Image from "next/image";
 
 export default function BasicOrRapidAttempt({
   attempt,
@@ -21,6 +22,10 @@ export default function BasicOrRapidAttempt({
         const bd = bmap.get(it.id);
         const awarded = bd?.awarded ?? 0;
         const max = bd?.max ?? (it.kind === "context" ? 0 : 1);
+        const imageUrl =
+          typeof it === "object" && it && "image" in it
+            ? (it.image as { url?: string } | null | undefined)?.url
+            : undefined;
 
         return (
           <div
@@ -54,11 +59,15 @@ export default function BasicOrRapidAttempt({
             </div>
 
             {/* Optional image */}
-            {(it as any).image?.url ? (
-              <img
-                src={(it as any).image.url}
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
                 alt="item"
+                width={1200}
+                height={800}
                 className="mt-4 max-h-64 w-auto rounded-md object-contain"
+                sizes="(max-width: 1024px) 100vw, 768px"
+                unoptimized
               />
             ) : null}
 

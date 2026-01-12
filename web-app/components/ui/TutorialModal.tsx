@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/buttons/Button";
 import IconButton from "@/components/ui/buttons/IconButton";
 import { Icon } from "@iconify/react";
+import Image from "next/image";
 
 export type TutorialMedia = {
   src: string;
@@ -147,12 +148,13 @@ export default function TutorialModal({
                   className="h-full w-full max-h-[600px] object-contain"
                 />
               ) : (
-                <img
+                <Image
                   src={current.media.src}
                   alt={current.media.alt || current.title}
+                  width={1200}
+                  height={800}
                   className="h-full w-full max-h-[600px] object-contain"
-                  loading="lazy"
-                  decoding="async"
+                  sizes="(max-width: 1024px) 100vw, 800px"
                 />
               )}
             </div>

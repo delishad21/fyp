@@ -27,8 +27,11 @@ export default function ScheduleTabsClient({
   const router = useRouter();
 
   const handleRowClick = (row: RowData) => {
-    const studentId = (row.payload as any)?.studentId;
-    const attemptId = (row.payload as any)?.attemptId;
+    const payload = row.payload as
+      | { studentId?: string; attemptId?: string }
+      | undefined;
+    const studentId = payload?.studentId;
+    const attemptId = payload?.attemptId;
     if (!studentId || !attemptId) return; // defensively ignore if payload missing
     router.push(
       `/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(

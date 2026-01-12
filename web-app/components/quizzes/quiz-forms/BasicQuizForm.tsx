@@ -36,6 +36,7 @@ import {
   BasicInitial,
   BasicTopFields,
   CreateQuizState,
+  BaseFormItemDraft,
 } from "@/services/quiz/types/quizTypes";
 import { processQuiz } from "@/services/quiz/actions/process-quiz-action";
 import { useBaseQuizFormItems } from "@/services/quiz/quiz-form-helpers/hooks/useBaseQuizFormItems";
@@ -172,18 +173,19 @@ export default function BasicQuizForm({
   );
 
   const { showToast } = useToast();
+  const lastToastRef = useRef<string | null>(null);
 
   // Toast on state change
   useEffect(() => {
     if (!state.message) return;
+    if (state.message === lastToastRef.current) return;
 
     showToast({
       title: state.ok ? "Success" : "Error",
       description: state.message,
       variant: state.ok ? "success" : "error",
     });
-
-    state.message = undefined;
+    lastToastRef.current = state.message;
   }, [state.message, state.ok, showToast]);
 
   // Redirect after success
@@ -209,7 +211,6 @@ export default function BasicQuizForm({
     selectQuestion,
 
     setText,
-    setTime,
     setImageMeta,
 
     switchToOpen,
@@ -234,8 +235,9 @@ export default function BasicQuizForm({
    * Error masking (top-level fields + per-question)
    * -------------------------------------------------------------- */
 
-  const { clearFieldError, getVisibleFieldError } =
-    useFieldErrorMask<BasicTopFields>(state.fieldErrors);
+  const { clearFieldError, getVisibleFieldError } = useFieldErrorMask<
+    BasicTopFields | "totalTimeLimit"
+  >(state.fieldErrors);
 
   const {
     visibleErrors: visibleQuestionErrors,
@@ -277,7 +279,7 @@ export default function BasicQuizForm({
   /** ---------------------------------------------------------------
    * Content-change detection (for messaging only, EDIT mode)
    * -------------------------------------------------------------- */
-  const normalizeBasicItems = useCallback((raw: any[]) => {
+  const normalizeBasicItems = useCallback((raw: BaseFormItemDraft[]) => {
     return (raw || [])
       .map((it) => {
         if (it.type === "mc") {
@@ -286,7 +288,7 @@ export default function BasicQuizForm({
             text: it.text ?? "",
             timeLimit: it.timeLimit ?? null,
             image: it.image?.url ?? null,
-            options: (it.options ?? []).map((o: any) => ({
+            options: (it.options ?? []).map((o) => ({
               text: o.text ?? "",
               correct: !!o.correct,
             })),
@@ -298,7 +300,7 @@ export default function BasicQuizForm({
             text: it.text ?? "",
             timeLimit: it.timeLimit ?? null,
             image: it.image?.url ?? null,
-            answers: (it.answers ?? []).map((a: any) => ({
+            answers: (it.answers ?? []).map((a) => ({
               text: a.text ?? "",
               caseSensitive: !!a.caseSensitive,
             })),
@@ -328,7 +330,7 @@ export default function BasicQuizForm({
   const currentContentNormJson = useMemo(
     () =>
       JSON.stringify({
-        items: normalizeBasicItems(items as any),
+        items: normalizeBasicItems(items as BaseFormItemDraft[]),
         totalTimeLimit: totalTime ?? null,
       }),
     [items, totalTime, normalizeBasicItems]
@@ -502,15 +504,15 @@ export default function BasicQuizForm({
             value={totalTime}
             onChange={(v) => {
               setTotalTime(v);
-              clearFieldError("totalTimeLimit" as any);
+              clearFieldError("totalTimeLimit");
             }}
             min={60}
             max={7200}
           />
         </div>
-        {getVisibleFieldError("totalTimeLimit" as any) && (
+        {getVisibleFieldError("totalTimeLimit") && (
           <p className="text-xs text-[var(--color-error)]">
-            {String(getVisibleFieldError("totalTimeLimit" as any))}
+            {String(getVisibleFieldError("totalTimeLimit"))}
           </p>
         )}
 

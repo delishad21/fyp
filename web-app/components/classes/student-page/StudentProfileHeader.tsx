@@ -1,6 +1,7 @@
 "use client";
 
 import { KpiStat } from "@/components/ui/StatDisplays";
+import Image from "next/image";
 
 type Props = {
   name: string;
@@ -24,12 +25,15 @@ export default function StudentProfileHeader({
       <div className="flex items-center gap-6">
         {/* LEFT: Profile */}
         <div className="flex flex-col items-center gap-4">
-          <div className="mx-10 h-30 w-30 overflow-hidden rounded-full bg-[var(--color-bg4)]">
+          <div className="mx-10 h-30 w-30 overflow-hidden rounded-full bg-[var(--color-bg4)] relative">
             {avatarUrl ? (
-              <img
+              <Image
                 src={avatarUrl}
                 alt={`${name} avatar`}
-                className="h-full w-full object-cover"
+                fill
+                className="object-cover"
+                sizes="120px"
+                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-[var(--color-text-secondary)]">
@@ -48,11 +52,14 @@ export default function StudentProfileHeader({
           {badges.length > 0 ? (
             <div className="flex flex-wrap items-center justify-center gap-3">
               {badges.map((src, i) => (
-                <img
+                <Image
                   key={src + i}
                   src={src}
                   alt="Badge"
-                  className="h-10 w-10 rounded-md object-cover"
+                  width={40}
+                  height={40}
+                  className="rounded-md object-cover"
+                  unoptimized
                 />
               ))}
             </div>

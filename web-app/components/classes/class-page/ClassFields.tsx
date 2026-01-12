@@ -9,7 +9,7 @@ type ClassFieldsProps = {
     timezoneDefault?: string;
     color: string;
   };
-  errors?: Record<string, any>;
+  errors?: Record<string, string | string[] | undefined>;
   tzOptions: string[];
   onColorChange: (c: string) => void;
 };

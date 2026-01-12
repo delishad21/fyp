@@ -124,10 +124,12 @@ export default function RapidQuizForm({
   };
   const [state, formAction, pending] = useActionState(processQuiz, initial);
   const { showToast } = useToast();
+  const lastToastRef = useRef<string | null>(null);
 
   // Toast on state change
   useEffect(() => {
     if (!state.message) return;
+    if (state.message === lastToastRef.current) return;
 
     showToast({
       title: state.ok ? "Success" : "Error",
@@ -135,7 +137,7 @@ export default function RapidQuizForm({
       variant: state.ok ? "success" : "error",
     });
 
-    state.message = undefined;
+    lastToastRef.current = state.message;
   }, [state.message, state.ok, showToast]);
 
   // shared hooks
@@ -147,7 +149,7 @@ export default function RapidQuizForm({
   const { clearFieldError, getVisibleFieldError } =
     useFieldErrorMask<RapidTopFields>(state.fieldErrors);
 
-  function toRapidDraft(raw: any): BaseFormItemDraft {
+  function toRapidDraft(raw: BaseFormItemDraft): BaseFormItemDraft {
     return {
       id: raw.id ?? crypto.randomUUID(),
       type: "mc", // rapid is MC-only
@@ -158,7 +160,7 @@ export default function RapidQuizForm({
           : null,
       image: raw.image ?? null,
       options:
-        (raw.options ?? []).map((o: any) => ({
+        (raw.options ?? []).map((o) => ({
           id: o.id ?? crypto.randomUUID(),
           text: o.text ?? "",
           correct: !!o.correct,
@@ -210,13 +212,13 @@ export default function RapidQuizForm({
   const confirmedRef = useRef(false); // <-- ref instead of state
   const updateActiveSchedulesInputRef = useRef<HTMLInputElement | null>(null);
 
-  function normalizeRapidItems(raw: any[]) {
+  function normalizeRapidItems(raw: BaseFormItemDraft[]) {
     return (raw || []).map((it) => ({
       type: "mc",
       text: it.text ?? "",
       timeLimit: it.timeLimit ?? null,
       image: it.image?.url ?? null,
-      options: (it.options ?? []).map((o: any) => ({
+      options: (it.options ?? []).map((o) => ({
         text: o.text ?? "",
         correct: !!o.correct,
       })),
@@ -445,11 +447,11 @@ export default function RapidQuizForm({
         {mode === "edit" && initialData?.id && (
           <>
             <input type="hidden" name="quizId" value={initialData.id} />
-            {typeof (initialData as any).version === "number" && (
+            {typeof initialData?.version === "number" && (
               <input
                 type="hidden"
                 name="baseVersion"
-                value={(initialData as any).version}
+                value={initialData.version}
               />
             )}
             <input

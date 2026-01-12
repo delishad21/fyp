@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
+  type DragCancelEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
   KeyboardSensor,
   MeasuringStrategy,
   PointerSensor,
@@ -12,8 +16,6 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
-
 import QuizzesTable from "@/components/quizzes/QuizzesTable";
 import SevenDayCalendar from "./calendar/SevenDayCalendar";
 import ScheduleItemEditModal from "./calendar/ScheduleItemEditModal";
@@ -70,7 +72,6 @@ export default function SchedulerBoard({
     pendingDeleteRef,
     editSnapshotRef,
     deleteSnapshotRef,
-    ensureScheduleId,
     drainQueuesFor,
   } = useScheduleQueues(
     classId,
@@ -101,23 +102,12 @@ export default function SchedulerBoard({
     versionLoading,
   } = useScheduleEditModal(classId, showToast);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 1 } }),
-    useSensor(KeyboardSensor)
-  );
-
-  const title = useMemo(
-    () =>
-      editItem?.quizName ? `Edit “${editItem.quizName}”` : "Edit schedule",
-    [editItem?.quizName]
-  );
-
   /** =========================
    * DnD handlers (VERBATIM)
    * ========================= */
 
   const handleDragStart = useCallback(
-    (e: any) => {
+    (e: DragStartEvent) => {
       const dragData = e.active.data.current as DragData;
       setActiveDrag(dragData);
 
@@ -136,10 +126,10 @@ export default function SchedulerBoard({
         }
       }
     },
-    [schedule]
+    [schedule, resizeStateRef, setActiveDrag]
   );
 
-  const handleDragOver = useCallback((e: any) => {
+  const handleDragOver = useCallback((e: DragOverEvent) => {
     const drag = e.active?.data?.current as DragData | undefined;
     const overId = (e.over?.id ?? null) as string | null;
     if (!drag || drag.kind !== "pill-resize" || !resizeStateRef.current) return;
@@ -161,10 +151,10 @@ export default function SchedulerBoard({
         }));
       }
     }
-  }, [classTimezone]);
+  }, [classTimezone, resizeStateRef, setPreviewById]);
 
   const handleDragEnd = useCallback(
-    async (e: any) => {
+    async (e: DragEndEvent) => {
       const drag: DragData | null = e.active?.data?.current || null;
       const overId: string | null = e.over?.id ?? null;
       const todayYMD_TZ = tzDayKey(new Date(), classTimezone);
@@ -265,8 +255,14 @@ export default function SchedulerBoard({
             showAnswersAfterAttempt: true,
           });
           if (!res.ok || !res.data?._id) {
-            const err: any = new Error(res.message || "Create failed");
-            err.fieldErrors = (res as any).fieldErrors;
+            const err = new Error(res.message || "Create failed") as Error & {
+              fieldErrors?: Record<string, string | string[] | undefined>;
+            };
+            if ("fieldErrors" in res) {
+              err.fieldErrors = (res as {
+                fieldErrors?: Record<string, string | string[] | undefined>;
+              }).fieldErrors;
+            }
             throw err;
           }
           const newId = res.data._id as string;
@@ -294,14 +290,24 @@ export default function SchedulerBoard({
 
           // drain any queued ops for this item
           await drainQueuesFor(clientId);
-        } catch (err: any) {
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : undefined;
+          const fieldErrors =
+            typeof err === "object" && err && "fieldErrors" in err
+              ? (err as {
+                  fieldErrors?: Record<
+                    string,
+                    string | string[] | undefined
+                  >;
+                }).fieldErrors
+              : undefined;
           // revert optimistic
           setSchedule(prev);
           showToast({
             title: "Failed",
             description:
-              (err?.message || "Could not schedule quiz.") +
-              formatSchedulerBoardFieldErrors(err?.fieldErrors),
+              (message || "Could not schedule quiz.") +
+              formatSchedulerBoardFieldErrors(fieldErrors),
             variant: "error",
           });
         } finally {
@@ -603,14 +609,31 @@ export default function SchedulerBoard({
       setPreviewById({});
       resizeStateRef.current = null;
     },
-    [classId, schedule, showToast, drainQueuesFor, classTimezone, setSchedule]
+    [
+      classId,
+      schedule,
+      showToast,
+      drainQueuesFor,
+      classTimezone,
+      setSchedule,
+      setActiveDrag,
+      setPreviewById,
+      resizeStateRef,
+      pendingCreateRef,
+      pendingEditRef,
+      pendingDeleteRef,
+      editSnapshotRef,
+      deleteSnapshotRef,
+      anchorOffsetDaysRef,
+      lastPointerZoneRef,
+    ]
   );
 
-  const handleDragCancel = useCallback(() => {
+  const handleDragCancel = useCallback((_: DragCancelEvent) => {
     setActiveDrag(null);
     setPreviewById({});
     resizeStateRef.current = null;
-  }, []);
+  }, [setActiveDrag, setPreviewById, resizeStateRef]);
 
   /** =========
    * Render
@@ -699,8 +722,8 @@ export default function SchedulerBoard({
             <DragOverlay dropAnimation={{ duration: 150 }}>
               {activeDrag?.kind === "pill" && (
                 <PillOverlay
-                  title={(activeDrag as any).title || activeDrag.quizId}
-                  color={(activeDrag as any).subjectColor}
+                  title={activeDrag.title || activeDrag.quizId}
+                  color={activeDrag.subjectColor}
                 />
               )}
             </DragOverlay>

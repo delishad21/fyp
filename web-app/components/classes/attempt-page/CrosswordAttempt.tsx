@@ -1,10 +1,11 @@
 import CrosswordGrid from "@/components/quizzes/CrosswordGrid";
 import { breakdownMapCrossword } from "@/services/class/helpers/class-helpers";
 import { CrosswordAttemptType } from "@/services/class/types/class-types";
+import type { Cell } from "@/services/quiz/types/quizTypes";
 
 /** Build a student-populated grid by overlaying given answers on the snapshot grid. */
 function buildStudentGrid(
-  baseGrid: Array<Array<{ letter?: string | null; isBlocked: boolean }>>,
+  baseGrid: Cell[][],
   entries: Array<{
     id: string;
     positions: { row: number; col: number }[];
@@ -77,7 +78,7 @@ export default function CrosswordAttempt({
         kind: "crossword";
         id: "crossword";
         totalTimeLimit?: number | null;
-        grid?: Array<Array<{ letter?: string | null; isBlocked: boolean }>>;
+        grid?: Cell[][];
         entries: Array<{
           id: string;
           clue: string;
@@ -152,8 +153,8 @@ export default function CrosswordAttempt({
         </div>
         <div className="overflow-auto">
           <CrosswordGrid
-            grid={studentGrid as any}
-            entries={item.entries as any}
+            grid={studentGrid}
+            entries={item.entries}
             cellSize={36}
             showCoords={false}
             statusByCell={statusByCell}

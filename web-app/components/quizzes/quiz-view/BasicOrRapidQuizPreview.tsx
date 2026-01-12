@@ -2,6 +2,7 @@ import type {
   BasicInitial,
   RapidInitial,
 } from "@/services/quiz/types/quizTypes";
+import Image from "next/image";
 
 type BasicLikeItem =
   | {
@@ -76,10 +77,14 @@ export default function BasicOrRapidQuizPreview({ data }: Props) {
 
           {/* Optional image */}
           {"image" in it && it.image?.url ? (
-            <img
+            <Image
               src={it.image.url}
               alt="question"
+              width={1200}
+              height={800}
               className="mt-4 max-h-64 w-auto rounded-md object-contain"
+              sizes="(max-width: 1024px) 100vw, 768px"
+              unoptimized
             />
           ) : null}
 
@@ -92,7 +97,7 @@ export default function BasicOrRapidQuizPreview({ data }: Props) {
           )}
 
           {it.type === "open" && (
-            <OpenAnswersPreview answers={(it as any).answers ?? []} />
+            <OpenAnswersPreview answers={it.answers ?? []} />
           )}
 
           {it.type === "context" && (

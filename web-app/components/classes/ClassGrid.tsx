@@ -1,15 +1,6 @@
 import ClassCard from "./ClassCard";
 import AddClassCard from "./AddClassCard";
-
-type ImgMeta = { url?: string; filename?: string; path?: string };
-type ClassItem = {
-  _id: string;
-  name: string;
-  level: string;
-  image?: ImgMeta | null;
-  students?: Array<any>;
-  metadata?: { color?: string };
-};
+import type { ClassItem } from "@/services/class/types/class-types";
 
 export default function ClassGrid({ classes }: { classes: ClassItem[] }) {
   return (

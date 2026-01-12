@@ -9,11 +9,7 @@
 import type { ProgressBarCell as ProgressBarCellType } from "../../../services/quiz/types/quiz-table-types";
 
 export default function ProgressBarCell({ data }: ProgressBarCellType) {
-  const { current, total, barColor, textColor } = data;
-
-  // Optional absolute values — keep compatibility with existing type.
-  const absValue: number | undefined = (data as any)?.absValue;
-  const absMax: number | undefined = (data as any)?.absMax;
+  const { current, total, barColor, textColor, absValue, absMax } = data;
 
   const pct =
     total > 0 ? Math.min(100, Math.max(0, (current / total) * 100)) : 0;
@@ -25,12 +21,9 @@ export default function ProgressBarCell({ data }: ProgressBarCellType) {
 
   // Build absolute label if provided
   let absText: string | null = null;
-  if (
-    Number.isFinite(absValue as number) &&
-    Number.isFinite(absMax as number)
-  ) {
+  if (Number.isFinite(absValue) && Number.isFinite(absMax)) {
     absText = `${Math.round(Number(absValue))}/${Math.round(Number(absMax))}`;
-  } else if (Number.isFinite(absValue as number) && absMax == null) {
+  } else if (Number.isFinite(absValue) && absMax == null) {
     absText = String(absValue);
   }
 

@@ -228,6 +228,7 @@ export type ScheduleItemLike = {
   clientId: string;
   _id?: string;
   quizName?: string;
+  quizVersion?: number;
   startDate: string; // ISO
   endDate: string; // ISO
   contribution?: number;

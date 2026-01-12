@@ -22,6 +22,8 @@ export type ProgressBarCell = {
     total: number;
     barColor?: string;
     textColor?: string;
+    absValue?: number;
+    absMax?: number;
   };
 };
 

@@ -67,6 +67,8 @@ export default function QuizPlayCrosswordScreen({
   spec: rawSpec,
   attempt,
 }: Props) {
+  // NOTE: panSpeed is faster on web to account for lack of touchpad precision. Remove on release. Used only for
+  // User testing on web page for now.
   const panSpeed = Platform.OS === "web" ? 2 : 1;
   const router = useRouter();
   const insets = useSafeAreaInsets();

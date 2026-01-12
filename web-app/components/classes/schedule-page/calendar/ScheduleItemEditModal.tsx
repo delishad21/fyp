@@ -14,7 +14,6 @@ import {
 } from "@/services/class/types/class-types";
 import {
   dayKeyFromDateInTZ,
-  endOfDayInTZ,
   formatTimeInTZ,
   makeDateInTZ,
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
@@ -100,8 +99,8 @@ export default function ScheduleItemEditModal({
 
     // Prefer the schedule's current quizVersion; fall back to latest available
     const currentVersion =
-      typeof (initial as any).quizVersion === "number"
-        ? (initial as any).quizVersion
+      typeof initial.quizVersion === "number"
+        ? initial.quizVersion
         : versionOptions.length
         ? versionOptions[versionOptions.length - 1]
         : undefined;
@@ -289,9 +288,7 @@ export default function ScheduleItemEditModal({
             onValueChange={setContribStr}
             inputMode="decimal"
             pattern="[0-9]*"
-            error={fieldErrors.contribution as any}
-            description="
-            The score a student can earn for completing this quiz."
+            error={fieldErrors.contribution}
           />
 
           <NumberToggleInput
@@ -302,7 +299,7 @@ export default function ScheduleItemEditModal({
             step={1}
             value={attemptsAllowed}
             onChange={setAttemptsAllowed}
-            error={fieldErrors.attemptsAllowed as any}
+            error={fieldErrors.attemptsAllowed}
           />
 
           <Select
@@ -316,7 +313,7 @@ export default function ScheduleItemEditModal({
                 ? "Select a version"
                 : "No versions available"
             }
-            error={fieldErrors.quizVersion as any}
+            error={fieldErrors.quizVersion}
             disabled={versionSelectOptions.length === 0 || versionLoading}
             colorMode="never"
           />

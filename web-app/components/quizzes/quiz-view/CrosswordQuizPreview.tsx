@@ -1,23 +1,23 @@
 import CrosswordGrid from "@/components/quizzes/CrosswordGrid";
-import type { CrosswordInitial, Cell } from "@/services/quiz/types/quizTypes";
+import type {
+  CrosswordInitial,
+  CrosswordPlacedEntry,
+  Cell,
+} from "@/services/quiz/types/quizTypes";
 
 /** Build a minimal grid from entries when no grid is stored. */
-function buildFallbackGrid(entries: CrosswordInitial["entries"]) {
+function buildFallbackGrid(entries?: CrosswordPlacedEntry[]) {
   if (!entries?.length) return [] as Cell[][];
 
   const maxRow =
     Math.max(
       0,
-      ...entries.flatMap(
-        (e) => (e as any).positions?.map((p: any) => Number(p.row ?? 0)) ?? []
-      )
+      ...entries.flatMap((e) => e.positions.map((p) => Number(p.row ?? 0)))
     ) + 1;
   const maxCol =
     Math.max(
       0,
-      ...entries.flatMap(
-        (e) => (e as any).positions?.map((p: any) => Number(p.col ?? 0)) ?? []
-      )
+      ...entries.flatMap((e) => e.positions.map((p) => Number(p.col ?? 0)))
     ) + 1;
 
   return Array.from({ length: maxRow }, () =>
@@ -44,17 +44,14 @@ export default function CrosswordQuizPreview({ data }: Props) {
 
   const grid: Cell[][] = hasGrid
     ? (data.grid as Cell[][])
-    : buildFallbackGrid(data.entries ?? []);
+    : buildFallbackGrid(data.placedEntries);
 
   const entries =
     data.placedEntries && data.placedEntries.length
-      ? data.placedEntries
+      ? data.placedEntries.map((e) => ({ id: e.id, positions: e.positions }))
       : // fallback: build minimal placed entries from base entries
         (data.entries ?? []).map((e) => ({
           id: e.id,
-          answer: e.answer,
-          clue: e.clue,
-          direction: null,
           positions: [],
         }));
 
@@ -66,7 +63,7 @@ export default function CrosswordQuizPreview({ data }: Props) {
           Crossword layout
         </div>
         <div className="overflow-auto">
-          <CrosswordGrid grid={grid} entries={entries as any} cellSize={36} />
+          <CrosswordGrid grid={grid} entries={entries} cellSize={36} />
         </div>
       </div>
 

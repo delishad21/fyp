@@ -16,6 +16,7 @@ import type { ImageMeta } from "@/services/images/types";
 import WarningModal from "@/components/ui/WarningModal";
 import { useTimezoneOptions } from "@/services/class/helpers/scheduling/hooks/useTimezoneOptions";
 import { ClassFields } from "./ClassFields";
+import type { ClassFormState } from "@/services/class/types/class-types";
 export type ClassEditInitial = {
   _id: string;
   name: string;
@@ -25,12 +26,12 @@ export type ClassEditInitial = {
   image?: ImageMeta | null;
 };
 
-const initialState = {
+const initialState: ClassFormState = {
   ok: false,
-  fieldErrors: {} as Record<string, any>,
-  values: { name: "", level: "", color: undefined as string | undefined },
-  message: undefined as string | undefined,
-  issuedCredentials: undefined as any,
+  fieldErrors: {},
+  values: { name: "", level: "", color: undefined },
+  message: undefined,
+  issuedCredentials: undefined,
 };
 
 export default function EditClassForm({

@@ -8,8 +8,8 @@ export function MCAnswerBlock({
 }: {
   itemId: string;
   options: { id: string; text: string }[];
-  answers: Record<string, any>;
-  breakdownMeta?: any;
+  answers: Record<string, unknown>;
+  breakdownMeta?: { correct?: string[] } | null;
 }) {
   // Selected by student (array of option IDs)
   const raw = getAnswerValue(itemId, answers);

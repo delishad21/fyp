@@ -87,7 +87,6 @@ import EditableField from "./fields/EditableField";
 import ReadOnlyField from "./fields/ReadOnlyField";
 
 type Props = {
-  userId: string;
   username: string;
   name: string;
   honorific: string | null | undefined;
@@ -95,7 +94,6 @@ type Props = {
 };
 
 export default function AccountSettingsForm({
-  userId,
   username,
   name: initialName,
   honorific: initialHonorific,
@@ -376,7 +374,7 @@ export default function AccountSettingsForm({
           selector={emailFlow.modal.selector}
           countdown={emailFlow.modal.countdown}
           onClose={emailFlow.modal.onClose}
-          onConfirm={(code, sel) => emailFlow.confirm(code)}
+          onConfirm={(code) => emailFlow.confirm(code)}
           onResend={() => emailFlow.resend()}
         />
       )}

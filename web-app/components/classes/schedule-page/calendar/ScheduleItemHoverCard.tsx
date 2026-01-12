@@ -38,9 +38,7 @@ export default function ScheduleItemHoverCard({
     typeof item.attemptsAllowed === "number" ? item.attemptsAllowed : 1;
   const showAnswers = item.showAnswersAfterAttempt ? "Yes" : "No";
   const quizVersion =
-    typeof (item as any).quizVersion === "number"
-      ? (item as any).quizVersion
-      : "—";
+    typeof item.quizVersion === "number" ? item.quizVersion : "—";
 
   return createPortal(
     <div

@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import CardTable from "@/components/table/CardTable";
-import type { Cell, RowData } from "@/services/quiz/types/quiz-table-types";
+import type {
+  Cell,
+  RowData,
+  ProgressBarCell,
+} from "@/services/quiz/types/quiz-table-types";
 
 export type DashboardTodayQuizRow = {
   _id: string; // scheduleId
@@ -111,10 +115,10 @@ export default function DashboardTodayQuizzesTable({
         total: 100,
         absValue: participants,
         absMax: totalStudents,
-      } as any,
+      },
     };
 
-    const avgData: any = {
+    const avgData: ProgressBarCell["data"] = {
       current: avgPct,
       total: 100,
     };
@@ -154,7 +158,10 @@ export default function DashboardTodayQuizzesTable({
         rows={rows}
         spacing="normal"
         onRowClick={(row) => {
-          const classId = (row.payload as any)?.classId;
+          const payload = row.payload as
+            | { classId?: string }
+            | undefined;
+          const classId = payload?.classId;
           if (!classId) return;
 
           router.push(

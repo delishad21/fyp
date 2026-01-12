@@ -61,13 +61,11 @@ export default function Filters({
   value,
   onChange,
   onReset,
-  isLoading,
 }: {
   meta: FilterMeta;
   value: FiltersValue; // <- DRAFT
   onChange: (patch: Partial<FiltersValue>) => void; // <- updates DRAFT only
   onReset: () => void;
-  isLoading?: boolean;
 }) {
   const subjectOptions = meta.subjects.map((s) => ({
     label: s.label,

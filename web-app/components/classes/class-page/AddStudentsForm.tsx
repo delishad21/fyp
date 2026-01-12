@@ -17,7 +17,6 @@ import {
   StudentDraft,
   StudentFieldError,
 } from "@/services/class/types/student-types";
-import { StudentCsvRow } from "@/services/class/helpers/csv-utils";
 import StudentCsvProcessor from "./StudentCsvProcessor";
 import { deriveUsername } from "@/services/class/helpers/class-helpers";
 

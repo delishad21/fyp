@@ -1,4 +1,5 @@
 import { useDndMonitor } from "@dnd-kit/core";
+import type { DragMoveEvent, DragStartEvent } from "@dnd-kit/core";
 import { useRef } from "react";
 
 /**
@@ -17,11 +18,11 @@ export function DragAutoSlideMonitor({
   const startClientXRef = useRef<number | null>(null);
 
   useDndMonitor({
-    onDragStart: (e) => {
-      const ev: any = (e as any).activatorEvent;
+    onDragStart: (e: DragStartEvent) => {
+      const ev = e.activatorEvent as MouseEvent | TouchEvent | null;
       let cx: number | null = null;
       if (ev?.clientX != null) cx = ev.clientX as number;
-      else if (ev?.touches?.[0]?.clientX != null)
+      else if ("touches" in (ev || {}) && ev?.touches?.[0]?.clientX != null)
         cx = ev.touches[0].clientX as number;
       else if (e.active?.rect?.current?.initial) {
         const rect = e.active.rect.current.initial;
@@ -30,15 +31,14 @@ export function DragAutoSlideMonitor({
       startClientXRef.current = cx;
       onStart(cx, String(e.active?.id ?? ""));
     },
-    onDragMove: (e) => {
-      const ev: any = e;
-      if (ev?.delta?.x == null) return;
+    onDragMove: (e: DragMoveEvent) => {
+      if (typeof e.delta?.x !== "number") return;
       const startX = startClientXRef.current;
       if (startX != null) {
-        onMoveAtX(startX + ev.delta.x);
+        onMoveAtX(startX + e.delta.x);
         return;
       }
-      const rect = ev?.active?.rect?.current?.translated;
+      const rect = e?.active?.rect?.current?.translated;
       if (rect) onMoveAtX(rect.left + rect.width / 2);
     },
     onDragEnd: () => {

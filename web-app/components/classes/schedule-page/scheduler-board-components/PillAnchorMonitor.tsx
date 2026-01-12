@@ -5,6 +5,7 @@ import {
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
 import { DragData, ScheduleItem } from "@/services/class/types/class-types";
 import { useDndMonitor } from "@dnd-kit/core";
+import type { DragStartEvent } from "@dnd-kit/core";
 
 /** Capture "which internal day was grabbed" to preserve span while moving */
 export function PillAnchorMonitor({
@@ -17,22 +18,22 @@ export function PillAnchorMonitor({
   setOffsetDays: (n: number) => void;
 }) {
   useDndMonitor({
-    onDragStart: (e) => {
+    onDragStart: (e: DragStartEvent) => {
       const data = e.active?.data?.current as DragData | undefined;
       if (data?.kind !== "pill") return;
 
       // Try to read the activator pointer position
-      const ev: any = (e as any).activatorEvent;
+      const ev = e.activatorEvent as MouseEvent | TouchEvent | null;
       let cx: number | null = null;
       let cy: number | null = null;
 
       if (ev?.clientX != null && ev?.clientY != null) {
         cx = ev.clientX;
         cy = ev.clientY;
-      } else if (ev?.touches?.[0]) {
+      } else if ("touches" in (ev || {}) && ev?.touches?.[0]) {
         cx = ev.touches[0].clientX;
         cy = ev.touches[0].clientY;
-      } else if (ev?.changedTouches?.[0]) {
+      } else if ("changedTouches" in (ev || {}) && ev?.changedTouches?.[0]) {
         cx = ev.changedTouches[0].clientX;
         cy = ev.changedTouches[0].clientY;
       } else if (e.active?.rect?.current?.initial) {

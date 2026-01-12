@@ -52,7 +52,9 @@ export default function StudentsTable({
     return data.filter((r) => {
       const nameCell = r.cells?.[1];
       const nameText =
-        (nameCell?.data as any)?.text?.toString().toLowerCase() ?? "";
+        nameCell?.variant === "normal" && typeof nameCell.data?.text === "string"
+          ? nameCell.data.text.toLowerCase()
+          : "";
       return nameText.includes(s);
     });
   }, [q, data]);

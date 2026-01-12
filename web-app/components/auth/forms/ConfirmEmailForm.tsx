@@ -73,7 +73,7 @@ export default function ConfirmEmailForm({ selector }: Props) {
     const saved = Number(localStorage.getItem(COUNTDOWN_KEY) || "0");
     if (saved > 0) setCountdown(saved);
     setCode(Array(6).fill(""));
-  }, [selector]);
+  }, [selector, COUNTDOWN_KEY]);
 
   // Persist countdown for current selector
   useEffect(() => {

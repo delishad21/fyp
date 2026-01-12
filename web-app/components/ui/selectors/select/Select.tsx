@@ -141,7 +141,6 @@ export default function Select({
   error,
   helperText,
   className,
-  required,
   disabled,
   searchable = false,
   handleAdd,

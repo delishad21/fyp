@@ -40,17 +40,13 @@ export type BasicRapidStatsProps = {
           text: string;
           totalAnswers?: number;
           perQuestionAvgPct?: number | null;
-          options?: any[];
+          options?: unknown[];
         }
     >;
   };
-  quizType?: string;
 };
 
-export default function BasicRapidStats({
-  breakdown,
-  quizType,
-}: BasicRapidStatsProps) {
+export default function BasicRapidStats({ breakdown }: BasicRapidStatsProps) {
   const overallPct = clampPct(breakdown.overallAvgScorePct);
 
   return (
@@ -74,7 +70,7 @@ export default function BasicRapidStats({
       </div>
 
       {/* Per-question */}
-      {breakdown.items.map((it: any, idx: number) => {
+      {breakdown.items.map((it, idx) => {
         const kind = it.type;
         const correctIds: string[] = Array.isArray(it.correctOptionIds)
           ? it.correctOptionIds
@@ -106,7 +102,7 @@ export default function BasicRapidStats({
                 )}
 
                 <ul className="mt-2 space-y-1.5">
-                  {it.options.map((opt: any) => {
+                  {it.options.map((opt) => {
                     const isCorrect = correctIds.includes(opt.id);
                     return (
                       <li
@@ -151,7 +147,7 @@ export default function BasicRapidStats({
 
                 {/* Popular student submissions */}
                 <ul className="mt-1 space-y-1.5">
-                  {it.answers.map((ans: any, i: number) => (
+                  {it.answers.map((ans, i) => (
                     <li
                       key={`${ans.value}-${i}`}
                       className="rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] p-2.5"
@@ -180,7 +176,7 @@ export default function BasicRapidStats({
                         Accepted answers
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {it.acceptedAnswers.map((a: any, i: number) => (
+                        {it.acceptedAnswers.map((a, i) => (
                           <span
                             key={`${a.text}-${i}`}
                             className="rounded-full border border-[var(--color-success)] bg-[var(--color-success)]/10 px-2 py-0.5 text-xs font-medium"

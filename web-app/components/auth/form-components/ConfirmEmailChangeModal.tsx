@@ -100,7 +100,7 @@ export default function ConfirmEmailChangeModal({
     if (countdown > 0 || resending) return;
     setResending(true);
 
-    const res = await onResend();
+    await onResend();
 
     setResending(false);
     return;

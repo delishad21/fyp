@@ -9,9 +9,14 @@ export default function ScheduleStatsPanel({
   breakdown,
 }: {
   quizType?: string | null;
-  breakdown?: any;
+  breakdown?: unknown;
 }) {
-  if (!breakdown || !breakdown.items || !Array.isArray(breakdown.items)) {
+  if (
+    !breakdown ||
+    typeof breakdown !== "object" ||
+    !("items" in breakdown) ||
+    !Array.isArray((breakdown as { items?: unknown[] }).items)
+  ) {
     return (
       <div className="text-sm text-[var(--color-text-secondary)]">
         No statistics available yet.
@@ -21,9 +26,9 @@ export default function ScheduleStatsPanel({
 
   const t = (quizType || "").toLowerCase();
   if (t === "crossword") {
-    return <CrosswordStats breakdown={breakdown} />;
+    return <CrosswordStats breakdown={breakdown as { items: unknown[] }} />;
   }
 
   // "basic" and "rapid" share the same item shape
-  return <BasicRapidStats breakdown={breakdown} quizType={t} />;
+  return <BasicRapidStats breakdown={breakdown as { items: unknown[] }} />;
 }

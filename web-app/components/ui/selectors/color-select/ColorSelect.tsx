@@ -101,6 +101,7 @@ export function ColorSelect({
                   key={hex}
                   type="button"
                   role="option"
+                  aria-selected={isSel}
                   onClick={() => {
                     onChange(hex);
                     setOpen(false);

@@ -6,7 +6,6 @@ import CardTable from "@/components/table/CardTable";
 import type { RowData } from "@/services/quiz/types/quiz-table-types";
 
 type ResultsTableProps = {
-  classId: string;
   initialQ?: string;
   columns: Array<{
     header: string;
@@ -19,7 +18,6 @@ type ResultsTableProps = {
 };
 
 export default function ResultsTable({
-  classId,
   initialQ = "",
   columns,
   rows,
@@ -36,11 +34,16 @@ export default function ResultsTable({
       // "Quiz" name is the first cell
       const nameCell = r.cells?.[0];
       const nameText =
-        (nameCell as any)?.data?.text?.toString().toLowerCase() ?? "";
+        nameCell?.variant === "normal" && typeof nameCell.data?.text === "string"
+          ? nameCell.data.text.toLowerCase()
+          : "";
       // Also search subject (second cell)
       const subjectCell = r.cells?.[1];
       const subjectText =
-        (subjectCell as any)?.data?.text?.toString().toLowerCase() ?? "";
+        subjectCell?.variant === "label" &&
+        typeof subjectCell.data?.text === "string"
+          ? subjectCell.data.text.toLowerCase()
+          : "";
       return nameText.includes(s) || subjectText.includes(s);
     });
   }, [q, rows]);

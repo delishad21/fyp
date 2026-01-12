@@ -8,7 +8,7 @@ import IconButton from "@/components/ui/buttons/IconButton";
 import { ImageMeta } from "@/services/images/types";
 import ImageUpload from "@/components/ImageUpload";
 import Button from "@/components/ui/buttons/Button";
-import { IssuedCredential } from "@/services/class/types/class-types";
+import { ClassFormState, IssuedCredential } from "@/services/class/types/class-types";
 import { DEFAULT_COLOR_PALETTE } from "@/utils/utils";
 import {
   StudentDraft,
@@ -22,11 +22,11 @@ import IssuedCredentialsPanel from "./IssuedCredentialsPanel";
 import StudentCsvProcessor from "./StudentCsvProcessor";
 import { deriveUsername } from "@/services/class/helpers/class-helpers";
 
-const initialState = {
+const initialState: ClassFormState = {
   ok: false,
-  fieldErrors: {} as Record<string, any>,
-  values: { name: "", level: "", color: undefined as string | undefined },
-  message: undefined as string | undefined,
+  fieldErrors: {},
+  values: { name: "", level: "", color: undefined },
+  message: undefined,
   issuedCredentials: [] as IssuedCredential[] | undefined,
 };
 

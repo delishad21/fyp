@@ -9,7 +9,6 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> & {
   readOnly?: boolean;
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
   onValueChange?: (value: string) => void;
-  description?: string;
 };
 
 export default function TextInput({
@@ -20,7 +19,6 @@ export default function TextInput({
   onChange,
   onValueChange,
   className,
-  description,
   ...rest
 }: Props) {
   const errors = Array.isArray(error) ? error : error ? [error] : [];

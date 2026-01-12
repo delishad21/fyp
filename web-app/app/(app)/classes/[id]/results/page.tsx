@@ -1,6 +1,10 @@
 import ResultsTable from "@/components/classes/results-page/ResultsTable";
 import { getAvailableScheduleWithStats } from "@/services/class/actions/get-available-schedule-with-stats";
-import type { Cell, RowData } from "@/services/quiz/types/quiz-table-types";
+import type {
+  Cell,
+  RowData,
+  ProgressBarCell,
+} from "@/services/quiz/types/quiz-table-types";
 
 type PageProps = {
   params: { id: string };
@@ -84,24 +88,24 @@ export default async function ResultsPage({ params, searchParams }: PageProps) {
         total: 100,
         absValue: participants,
         absMax: totalStudents,
-      } as any,
+      },
     };
 
     // Average score progress bar
     // Use avgPct for the %; ONLY show absolute if avgAbsScore/avgAbsMax exist.
-    const avgData: any = {
+    const avgData: ProgressBarCell["data"] = {
       current: avgPct,
       total: 100,
     };
     if (
       s.stats &&
-      s.stats.hasOwnProperty("avgAbsScore") &&
-      s.stats.hasOwnProperty("avgAbsMax") &&
+      Object.prototype.hasOwnProperty.call(s.stats, "avgAbsScore") &&
+      Object.prototype.hasOwnProperty.call(s.stats, "avgAbsMax") &&
       s.stats.avgAbsScore != null &&
       s.stats.avgAbsMax != null
     ) {
-      avgData.absValue = Math.round(Number((s.stats as any).avgAbsScore));
-      avgData.absMax = Math.round(Number((s.stats as any).avgAbsMax));
+      avgData.absValue = Math.round(Number(s.stats.avgAbsScore));
+      avgData.absMax = Math.round(Number(s.stats.avgAbsMax));
     }
 
     const avgBarCell: Cell = {
@@ -133,7 +137,6 @@ export default async function ResultsPage({ params, searchParams }: PageProps) {
       </h1>
 
       <ResultsTable
-        classId={classId}
         initialQ={initialQ}
         columns={columns}
         rows={rows}

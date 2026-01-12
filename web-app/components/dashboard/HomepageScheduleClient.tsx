@@ -14,7 +14,7 @@ function withClientIds(items: ApiScheduleItem[]): ScheduleItem[] {
   return (items ?? []).map((it) => ({
     ...it,
     clientId:
-      (it as any).clientId ??
+      ("clientId" in it ? (it as { clientId?: string }).clientId : undefined) ??
       it._id ??
       `c-${crypto.randomUUID?.() || Math.random().toString(16).slice(2)}`,
   }));

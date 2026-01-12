@@ -33,6 +33,8 @@ import {
 /** Read-only Crossword attempt viewer (with per-cell correctness) */
 export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
   const { colors } = useTheme();
+  // NOTE: panSpeed is faster on web to account for lack of touchpad precision. Remove on release. Used only for
+  // User testing on web page for now.
   const panSpeed = Platform.OS === "web" ? 2 : 1;
 
   const spec = doc.quizVersionSnapshot.renderSpec as CrosswordRenderSpec;

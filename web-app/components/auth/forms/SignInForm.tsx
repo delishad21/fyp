@@ -90,7 +90,7 @@ export default function SignInForm() {
       }, REDIRECT_TIMEOUT);
       return () => clearTimeout(t);
     }
-  }, [state.ok, state.redirect]);
+  }, [state.ok, state.redirect, router]);
 
   return (
     <form noValidate action={formAction} className="grid gap-4">

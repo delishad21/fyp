@@ -138,7 +138,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({ toasts, showToast, dismiss, clear }),
-    [toasts]
+    [toasts, showToast, dismiss, clear]
   );
 
   return (

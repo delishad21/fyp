@@ -37,7 +37,6 @@ type StatsProps = {
     subjectColors?: Record<string, string>;
     subjectsAvgPct?: Record<string, number>;
     topicsAvgPct?: Record<string, number>;
-    [k: string]: any;
   } | null;
 
   rank: number | null;
@@ -78,13 +77,13 @@ export default function StudentStatsDisplay({ rank, stats }: StatsProps) {
   const byTopic = stats.byTopic ?? {};
   const topicsAvgPct = stats.topicsAvgPct ?? {};
   // const canonicals = stats.canonicalBySchedule ?? {}; // not used on this screen
-  const subjectColors = (stats as any).subjectColors ?? {};
+  const subjectColors = stats.subjectColors ?? {};
 
   const subjectEntries = Object.entries(bySubject);
   const topicEntries = Object.entries(byTopic);
 
   const colorForSubject = (subj: string) =>
-    normalizeHex(subjectColors?.[subj] || (bySubject as any)?.[subj]?.color);
+    normalizeHex(subjectColors?.[subj] || bySubject?.[subj]?.color);
 
   // Labels
   const participationLabel = `${stats.participationCount ?? 0} ${
@@ -118,6 +117,9 @@ export default function StudentStatsDisplay({ rank, stats }: StatsProps) {
               pct={avgPct}
               right={`${avgPct}%`}
             />
+            {rank != null ? (
+              <KpiStatBorder label="Rank" value={`#${rank}`} />
+            ) : null}
             <KpiStatBorder label="Highest Streak" value={bestStreakLabel} />
           </div>
         </section>
@@ -134,9 +136,9 @@ export default function StudentStatsDisplay({ rank, stats }: StatsProps) {
                 const avgPctRow =
                   typeof avg === "number"
                     ? avg
-                    : pct((bucket as any)?.sumScore, (bucket as any)?.sumMax);
-                const left = `${(bucket as any)?.sumScore ?? 0}/${
-                  (bucket as any)?.sumMax ?? 0
+                    : pct(bucket?.sumScore, bucket?.sumMax);
+                const left = `${bucket?.sumScore ?? 0}/${
+                  bucket?.sumMax ?? 0
                 }`;
 
                 return (
@@ -166,9 +168,9 @@ export default function StudentStatsDisplay({ rank, stats }: StatsProps) {
                 const avgPctRow =
                   typeof avg === "number"
                     ? avg
-                    : pct((bucket as any)?.sumScore, (bucket as any)?.sumMax);
-                const left = `${(bucket as any)?.sumScore ?? 0}/${
-                  (bucket as any)?.sumMax ?? 0
+                    : pct(bucket?.sumScore, bucket?.sumMax);
+                const left = `${bucket?.sumScore ?? 0}/${
+                  bucket?.sumMax ?? 0
                 }`;
 
                 return (

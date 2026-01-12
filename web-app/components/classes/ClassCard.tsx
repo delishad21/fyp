@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ClassItem } from "@/services/class/types/class-types";
 import { DEFAULT_IMG } from "@/services/class/helpers/class-helpers";
+import Image from "next/image";
 
 export default function ClassCard({ cls }: { cls: ClassItem }) {
   const color = cls?.metadata?.color || "#3D5CFF";
@@ -19,13 +19,14 @@ export default function ClassCard({ cls }: { cls: ClassItem }) {
     >
       {/* Image */}
       <div className="relative h-full w-full">
-        <img
+        <Image
           src={imgUrl}
           alt={`${cls.name} cover`}
-          className="h-full w-full object-cover"
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
+          fill
+          className="object-cover"
+          sizes="(max-width: 1024px) 100vw, 25vw"
+          priority={false}
+          unoptimized
         />
       </div>
 

@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type CSSProperties,
+} from "react";
 import { motion, useAnimationControls } from "framer-motion";
 
 import DateField from "@/components/ui/selectors/DateField";
@@ -103,14 +110,14 @@ export default function SevenDayCalendar({
       slideTargetRef.current = next;
 
       await controls.start({
-        ["--slide" as any]: next,
+        "--slide": next,
         transition: { type: "tween", duration: 0.22, ease: [0.2, 0.8, 0.2, 1] },
-      });
+      } as Record<string, number | { type: "tween"; duration: number; ease: number[] }>);
 
       setStartKey((s) => addDaysToDayKey(s, dir));
 
       slideTargetRef.current = BUFFER;
-      controls.set({ ["--slide" as any]: BUFFER });
+      controls.set({ "--slide": BUFFER } as Record<string, number>);
 
       requestAnimationFrame(() => {
         isSlidingRef.current = false;
@@ -161,20 +168,19 @@ export default function SevenDayCalendar({
       if (ymd) {
         setStartKey(next);
         slideTargetRef.current = BUFFER;
-        controls.set({ ["--slide" as any]: BUFFER });
+        controls.set({ "--slide": BUFFER } as Record<string, number>);
         return;
       }
 
       const steps = Math.min(12, Math.abs(diff));
       const dir: 1 | -1 = diff > 0 ? 1 : -1;
       for (let i = 0; i < steps; i++) {
-        // eslint-disable-next-line no-await-in-loop
         await slideOnce(dir);
       }
       if (Math.abs(diff) > steps) {
         setStartKey(next);
         slideTargetRef.current = BUFFER;
-        controls.set({ ["--slide" as any]: BUFFER });
+        controls.set({ "--slide": BUFFER } as Record<string, number>);
       }
     },
     [classTimezone, controls, slideOnce, startKey]
@@ -284,7 +290,7 @@ export default function SevenDayCalendar({
     }
 
     return base;
-  }, [computedLanes, draggingQuizId, resizingQuizId]);
+  }, [computedLanes, draggingQuizId, resizingQuizId, VISIBLE_END_COL, VISIBLE_START_COL]);
 
   // Lane locking rules (unchanged)
   useEffect(() => {
@@ -396,7 +402,7 @@ export default function SevenDayCalendar({
           layoutRoot
           style={{
             width: `${(TRACK_COLS / VISIBLE_DAYS) * 100}%`,
-            ["--slide" as any]: BUFFER,
+            ...({ "--slide": BUFFER } as CSSProperties),
             transform: `translateX(calc(var(--slide) * (-100% / ${TRACK_COLS})))`,
           }}
           animate={controls}

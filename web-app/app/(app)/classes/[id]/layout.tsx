@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Image from "next/image";
 import { DEFAULT_IMG } from "@/services/class/helpers/class-helpers";
 import TabsNav from "@/components/navigation/TabNav";
 import { getClass } from "@/services/class/actions/class-actions";
@@ -21,12 +22,14 @@ export default async function ClassLayout({
     <>
       <section className="relative overflow-hidden bg-[var(--color-bg2)]">
         <div className="relative h-72 w-full">
-          <img
+          <Image
             src={imgUrl}
             alt={`${cls?.name ?? "Class"} cover`}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            decoding="async"
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority={false}
+            unoptimized
           />
 
           {/* Stronger bottom scrim for readability */}

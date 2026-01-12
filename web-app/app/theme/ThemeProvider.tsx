@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
-import { ThemeProvider as MuiThemeProvider, CssBaseline } from "@mui/material";
+import { CssBaseline } from "@mui/material";
 
 type Mode = "light" | "dark";
 

@@ -7,9 +7,9 @@ import { checkValidSelector } from "@/services/user/reset-password-actions";
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: any;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const params = await searchParams;
+  const params = (await searchParams) ?? {};
 
   const selector = params.selector?.toString() || "";
   const validator = params.validator?.toString() || "";

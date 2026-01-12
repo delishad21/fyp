@@ -7,6 +7,7 @@ import {
   parseStudentCsv,
   studentRowToCanonical,
   STUDENT_CSV_HEADER_ALIASES,
+  type StudentCsvCanonicalKey,
   // We won’t use STUDENT_CSV_REQUIRED_FIELDS because we only require "name" here
 } from "@/services/class/helpers/csv-utils";
 import type { StudentDraft } from "@/services/class/types/student-types";
@@ -53,20 +54,17 @@ export default function StudentCsvProcessor({
 
       // Only "name" is required; username/email are optional
       // Build aliases map; include a username alias only if allowed
-      const aliases = {
+      type CsvKey = StudentCsvCanonicalKey | "username";
+      const aliases: Record<string, CsvKey> = {
         ...STUDENT_CSV_HEADER_ALIASES,
-        ...(allowUsernameColumn ? { username: "username" as any } : {}),
-      } as Record<string, "name" | "email" | "score" | "username">;
+        ...(allowUsernameColumn ? { username: "username" } : {}),
+      };
 
       // We require only "name"
-      const REQUIRED: Array<"name"> = ["name"];
+      const REQUIRED: Array<CsvKey> = ["name"];
 
       const { canonicalOrder, missingRequired, headerErrors } =
-        buildStudentCsvCanonicalHeader(
-          rawHeader,
-          REQUIRED as any,
-          aliases as any
-        );
+        buildStudentCsvCanonicalHeader<CsvKey>(rawHeader, REQUIRED, aliases);
 
       if (headerErrors.length) {
         setErr(headerErrors.join("\n"));
@@ -83,14 +81,7 @@ export default function StudentCsvProcessor({
 
       const normalized = dataRows
         .filter((r) => r.some((cell) => (cell ?? "").trim().length > 0))
-        .map(
-          (r) =>
-            studentRowToCanonical(r, canonicalOrder) as any as {
-              name?: string;
-              email?: string;
-              username?: string; // may be present if allowed
-            }
-        );
+        .map((r) => studentRowToCanonical<CsvKey>(r, canonicalOrder));
 
       // Convert to StudentDrafts with username generation
       const drafts: StudentDraft[] = normalized.map((row) => {
@@ -117,8 +108,9 @@ export default function StudentCsvProcessor({
         fileInputId
       ) as HTMLInputElement | null;
       if (el) el.value = "";
-    } catch (e: any) {
-      setErr(e?.message || "Failed to parse CSV.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to parse CSV.";
+      setErr(message);
     } finally {
       setLoading(false);
     }

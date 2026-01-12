@@ -1,5 +1,6 @@
 import { getPointerZone } from "@/services/class/helpers/scheduling/scheduling-helpers";
 import { useDndMonitor } from "@dnd-kit/core";
+import type { DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
 
 /** Track pointer zone (inside calendar vs outside; past day?) during drag */
 export function PointerZoneMonitor({
@@ -12,12 +13,12 @@ export function PointerZoneMonitor({
   }) => void;
 }) {
   useDndMonitor({
-    onDragMove: (e) => {
+    onDragMove: (e: DragMoveEvent) => {
       // Try to get coordinates
       let cx: number | null = null;
       let cy: number | null = null;
 
-      const pe: any = (e as any).event;
+      const pe = e.event as MouseEvent | TouchEvent | null;
       if (pe?.clientX != null && pe?.clientY != null) {
         cx = pe.clientX;
         cy = pe.clientY;
@@ -35,10 +36,10 @@ export function PointerZoneMonitor({
         setZone(getPointerZone(cx, cy));
       }
     },
-    onDragEnd: (e) => {
+    onDragEnd: (e: DragEndEvent) => {
       let cx: number | null = null;
       let cy: number | null = null;
-      const pe: any = (e as any).event;
+      const pe = e.event as MouseEvent | TouchEvent | null;
       if (pe?.clientX != null && pe?.clientY != null) {
         cx = pe.clientX;
         cy = pe.clientY;

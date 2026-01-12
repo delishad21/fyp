@@ -7,9 +7,13 @@ import { checkValidSelector } from "@/services/user/sign-up-actions";
 export default async function ConfirmEmailPage({
   searchParams,
 }: {
-  searchParams: any;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const selector = (await searchParams).selector;
+  const params = await searchParams;
+  const rawSelector = params?.selector;
+  const selector = Array.isArray(rawSelector)
+    ? rawSelector[0]
+    : rawSelector || "";
 
   // Check for valid selector. Redirect if selector is not present.
   if (!selector) {

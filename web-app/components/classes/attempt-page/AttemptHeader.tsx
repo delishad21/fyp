@@ -30,29 +30,43 @@ export default function AttemptHeader({
 }) {
   const router = useRouter();
 
-  // Snapshot is only for spec-ish info; don't rely on its meta being enriched.
-  const spec = (attempt.quizVersionSnapshot ?? {}) as any;
+  type SnapshotMeta = {
+    meta?: {
+      name?: string | null;
+      subject?: string | null;
+      subjectColorHex?: string | null;
+      topic?: string | null;
+      typeColorHex?: string | null;
+    };
+    quizType?: string | null;
+    quizVersion?: number | null;
+  };
 
-  // All live quiz metadata (name, subject, colors, type) comes from here.
-  const quizMeta = (attempt as any).quiz ?? {};
+  const spec =
+    typeof attempt.quizVersionSnapshot === "object" &&
+    attempt.quizVersionSnapshot !== null
+      ? (attempt.quizVersionSnapshot as SnapshotMeta)
+      : undefined;
 
-  const name = quizMeta.name ?? spec?.meta?.name ?? "Untitled Quiz";
+  const quizMeta = attempt.quiz;
 
-  const subject = quizMeta.subject ?? spec?.meta?.subject ?? "—";
+  const name = quizMeta?.name ?? spec?.meta?.name ?? "Untitled Quiz";
 
-  const topic = quizMeta.topic ?? spec?.meta?.topic ?? "—";
+  const subject = quizMeta?.subject ?? spec?.meta?.subject ?? "—";
+
+  const topic = quizMeta?.topic ?? spec?.meta?.topic ?? "—";
 
   const gradePct = pct(attempt.score, attempt.maxScore);
 
   const subjectColor = normalizeHex(
-    quizMeta.subjectColorHex ?? spec?.meta?.subjectColorHex
+    quizMeta?.subjectColorHex ?? spec?.meta?.subjectColorHex
   );
 
   const typeColor = normalizeHex(
-    quizMeta.typeColorHex ?? spec?.meta?.typeColorHex
+    quizMeta?.typeColorHex ?? spec?.meta?.typeColorHex
   );
 
-  const quizType = quizMeta.quizType ?? spec?.quizType;
+  const quizType = quizMeta?.quizType ?? spec?.quizType;
   const version = attempt.quizVersion ?? spec?.quizVersion;
 
   // Badge colors

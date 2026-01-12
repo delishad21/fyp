@@ -39,8 +39,11 @@ export default function StudentAttemptsClient({
 
   const goToAttempt = (row: RowData) => {
     // Prefer canonical attempt; fall back to latest
-    const canId = (row.payload as any)?.canonicalAttemptId;
-    const latestId = (row.payload as any)?.latestAttemptId;
+    const payload = row.payload as
+      | { canonicalAttemptId?: string; latestAttemptId?: string }
+      | undefined;
+    const canId = payload?.canonicalAttemptId;
+    const latestId = payload?.latestAttemptId;
     const target = canId || latestId;
     if (!target) return;
     router.push(`${baseHref}/attempt/${encodeURIComponent(String(target))}`);

@@ -11,13 +11,14 @@ export function DayDroppable({
   isPast: boolean;
   minPx: number;
 }) {
-  const droppable = !isPast ? useDroppable({ id: dateISO }) : null;
-  const setNodeRef = droppable?.setNodeRef;
-  const isOver = droppable?.isOver ?? false;
+  const { setNodeRef, isOver } = useDroppable({
+    id: dateISO,
+    disabled: isPast,
+  });
 
   return (
     <div
-      ref={setNodeRef as any}
+      ref={setNodeRef}
       data-day={dateISO}
       data-past={isPast ? "1" : undefined}
       className={[

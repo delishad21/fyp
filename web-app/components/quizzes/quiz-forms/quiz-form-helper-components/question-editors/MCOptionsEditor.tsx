@@ -49,11 +49,9 @@
  */
 
 import Button from "@/components/ui/buttons/Button";
-import { Icon } from "@iconify/react";
 import { MCOption } from "../../../../../services/quiz/types/quizTypes";
 import TimerField from "../TimerField";
 import ImageUpload from "../../../../ImageUpload";
-import clsx from "clsx";
 import TextArea from "@/components/ui/text-inputs/TextArea";
 import TextInput from "@/components/ui/text-inputs/TextInput";
 import IconButton from "@/components/ui/buttons/IconButton";

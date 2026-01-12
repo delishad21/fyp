@@ -50,13 +50,19 @@ export function SelectList({
   showColor?: boolean;
 }) {
   return (
-    <ul role="listbox" className="max-h-60 overflow-auto rounded-md">
+    <ul
+      role="listbox"
+      aria-labelledby={id}
+      className="max-h-60 overflow-auto rounded-md"
+    >
       {placeholder !== undefined && (
         <li>
           <button
             type="button"
             onClick={() => onSelect("")}
             className={itemCls(value === "")}
+            role="option"
+            aria-selected={value === ""}
           >
             <span className="truncate">{placeholder}</span>
           </button>
@@ -71,6 +77,7 @@ export function SelectList({
             <button
               type="button"
               role="option"
+              aria-selected={selected}
               onClick={() => onSelect(opt.value)}
               className={itemCls(selected)}
             >

@@ -8,7 +8,7 @@ import TableRowCard from "./TableRowCard";
 
 export type DragConfig = {
   enabled?: boolean; // default false
-  getDragData?: (row: RowData) => any; // data stored in dnd-kit event
+  getDragData?: (row: RowData) => unknown; // data stored in dnd-kit event
 };
 
 export default function CardTable({

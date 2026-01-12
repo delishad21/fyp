@@ -3,7 +3,7 @@ import CrosswordQuizForm from "@/components/quizzes/quiz-forms/CrosswordQuizForm
 import RapidQuizForm from "@/components/quizzes/quiz-forms/RapidQuizForm";
 import { getFilterMeta } from "@/services/quiz/actions/quiz-metadata-actions";
 import { getQuizTypeColors } from "@/services/quiz/actions/quiz-type-colors-action";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type {
   BasicInitial,
   CrosswordInitial,

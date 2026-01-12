@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ToastProvider } from "@/components/ui/toast/ToastProvider";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient());

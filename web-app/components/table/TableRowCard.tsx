@@ -40,7 +40,7 @@ export default function TableRowCard({
   onDuplicate?: (row: RowData) => void | Promise<void>;
   onDelete?: (row: RowData) => void | Promise<void>;
   onRowClick?: (row: RowData) => void | Promise<void>;
-  dragData?: any; // any DnD payload; caller decides shape
+  dragData?: unknown; // DnD payload; caller decides shape
   draggable?: boolean;
 }) {
   const hasActions = Boolean(onEdit || onView || onDuplicate || onDelete);
@@ -52,7 +52,7 @@ export default function TableRowCard({
     id: `row-${row.id}`,
     data: dragData,
     disabled: !isDraggable,
-  } as any);
+  });
 
   const renderCell = (cell: Cell) => {
     switch (cell.variant) {

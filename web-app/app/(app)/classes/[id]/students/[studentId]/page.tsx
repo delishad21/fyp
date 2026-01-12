@@ -17,7 +17,7 @@ export default async function StudentProfilePage({
 
   // 1) Student header data (rank, streak, overall)
   const sRes = await getStudentInClass(classId, studentId);
-  const student = (sRes as any)?.data ?? (sRes as any)?.student;
+  const student = sRes?.data;
   if (!sRes?.ok || !student) return notFound();
 
   // 2) Schedule-level summary (one row per schedule)
@@ -57,7 +57,7 @@ export default async function StudentProfilePage({
               absMax: Math.round(s.canonical!.maxScore),
             }
           : {}),
-      } as any,
+      },
     };
 
     const latestText = s.latestAt

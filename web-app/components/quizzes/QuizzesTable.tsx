@@ -56,7 +56,9 @@ export default function QuizzesTable({
 
   const onDuplicate = useCallback(
     (row: RowData) => {
-      const payload = row.payload as any;
+      const payload = row.payload as
+        | (QuizLite & { quizType?: string; type?: string })
+        | undefined;
       const quizType = payload?.quizType || payload?.type;
 
       if (

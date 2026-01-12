@@ -6,7 +6,7 @@ export default async function AccountSettingsPage() {
   return (
     <div className="max-w-3xl">
       <AccountSettingsForm
-        userId={session.userId ?? ""}
+        // userId={session.userId ?? ""}
         username={session.username ?? ""}
         name={session.name ?? ""}
         honorific={session.honorific ?? ""}

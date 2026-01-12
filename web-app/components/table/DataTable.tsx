@@ -69,7 +69,7 @@ export default function DataTable({
   // Initial population of table
   useEffect(() => {
     fetchWith(initial.query);
-  }, []);
+  }, [fetchWith, initial.query]);
 
   // Update table when filters change
   useEffect(() => {
@@ -194,7 +194,6 @@ export default function DataTable({
           value={filtersValue}
           onChange={onFiltersChange}
           onReset={onReset}
-          isLoading={isPending}
         />
         <Pagination
           page={data.page}
