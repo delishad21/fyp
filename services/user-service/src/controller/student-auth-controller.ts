@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import { Request, Response } from "express";
 import { generateAccessToken } from "../utils/tokens";
-import { validatePassword } from "../utils/validators";
+import { validateStudentPassword } from "../utils/validators";
 import {
   StudentModel,
   formatStudentResponse,
@@ -65,7 +65,7 @@ export async function studentSignIn(req: Request, res: Response) {
  * @route   POST /student/auth/change-password
  * @auth    verifyStudentAccessToken (role: student)
  * @input   Body: { currentPassword: string, newPassword: string }
- * @notes   - Validates new password against policy (validatePassword).
+ * @notes   - Validates new password against policy (validateStudentPassword).
  *          - Requires the current password; on success clears mustChangePassword.
  *          - Updates lastPasswordResetAt for audit/UX.
  * @logic   1) AuthZ: ensure caller is a student
@@ -93,7 +93,7 @@ export async function studentChangePassword(req: any, res: Response) {
     if (!currentPassword || !newPassword)
       return res.status(400).json({ message: "Missing parameters" });
 
-    const errors = validatePassword(newPassword);
+    const errors = validateStudentPassword(newPassword);
     if (errors.length)
       return res
         .status(400)

@@ -68,6 +68,43 @@ export function useIndexedErrorMask(
     });
   }, []);
 
+  /**
+   * Call this when you reorder a question so the errors stay aligned
+   * with the moved item.
+   */
+  const moveErrorIndex = useCallback((from: number, to: number) => {
+    if (from === to) return;
+
+    setErrors((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+
+    setClearedIndexes((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<number>();
+      prev.forEach((i) => {
+        if (i === from) {
+          next.add(to);
+          return;
+        }
+        if (from < to && i > from && i <= to) {
+          next.add(i - 1);
+          return;
+        }
+        if (from > to && i >= to && i < from) {
+          next.add(i + 1);
+          return;
+        }
+        next.add(i);
+      });
+      return next;
+    });
+  }, []);
+
   const visibleErrors = useMemo(
     () =>
       (errors ?? []).map((err, i) => (clearedIndexes.has(i) ? undefined : err)),
@@ -79,5 +116,11 @@ export function useIndexedErrorMask(
     [visibleErrors]
   );
 
-  return { visibleErrors, clearErrorAtIndex, erroredIndexes, removeErrorIndex };
+  return {
+    visibleErrors,
+    clearErrorAtIndex,
+    erroredIndexes,
+    removeErrorIndex,
+    moveErrorIndex,
+  };
 }

@@ -10,7 +10,7 @@ export default async function EditQuizPage({
   params,
   searchParams,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
   searchParams: Promise<{ version?: string }>;
 }) {
   const paramsResolved = await params;

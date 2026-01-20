@@ -15,6 +15,7 @@ type Props = {
   error?: string | string[];
   className?: string;
   onChange?: (value: number) => void;
+  emptyValue?: number;
 };
 
 function clamp(n: number, min?: number, max?: number) {
@@ -37,6 +38,7 @@ export default function NumberToggleInput({
   error,
   className,
   onChange,
+  emptyValue,
 }: Props) {
   const isControlled = typeof value === "number";
   const [internal, setInternal] = React.useState<number>(() => {
@@ -46,12 +48,22 @@ export default function NumberToggleInput({
   });
 
   const current = isControlled ? value : internal;
+  const [inputValue, setInputValue] = React.useState<string>(
+    Number.isFinite(current) ? String(current) : ""
+  );
+  const isFocusedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (isFocusedRef.current) return;
+    setInputValue(Number.isFinite(current) ? String(current) : "");
+  }, [current]);
   const errors = Array.isArray(error) ? error : error ? [error] : [];
 
   const commit = (next: number) => {
     const clamped = clamp(next, min, max);
     if (!isControlled) setInternal(clamped);
     onChange?.(clamped);
+    setInputValue(String(clamped));
   };
 
   const canDecrement =
@@ -62,6 +74,13 @@ export default function NumberToggleInput({
     !disabled &&
     !readOnly &&
     (typeof max !== "number" || current + step <= max);
+
+  const resolvedEmptyValue =
+    typeof emptyValue === "number"
+      ? emptyValue
+      : typeof min === "number"
+      ? min
+      : 1;
 
   return (
     <div className="grid gap-1.5">
@@ -90,11 +109,28 @@ export default function NumberToggleInput({
           min={min}
           max={max}
           step={step}
-          value={Number.isFinite(current) ? current : 0}
+          value={inputValue}
           onChange={(e) => {
-            const raw = Number(e.currentTarget.value);
-            if (!Number.isFinite(raw)) return;
-            commit(raw);
+            const raw = e.currentTarget.value;
+            setInputValue(raw);
+            if (raw.trim() === "") return;
+            const parsed = Number(raw);
+            if (!Number.isFinite(parsed)) return;
+            commit(parsed);
+          }}
+          onFocus={() => {
+            isFocusedRef.current = true;
+          }}
+          onBlur={() => {
+            isFocusedRef.current = false;
+            if (inputValue.trim() === "") {
+              commit(resolvedEmptyValue);
+              return;
+            }
+            const parsed = Number(inputValue);
+            if (!Number.isFinite(parsed)) {
+              commit(resolvedEmptyValue);
+            }
           }}
           disabled={disabled}
           readOnly={readOnly}

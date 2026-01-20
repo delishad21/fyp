@@ -9,6 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import { motion, useAnimationControls } from "framer-motion";
+import type { AnimationDefinition } from "framer-motion";
 
 import DateField from "@/components/ui/selectors/DateField";
 import { PillsGrid } from "./PillsGrid";
@@ -109,10 +110,15 @@ export default function SevenDayCalendar({
       );
       slideTargetRef.current = next;
 
-      await controls.start({
+      const slideAnim = {
         "--slide": next,
-        transition: { type: "tween", duration: 0.22, ease: [0.2, 0.8, 0.2, 1] },
-      } as Record<string, number | { type: "tween"; duration: number; ease: number[] }>);
+        transition: {
+          type: "tween",
+          duration: 0.22,
+          ease: [0.2, 0.8, 0.2, 1],
+        },
+      } as unknown as AnimationDefinition;
+      await controls.start(slideAnim);
 
       setStartKey((s) => addDaysToDayKey(s, dir));
 

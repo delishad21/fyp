@@ -107,6 +107,7 @@ type AddResult =
 type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
   id: string;
   label?: string;
+  labelClassName?: string;
 
   value?: string;
   onChange?: (value: string) => void;
@@ -133,6 +134,7 @@ export default function Select({
   id,
   name,
   label,
+  labelClassName,
   value: controlledValue,
   onChange,
   defaultValue,
@@ -337,11 +339,14 @@ export default function Select({
   }, [allOptions, searchable, searchQuery]);
 
   return (
-    <div ref={rootRef} className={clsx("grid gap-1.5", className)}>
+    <div
+      ref={rootRef}
+      className={clsx("grid w-full min-w-0 gap-1.5", className)}
+    >
       {label && (
         <label
           htmlFor={id}
-          className="text-xs text-[var(--color-text-secondary)]"
+          className={labelClassName ?? "text-xs text-[var(--color-text-secondary)]"}
         >
           {label}
         </label>
@@ -366,11 +371,11 @@ export default function Select({
         </>
       )}
 
-      <div className="relative">
+      <div className="relative min-w-0">
         {searchable ? (
           <div
             className={clsx(
-              "flex h-11 w-full items-center gap-2 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 text-left text-sm",
+              "flex h-11 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 text-left text-sm",
               "text-[var(--color-text-primary)] focus-within:ring-2 focus-within:ring-[var(--color-primary)]",
               disabled
                 ? "cursor-not-allowed text-[var(--color-text-secondary)]"

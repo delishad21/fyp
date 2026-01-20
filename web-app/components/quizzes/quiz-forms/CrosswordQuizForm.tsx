@@ -53,6 +53,7 @@ import { useToast } from "@/components/ui/toast/ToastProvider";
 import VersionSelector from "./quiz-form-helper-components/VersionSelector";
 import QuizVersionModal from "./quiz-form-helper-components/QuizVersionModal";
 import TutorialModal, { TutorialStep } from "@/components/ui/TutorialModal";
+import { Icon } from "@iconify/react";
 
 type Props = {
   meta: FilterMeta;
@@ -66,40 +67,107 @@ type Props = {
 };
 
 const makeEntry = () => ({ id: crypto.randomUUID(), answer: "", clue: "" });
+
+const normalizeStr = (s: unknown) =>
+  String(s ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+const normalizeAnswer = (s: unknown) =>
+  String(s ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+function normalizeEntries(
+  entriesLike: Array<{ answer: string; clue: string }>
+) {
+  const mapped = (entriesLike || []).map((e) => ({
+    a: normalizeAnswer(e.answer),
+    c: normalizeStr(e.clue),
+  }));
+  mapped.sort((x, y) => (x.a + "|" + x.c).localeCompare(y.a + "|" + y.c));
+  return mapped;
+}
+
+function normalizePlaced(placed: CrosswordPlacedEntry[]) {
+  const mapped =
+    (placed || []).map((p) => ({
+      a: normalizeAnswer(p.answer ?? ""),
+      pos: (p.positions || []).map((t) => [
+        Number(t.row || 0),
+        Number(t.col || 0),
+      ]),
+      dir: p.direction === "across" ? "a" : p.direction === "down" ? "d" : null,
+    })) || [];
+  mapped.sort((x, y) =>
+    (x.a + "|" + x.dir + "|" + JSON.stringify(x.pos)).localeCompare(
+      y.a + "|" + y.dir + "|" + JSON.stringify(y.pos)
+    )
+  );
+  return mapped;
+}
+
+function normalizeGrid(grid: Cell[][] | null) {
+  if (!grid) return null;
+  return grid.map((row) =>
+    row.map((cell) => ({
+      b: !!cell.isBlocked,
+      l:
+        cell.letter == null || cell.letter === ""
+          ? null
+          : String(cell.letter).toUpperCase(),
+    }))
+  );
+}
+
+function buildNormalizedCrosswordSnapshot(opts: {
+  entries: Array<{ answer: string; clue: string }>;
+  grid: Cell[][] | null;
+  placed: CrosswordPlacedEntry[] | null;
+  totalTimeLimit: number | null;
+}) {
+  return {
+    entries: normalizeEntries(opts.entries),
+    grid: normalizeGrid(opts.grid),
+    placed: normalizePlaced(opts.placed || []),
+    totalTimeLimit:
+      opts.totalTimeLimit === null || opts.totalTimeLimit === undefined
+        ? null
+        : Number(opts.totalTimeLimit),
+  };
+}
 const tutorialSteps: TutorialStep[] = [
   {
     title: "Introduction to Crossword Quizzes",
     subtitle:
-      "Crossword Quizzes allow you to create engaging crossword puzzles for your students. \
-      This quiz type is ideal for vocabulary practice, language learning, and reinforcing key concepts in a fun way.",
+      "Crossword quizzes help students practice vocabulary and key concepts. \
+      Use this format when you want a puzzle-style activity.",
   },
   {
     title: "Set quiz details",
-    subtitle: "Enter a name, subject, and topic to identify the quiz.",
+    subtitle: "Enter a name, subject, and topic so you can find it later.",
     media: { src: "/tutorials/quiz-creation/crossword/1.mp4" },
   },
   {
     title: "Add an overall timer",
-    subtitle:
-      "Optionally set a time limit for completing the entire crossword quiz.",
+    subtitle: "Optional: set a time limit for completing the crossword.",
     media: { src: "/tutorials/quiz-creation/crossword/2.mp4" },
   },
   {
     title: "Add entries",
     subtitle:
-      "Fill in answers and clues for each word in the crossword. Up to 10 words can be added using the add word button. Words used are limited to 20 characters.",
+      "Add each word and its clue. You can add up to 10 words, and each word can be up to 20 characters.",
     media: { src: "/tutorials/quiz-creation/crossword/3.mp4" },
   },
   {
     title: "Generate the crossword",
     subtitle:
-      "Click 'Generate crossword' to create a grid based on your entries. Check that entries fit and clues are clear. \
-      You may need to tweak your entries and regenerate to get a satisfactory layout.",
+      "Click “Generate crossword” to build the grid. If the layout looks off, edit your entries and regenerate.",
     media: { src: "/tutorials/quiz-creation/crossword/4.mp4" },
   },
   {
     title: "Create the quiz",
-    subtitle: "Review errors, then submit to create the quiz.",
+    subtitle: "Fix any errors, then submit to create the quiz.",
     media: { src: "/tutorials/quiz-creation/crossword/5.mp4" },
   },
 ];
@@ -315,76 +383,6 @@ export default function CrosswordQuizForm({
    * Used only to tweak modal copy; backend is source of truth.
    * ───────────────────────────────────────────────────────────────────── */
 
-  const normalizeStr = (s: unknown) =>
-    String(s ?? "")
-      .trim()
-      .replace(/\s+/g, " ");
-  const normalizeAnswer = (s: unknown) =>
-    String(s ?? "")
-      .trim()
-      .replace(/\s+/g, " ")
-      .toLowerCase();
-
-  function normalizeEntries(
-    entriesLike: Array<{ answer: string; clue: string }>
-  ) {
-    const mapped = (entriesLike || []).map((e) => ({
-      a: normalizeAnswer(e.answer),
-      c: normalizeStr(e.clue),
-    }));
-    mapped.sort((x, y) => (x.a + "|" + x.c).localeCompare(y.a + "|" + y.c));
-    return mapped;
-  }
-
-  function normalizePlaced(placed: CrosswordPlacedEntry[]) {
-    const mapped =
-      (placed || []).map((p) => ({
-        a: normalizeAnswer(p.answer ?? ""),
-        pos: (p.positions || []).map((t) => [
-          Number(t.row || 0),
-          Number(t.col || 0),
-        ]),
-        dir:
-          p.direction === "across" ? "a" : p.direction === "down" ? "d" : null,
-      })) || [];
-    mapped.sort((x, y) =>
-      (x.a + "|" + x.dir + "|" + JSON.stringify(x.pos)).localeCompare(
-        y.a + "|" + y.dir + "|" + JSON.stringify(y.pos)
-      )
-    );
-    return mapped;
-  }
-
-  function normalizeGrid(grid: Cell[][] | null) {
-    if (!grid) return null;
-    return grid.map((row) =>
-      row.map((cell) => ({
-        b: !!cell.isBlocked,
-        l:
-          cell.letter == null || cell.letter === ""
-            ? null
-            : String(cell.letter).toUpperCase(),
-      }))
-    );
-  }
-
-  function buildNormalizedCrosswordSnapshot(opts: {
-    entries: Array<{ answer: string; clue: string }>;
-    grid: Cell[][] | null;
-    placed: CrosswordPlacedEntry[] | null;
-    totalTimeLimit: number | null;
-  }) {
-    return {
-      entries: normalizeEntries(opts.entries),
-      grid: normalizeGrid(opts.grid),
-      placed: normalizePlaced(opts.placed || []),
-      totalTimeLimit:
-        opts.totalTimeLimit === null || opts.totalTimeLimit === undefined
-          ? null
-          : Number(opts.totalTimeLimit),
-    };
-  }
-
   const initialContentNormJson = useMemo(() => {
     if (mode !== "edit" || !initialData) return "";
 
@@ -416,7 +414,7 @@ export default function CrosswordQuizForm({
     });
 
     return JSON.stringify(snapshot);
-  }, [mode, initialData, buildNormalizedCrosswordSnapshot]);
+  }, [mode, initialData]);
 
   const currentContentNormJson = useMemo(() => {
     const nowEntries = (entries || []).map((e) => ({
@@ -432,7 +430,7 @@ export default function CrosswordQuizForm({
     });
 
     return JSON.stringify(snapshot);
-  }, [entries, generated, genGrid, genEntries, totalTime, buildNormalizedCrosswordSnapshot]);
+  }, [entries, generated, genGrid, genEntries, totalTime]);
 
   const contentChanged =
     mode === "edit" && initialData?.id
@@ -506,7 +504,7 @@ export default function CrosswordQuizForm({
 
   const headerLabel = "Crossword Quiz";
   const submitLabel =
-    mode === "edit" ? "Save Changes" : isClone ? "Create Copy" : "Create Quiz";
+    mode === "edit" ? "Save Changes" : isClone ? "Create Copy" : "Finalize Quiz";
   const headerStyle =
     typeColorHex && typeColorHex.startsWith("#")
       ? { backgroundColor: `${typeColorHex}1A`, color: typeColorHex }
@@ -522,9 +520,9 @@ export default function CrosswordQuizForm({
       onKeyDown={onFormKeyDown}
       noValidate
       action={formAction}
-      className="grid grid-cols-1 gap-6 lg:grid-cols-12"
+      className="grid grid-cols-1 gap-6 pb-40 lg:grid-cols-12 min-w-[600px]"
     >
-      <div className="space-y-4 lg:col-span-8">
+      <div className="space-y-4 lg:col-span-9">
         {/* Header + version selector */}
         <div className="flex items-center justify-between gap-2">
           <span
@@ -542,11 +540,6 @@ export default function CrosswordQuizForm({
               triggerVariant="ghost"
               triggerClassName="gap-2 rounded-full px-3 py-1.5"
               triggerTitle="How to use the crossword quiz form"
-            />
-            <VersionSelector
-              mode={mode}
-              versions={versions}
-              currentVersion={currentVersion ?? initialData?.version}
             />
           </div>
         </div>
@@ -576,7 +569,8 @@ export default function CrosswordQuizForm({
 
         {/* Entries-level error */}
         {(() => {
-          const e = getVisibleFieldError("entries") || genFieldErrors["entries"];
+          const e =
+            getVisibleFieldError("entries") || genFieldErrors["entries"];
           if (!e) return null;
           return Array.isArray(e) ? (
             <ul className="list-disc pl-5 text-xs text-[var(--color-error)] space-y-0.5">
@@ -590,18 +584,66 @@ export default function CrosswordQuizForm({
         })()}
 
         {/* Overall timer */}
-        <div className="flex flex-row-reverse ">
-          <TimerField
-            id="crossword-total-time"
-            name="totalTimeLimit"
-            value={totalTime}
-            onChange={(v) => {
-              setTotalTime(v);
-              clearFieldError("totalTimeLimit");
-            }}
-            min={60}
-            max={7200}
-          />
+        <div className="grid w-full gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-stretch">
+          <div className="flex h-full items-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-1">
+            {mode === "edit" ? (
+              <VersionSelector
+                mode={mode}
+                versions={versions}
+                currentVersion={currentVersion ?? initialData?.version}
+              />
+            ) : (
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
+                  Quick Tips
+                </span>
+                <p
+                  className="text-xs leading-4 text-[var(--color-text-secondary)] h-8 overflow-hidden"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                  }}
+                >
+                  Add 1-10 entries, generate the grid, then check the preview
+                  before creating the quiz.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex h-full w-full items-center gap-3 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3 xl:w-fit xl:justify-self-end">
+            <div className="flex items-center gap-3">
+              <Icon
+                icon="mingcute:time-line"
+                className="h-7 w-7 text-[var(--color-icon)]"
+              />
+              <div className="space-y-1">
+                <label className="text-sm text-[var(--color-text-primary)]">
+                  Overall Timer
+                </label>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  Optional time limit for the entire quiz.
+                </p>
+              </div>
+            </div>
+            <div className="hidden h-10 w-px bg-[var(--color-bg4)] xl:block" />
+            <TimerField
+              id="crossword-total-time"
+              name="totalTimeLimit"
+              value={totalTime}
+              onChange={(v) => {
+                setTotalTime(v);
+                clearFieldError("totalTimeLimit");
+              }}
+              min={60}
+              max={7200}
+              showIcon={false}
+              layout="inputs-toggle-status"
+              showStatusText
+              statusTextOn="On"
+              statusTextOff="No limit"
+            />
+          </div>
         </div>
         {getVisibleFieldError("totalTimeLimit") && (
           <p className="text-xs text-[var(--color-error)]">
@@ -635,9 +677,15 @@ export default function CrosswordQuizForm({
         {/* Generated preview */}
         {genGrid ? (
           <div className="mt-4">
-            <h3 className="text-sm font-medium mb-2 text-[var(--color-text-primary)]">
-              Generated Crossword
-            </h3>
+            <div className="mb-2">
+              <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
+                Generated Crossword
+              </h3>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                If your crossword does not piece together well, consider adding
+                more words to serve as &quot;connectors&quot;
+              </p>
+            </div>
             <CrosswordGrid grid={genGrid} entries={genEntries} cellSize={40} />
           </div>
         ) : null}
@@ -687,6 +735,8 @@ export default function CrosswordQuizForm({
           </Button>
         </div>
       </div>
+
+      <div className="hidden lg:block lg:col-span-3" />
 
       {mode === "edit" && (
         <QuizVersionModal

@@ -134,6 +134,10 @@ export default function TutorialModal({
             />
           </div>
 
+          <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
+            {current.subtitle}
+          </p>
+
           {current.media?.src ? (
             <div className="mt-4 overflow-hidden rounded-xl border border-[var(--color-bg3)] bg-[var(--color-bg2)]/50">
               {mediaType === "video" ? (
@@ -159,10 +163,6 @@ export default function TutorialModal({
               )}
             </div>
           ) : null}
-
-          <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-            {current.subtitle}
-          </p>
 
           <div className="mt-6 flex items-center justify-between gap-3">
             <Button

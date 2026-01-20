@@ -7,8 +7,8 @@ import type {
 } from "@/services/quiz/types/quiz-table-types";
 
 type PageProps = {
-  params: { id: string };
-  searchParams?: { q?: string };
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ q?: string }>;
 };
 
 function asPct(n?: number | null) {
@@ -28,7 +28,7 @@ function fmtDate(d?: string | Date | null) {
 }
 
 export default async function ResultsPage({ params, searchParams }: PageProps) {
-  const classId = (await params).id;
+  const { id: classId } = await params;
   const initialQ = ((await searchParams)?.q ?? "").toString();
 
   const res = await getAvailableScheduleWithStats(classId);

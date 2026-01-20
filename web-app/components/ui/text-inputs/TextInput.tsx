@@ -4,6 +4,7 @@ import * as React from "react";
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> & {
   label?: string;
+  labelClassName?: string;
   error?: string | string[];
   id: string;
   readOnly?: boolean;
@@ -13,6 +14,7 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> & {
 
 export default function TextInput({
   label,
+  labelClassName,
   error,
   id,
   readOnly,
@@ -33,7 +35,7 @@ export default function TextInput({
       {label && (
         <label
           htmlFor={id}
-          className="text-xs text-[var(--color-text-secondary)]"
+          className={labelClassName ?? "text-xs text-[var(--color-text-secondary)]"}
         >
           {label}
         </label>

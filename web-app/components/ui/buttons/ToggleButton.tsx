@@ -25,6 +25,7 @@ type Props = {
   activeColor?: string;
   inactiveColor?: string;
   className?: string;
+  inlineTextPosition?: "left" | "right";
 
   /** Accessibility */
   id?: string; // used to connect aria-describedby
@@ -45,6 +46,7 @@ export default function ToggleButton({
   activeColor = "var(--color-success)",
   inactiveColor = "var(--color-text-secondary)",
   className = "",
+  inlineTextPosition = "right",
 
   id,
   disabled = false,
@@ -65,6 +67,11 @@ export default function ToggleButton({
       ) : null}
 
       <div className="flex items-center gap-2">
+        {inlineTextPosition === "left" && (
+          <span className="text-sm text-[var(--color-text-secondary)]">
+            {title}
+          </span>
+        )}
         <button
           id={id}
           type="button"
@@ -97,10 +104,11 @@ export default function ToggleButton({
           />
         </button>
 
-        {/* Optional inline state text */}
-        <span className="text-sm text-[var(--color-text-secondary)]">
-          {title}
-        </span>
+        {inlineTextPosition === "right" && (
+          <span className="text-sm text-[var(--color-text-secondary)]">
+            {title}
+          </span>
+        )}
       </div>
 
       {description ? (

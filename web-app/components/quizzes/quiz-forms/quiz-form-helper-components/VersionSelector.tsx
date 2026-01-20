@@ -41,9 +41,11 @@ export default function VersionSelector({
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-[var(--color-text-secondary)]">Version</span>
+      <span className="text-sm text-[var(--color-text-primary)]">
+        Select Version:
+      </span>
       <select
-        className="rounded-sm border border-[var(--color-bg3)] bg-[var(--color-bg1)] px-2 py-1 text-sm disabled:opacity-60"
+        className="h-11 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 text-sm text-[var(--color-text-primary)] disabled:opacity-60"
         value={String(effectiveCurrent)}
         onChange={handleChange}
         disabled={isPending}

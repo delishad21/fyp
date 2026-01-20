@@ -18,7 +18,7 @@ import { getHalfScreenHeight } from "@/src/lib/ui-helpers";
 import { useTheme } from "@/src/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -92,26 +92,41 @@ export default function QuizPlayBasicScreen({
   );
 
   // SAVE - using extracted hook
-  const { saving, scheduleDebouncedSave, flushSaves } = useDebouncedSave(
-    attemptId,
-    token,
-    () => answersRef.current,
-    500
-  );
+  const { saving, scheduleDebouncedSave, flushSaves, enqueueSave } =
+    useDebouncedSave(attemptId, token, () => answersRef.current, 500);
+  const pendingSaveRef = useRef(false);
+  const openInputRef = useRef<TextInput | null>(null);
+
 
   // FINISH - using extracted hook
+  const saveNow = useCallback(async () => {
+    if (pendingSaveRef.current) {
+      pendingSaveRef.current = false;
+      await flushSaves();
+      return;
+    }
+    await enqueueSave();
+  }, [enqueueSave, flushSaves]);
+
   const { finishing, finishNow } = useQuizFinish(
     attemptId,
     token,
     (finalizeRes) =>
       navigateToQuizResults(router, attemptId, spec, finalizeRes),
-    flushSaves,
+    saveNow,
     remaining === 0
   );
 
+  const ensureOpenInputCommitted = useCallback(async () => {
+    if (current?.kind !== "open") return;
+    openInputRef.current?.blur();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }, [current?.kind]);
+
   const goTo = useCallback(
     async (nextIndex: number) => {
-      await flushSaves();
+      await ensureOpenInputCommitted();
+      await saveNow();
       setIndex(nextIndex);
 
       // reset scroll affordance state when changing item
@@ -119,7 +134,7 @@ export default function QuizPlayBasicScreen({
       setPromptContentH(0);
       setPromptScrolledY(0);
     },
-    [flushSaves]
+    [ensureOpenInputCommitted, saveNow]
   );
 
   const goPrev = useCallback(() => {
@@ -133,35 +148,42 @@ export default function QuizPlayBasicScreen({
   // ANSWER UPDATERS
   const toggleMC = useCallback(
     (itemId: string, optionId: string, multiSelect?: boolean) => {
-      setAnswers((prev) => {
-        const curr = prev[itemId];
-        const currArr = Array.isArray(curr) ? (curr as string[]) : [];
+      const curr = answersRef.current[itemId];
+      const currArr = Array.isArray(curr) ? (curr as string[]) : [];
 
-        let nextSel: string[];
-        if (multiSelect) {
-          if (currArr.includes(optionId)) {
-            nextSel = currArr.filter((id) => id !== optionId);
-          } else {
-            nextSel = [...currArr, optionId];
-          }
+      let nextSel: string[];
+      if (multiSelect) {
+        if (currArr.includes(optionId)) {
+          nextSel = currArr.filter((id) => id !== optionId);
         } else {
-          nextSel = [optionId];
+          nextSel = [...currArr, optionId];
         }
+      } else {
+        nextSel = [optionId];
+      }
 
-        return { ...prev, [itemId]: nextSel };
-      });
+      const next = { ...answersRef.current, [itemId]: nextSel };
+      answersRef.current = next;
+      setAnswers(next);
+      void enqueueSave();
+    },
+    [enqueueSave]
+  );
+
+  const setOpen = useCallback(
+    (itemId: string, text: string) => {
+      const next = { ...answersRef.current, [itemId]: text };
+      answersRef.current = next;
+      setAnswers(next);
       scheduleDebouncedSave();
+      pendingSaveRef.current = true;
     },
     [scheduleDebouncedSave]
   );
 
-  const setOpen = useCallback((itemId: string, text: string) => {
-    setAnswers((prev) => ({ ...prev, [itemId]: text }));
-  }, []);
-
   const saveOnBlur = useCallback(async () => {
-    await flushSaves();
-  }, [flushSaves]);
+    await saveNow();
+  }, [saveNow]);
 
   const canInteract =
     (remaining === null || remaining > 0) && !finishing && saving !== "saving";
@@ -447,7 +469,13 @@ export default function QuizPlayBasicScreen({
               </View>
             ) : current.kind === "open" ? (
               <View style={{ paddingHorizontal: 12, paddingTop: 6 }}>
+                <Text
+                  style={[styles.openTitle, { color: colors.textSecondary }]}
+                >
+                  Your Answer
+                </Text>
                 <TextInput
+                  ref={openInputRef}
                   editable={canInteract}
                   placeholder="Type Here..."
                   placeholderTextColor={colors.textSecondary}
@@ -458,11 +486,14 @@ export default function QuizPlayBasicScreen({
                   }
                   onChangeText={(t) => setOpen(current.id, t)}
                   onBlur={saveOnBlur}
-                  onEndEditing={saveOnBlur}
+                  onEndEditing={(e) => {
+                    setOpen(current.id, e.nativeEvent.text ?? "");
+                    void saveOnBlur();
+                  }}
                   style={[
                     styles.input,
                     {
-                      borderColor: colors.bg2,
+                      borderColor: colors.primary,
                       color: colors.textPrimary,
                       backgroundColor: colors.bg1,
                     },
@@ -484,6 +515,8 @@ export default function QuizPlayBasicScreen({
                 label={isLast ? "Finish" : "Next"}
                 onPress={async () => {
                   if (isLast && !finishing) {
+                    await ensureOpenInputCommitted();
+                    await enqueueSave();
                     await finishNow();
                   } else {
                     await goNext();
@@ -599,11 +632,17 @@ const styles = StyleSheet.create({
 
   input: {
     height: 44,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 2,
     borderRadius: 5,
     paddingHorizontal: 12,
     fontSize: 17,
     fontWeight: "800",
+  },
+  openTitle: {
+    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.4,
   },
 
   footerRow: {

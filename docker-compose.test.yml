@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 #   Deployment-ready compose stack for local hosting.
-#   Runs all services locally (web, microservices, mongo/redis/redpanda, phone-web)
+#   Runs all services locally (web, microservices, mongo/redis/redpanda, phone frame + phone web app)
 #   and exposes only the public-facing ports needed by nginx.
 #
 #   Note: Build and push service images to registry before using this file.
@@ -17,7 +17,8 @@
 #       /api/user    -> user-service (port 7301)
 #       /api/quiz    -> quiz-service (port 7302)
 #       /api/class   -> class-service (port 7303)
-#       /phone-app   -> phone-web (port 8080)
+#       /phone-app   -> phone-frame (port 8080)
+#       /phone-web   -> phone-web-app (port 8080)
 #   - Uploads are persisted via named volumes:
 #       class-uploads, quiz-uploads
 # -----------------------------------------------------------------------------
@@ -30,7 +31,7 @@ services:
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-supersecret_please_change}
     volumes:
-      - redis-data:/data
+      - /srv/quizapp/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-supersecret_please_change}", "ping"]
       interval: 5s
@@ -52,7 +53,7 @@ services:
       - --advertise-rpc-addr=redpanda:33145
       - --rpc-addr=0.0.0.0:33145
     volumes:
-      - redpanda-data:/var/lib/redpanda/data
+      - /srv/quizapp/redpanda:/var/lib/redpanda/data
     healthcheck:
       test: ["CMD", "bash", "-c", "rpk cluster health | grep -qE 'Healthy|Degraded'"]
       interval: 10s
@@ -63,16 +64,18 @@ services:
     ports:
       - "8085:8085"
     volumes:
-      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on: [web-app, user-service, quiz-service, class-service, phone-web]
+      - /srv/quizapp/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [web-app, user-service, quiz-service, class-service, phone-frame, phone-web-app]
 
   mongo-class:
     image: mongo:7
     container_name: mongodb-class
     command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    ports:
+      - "27017:27017"
     volumes:
-      - ./mongo/mongo-class-data:/data/db
-      - ./mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
+      - /srv/quizapp/mongo/mongo-class-data:/data/db
+      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
@@ -81,9 +84,11 @@ services:
     image: mongo:7
     container_name: mongodb-user
     command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    ports:
+      - "27018:27017"
     volumes:
-      - ./mongo/mongo-user-data:/data/db
-      - ./mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
+      - /srv/quizapp/mongo/mongo-user-data:/data/db
+      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
@@ -92,9 +97,11 @@ services:
     image: mongo:7
     container_name: mongodb-quiz
     command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    ports:
+      - "27019:27017"
     volumes:
-      - ./mongo/mongo-quiz-data:/data/db
-      - ./mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
+      - /srv/quizapp/mongo/mongo-quiz-data:/data/db
+      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
@@ -125,8 +132,6 @@ services:
 
   class-service:
     image: ${REGISTRY:-delishad21}/class-service:${IMAGE_TAG:-latest}
-    env_file:
-      - .env
     environment:
       NODE_ENV: production
       CLASS_PORT: ${CLASS_PORT:-7303}
@@ -144,14 +149,12 @@ services:
     ports:
       - "7303:7303"
     volumes:
-      - class-uploads:/app/uploads
+      - /srv/quizapp/uploads/class:/app/uploads
     depends_on: [mongo-class, redpanda]
 
   class-worker:
     image: ${REGISTRY:-delishad21}/class-service:${IMAGE_TAG:-latest}
     command: npm run start:worker
-    env_file:
-      - .env
     environment:
       NODE_ENV: production
       CLASS_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-class:27017/class?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
@@ -162,8 +165,6 @@ services:
 
   quiz-service:
     image: ${REGISTRY:-delishad21}/quiz-service:${IMAGE_TAG:-latest}
-    env_file:
-      - .env
     environment:
       NODE_ENV: production
       QUIZ_PORT: ${QUIZ_PORT:-7302}
@@ -182,14 +183,12 @@ services:
     ports:
       - "7302:7302"
     volumes:
-      - quiz-uploads:/app/uploads
+      - /srv/quizapp/uploads/quiz:/app/uploads
     depends_on: [mongo-quiz, redpanda, redis]
 
   quiz-worker:
     image: ${REGISTRY:-delishad21}/quiz-service:${IMAGE_TAG:-latest}
     command: npm run start:worker
-    env_file:
-      - .env
     environment:
       NODE_ENV: production
       QUIZ_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-quiz:27017/quiz?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
@@ -201,8 +200,6 @@ services:
 
   user-service:
     image: ${REGISTRY:-delishad21}/user-service:${IMAGE_TAG:-latest}
-    env_file:
-      - .env
     environment:
       NODE_ENV: production
       USER_PORT: ${USER_PORT:-7301}
@@ -220,8 +217,6 @@ services:
 
   web-app:
     image: ${REGISTRY:-delishad21}/web-app:${IMAGE_TAG:-latest}
-    env_file:
-      - .env
     environment:
       NODE_ENV: production
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
@@ -229,17 +224,20 @@ services:
       QUIZ_SVC_URL: ${NEXT_QUIZ_URL}
       CLASS_SVC_URL: ${NEXT_CLASS_URL}
     ports:
-      - "3000:3000"
+      - "3002:3000"
     depends_on: [user-service]
 
-  phone-web:
-    image: ${REGISTRY:-delishad21}/phone-web:${IMAGE_TAG:-latest}
+  phone-frame:
+    image: ${REGISTRY:-delishad21}/phone-frame:${IMAGE_TAG:-latest}
     ports:
-      - "8080:8080"
+      - "8088:8080"
+    depends_on: [web-app]
+
+  phone-web-app:
+    image: ${REGISTRY:-delishad21}/phone-web-app:${IMAGE_TAG:-latest}
+    ports:
+      - "8089:8080"
     depends_on: [web-app]
 
 volumes:
-  redis-data:
-  redpanda-data:
-  class-uploads:
-  quiz-uploads:
+  {}

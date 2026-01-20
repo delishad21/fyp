@@ -27,6 +27,7 @@ export default function TableRowCard({
   onEdit,
   onView,
   onDuplicate,
+  onSchedule,
   onDelete,
   onRowClick,
   dragData,
@@ -38,19 +39,22 @@ export default function TableRowCard({
   onEdit?: (row: RowData) => void | Promise<void>;
   onView?: (row: RowData) => void | Promise<void>;
   onDuplicate?: (row: RowData) => void | Promise<void>;
+  onSchedule?: (row: RowData) => void | Promise<void>;
   onDelete?: (row: RowData) => void | Promise<void>;
   onRowClick?: (row: RowData) => void | Promise<void>;
   dragData?: unknown; // DnD payload; caller decides shape
   draggable?: boolean;
 }) {
-  const hasActions = Boolean(onEdit || onView || onDuplicate || onDelete);
+  const hasActions = Boolean(
+    onEdit || onView || onDuplicate || onSchedule || onDelete
+  );
   const isClickable = Boolean(onRowClick);
 
   const isDraggable = draggable && Boolean(dragData);
 
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `row-${row.id}`,
-    data: dragData,
+    data: dragData as Record<string, unknown> | undefined,
     disabled: !isDraggable,
   });
 
@@ -104,6 +108,11 @@ export default function TableRowCard({
   const handleDuplicate = (e?: ReactMouseEvent) => {
     e?.stopPropagation();
     onDuplicate?.(row);
+  };
+
+  const handleSchedule = (e?: ReactMouseEvent) => {
+    e?.stopPropagation();
+    onSchedule?.(row);
   };
 
   const handleRowClick = async () => {
@@ -184,6 +193,7 @@ export default function TableRowCard({
             onView={onView ? handleView : undefined}
             onEdit={onEdit ? handleEdit : undefined}
             onDuplicate={onDuplicate ? handleDuplicate : undefined}
+            onSchedule={onSchedule ? handleSchedule : undefined}
             onDelete={onDelete ? handleDelete : undefined}
             editLoading={editLoading}
             deleteLoading={deleteLoading}

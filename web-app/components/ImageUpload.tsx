@@ -94,17 +94,22 @@ export default function ImageUpload({
   return (
     <div className="flex flex-col gap-2 ml-2">
       <div className="flex items-center gap-3">
-        <Icon icon="mingcute:pic-fill" />
-        <span className="text-[var(--color-text-secondary)]">
-          {busy
-            ? "Uploading…"
-            : fileName ?? (hasPreview ? "Image attached" : "No file")}
-        </span>
+        <Icon icon="mingcute:pic-fill" className="text-xl" />
+        <div className="flex flex-col min-w-0">
+          <span className="text-[var(--color-text-primary)] text-sm">
+            Image (optional)
+          </span>
+          <span className="text-[var(--color-text-secondary)] text-xs truncate max-w-[220px]">
+            {busy
+              ? "Uploading…"
+              : fileName ?? (hasPreview ? "Image attached" : "No file")}
+          </span>
+        </div>
 
         <Button
-          variant="small"
+          variant="ghost"
           type="button"
-          className="relative cursor-pointer"
+          className="relative cursor-pointer px-4 py-2 text-sm"
         >
           Upload image
           <input
@@ -119,18 +124,19 @@ export default function ImageUpload({
         {hasPreview && (
           <>
             <Button
-              variant="small"
+              variant="ghost"
               type="button"
               onClick={() => setOpen((v) => !v)}
               title={open ? "Hide preview" : "Show preview"}
+              className="px-4 py-2 text-sm"
             >
               {open ? "Hide preview" : "Show preview"}
             </Button>
             <Button
-              variant="small"
+              variant="error"
               type="button"
               onClick={handleDelete}
-              className="bg-[var(--color-error)] text-white"
+              className="px-4 py-2 text-sm"
               title="Delete image"
             >
               Delete

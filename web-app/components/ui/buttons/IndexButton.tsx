@@ -51,12 +51,12 @@ export default function IndexButton({
       className={clsx(
         "grid place-items-center select-none transition",
         variant === "selector" &&
-          "h-7 w-7 rounded-full text-[11px] font-medium",
+          "h-10 w-10 rounded-full text-sm font-medium border border-[var(--color-bg4)]",
         variant === "pagination" && "h-8 w-8 rounded-full text-sm font-normal",
         active
-          ? "bg-[var(--color-primary)] text-white"
+          ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)]"
           : hasError && variant === "selector"
-          ? "bg-[var(--color-error)] text-[var(--color-text-secondary)] hover:opacity-90"
+          ? "bg-[var(--color-error)] text-white hover:opacity-90"
           : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg3)]"
       )}
       title={title}

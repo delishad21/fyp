@@ -22,6 +22,7 @@ export default function DataTable({
   onEdit,
   onView,
   onDuplicate,
+  onSchedule,
   onDelete,
   draggable = false,
   editable = true,
@@ -39,6 +40,7 @@ export default function DataTable({
   onEdit?: (row: RowData) => Promise<void> | void;
   onView?: (row: RowData) => Promise<void> | void;
   onDuplicate?: (row: RowData) => Promise<void> | void;
+  onSchedule?: (row: RowData) => Promise<void> | void;
   onDelete?: (row: RowData) => Promise<{ ok: boolean; message?: string }>;
   draggable?: boolean;
   editable?: boolean;
@@ -212,6 +214,7 @@ export default function DataTable({
             onView={editable ? onView : undefined}
             onEdit={editable ? onEdit : undefined}
             onDuplicate={editable ? onDuplicate : undefined}
+            onSchedule={editable ? onSchedule : undefined}
             onDelete={editable ? requestDelete : undefined}
             draggable={draggable}
             dragConfig={dragConfig}

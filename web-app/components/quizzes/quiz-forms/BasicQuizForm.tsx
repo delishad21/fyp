@@ -55,6 +55,8 @@ import TimerField from "./quiz-form-helper-components/TimerField";
 import VersionSelector from "./quiz-form-helper-components/VersionSelector";
 import QuizVersionModal from "./quiz-form-helper-components/QuizVersionModal";
 import TutorialModal, { TutorialStep } from "@/components/ui/TutorialModal";
+import WarningModal from "@/components/ui/WarningModal";
+import { Icon } from "@iconify/react";
 
 type Props = {
   meta: FilterMeta;
@@ -73,72 +75,64 @@ const tutorialSteps: TutorialStep[] = [
   {
     title: "Introduction to Basic Quizzes",
     subtitle:
-      "Basic Quizzes allow you to create quizzes with Multiple Choice, Open Ended, and Context items. \
-      This quiz type should be used when you want a straightforward quiz format, it has an overall timer, \
-      and supports a variety of question types.",
+      "Basic quizzes mix Multiple Choice, Open Ended, and Context items. \
+      Use this format for a straightforward quiz with a single overall timer.",
   },
   {
     title: "Set quiz details",
-    subtitle: "Enter a name, subject, and topic to identify the quiz.",
+    subtitle:
+      "Enter a name, subject, and topic so you can find the quiz later.",
     media: { src: "/tutorials/quiz-creation/basic/1.mp4" },
   },
   {
     title: "Set an overall timer",
-    subtitle: "Optionally, set a time limit for the entire quiz.",
+    subtitle: "Optional: set a time limit for the entire quiz.",
     media: { src: "/tutorials/quiz-creation/basic/2.mp4" },
   },
   {
     title: "Add questions",
     subtitle:
-      "Use the question selector to add and organize up to 20 items. Press the '+' button to add a new question, and press on a question number to edit it. \
-      Press the trash icon to delete the currently selected question.",
+      "Use the item selector to add and organize up to 20 items. Click '+' to add a new item, select the items to edit them \
+       and use the delete button to remove the selected item. \
+       Drag items in the selector to reorder them.",
     media: { src: "/tutorials/quiz-creation/basic/3.mp4" },
   },
   {
-    title: "Choose a question type",
-    subtitle:
-      "For each question, switch between Multiple Choice, Open Ended, and Context.",
+    title: "Choose an item type",
+    subtitle: "For each item, choose Multiple Choice, Open Ended, or Context.",
     media: { src: "/tutorials/quiz-creation/basic/4.mp4" },
   },
   {
-    title: "Fill in question content (Mutliple Choice)",
-    subtitle: "Provide the question text, and upload an optional image",
+    title: "Fill in content",
+    subtitle:
+      "For all question types, enter the prompt and add an optional image.",
     media: { src: "/tutorials/quiz-creation/basic/5.mp4" },
   },
   {
     title: "Add answer options (Multiple Choice)",
     subtitle:
-      "Add answer choices for the question. You must have at least 2 options and no more than 6. \
-      Each option can have text only. \
-      Select one or more correct options for the question to be valid. For single-answer questions, only one option should be marked correct. \
-      Students will be given full credit if they select ALL correct options and NO incorrect options. Partial credit is awarded based on the \
-      number of correct and incorrect options chosen.",
+      "Add 2 to 6 answer options (text only). Mark one or more correct options; single-answer questions should have exactly one correct choice. \
+      Students receive full credit only if they select all correct and no incorrect options; partial credit will be given based on the number of correct and incorrect selections.",
     media: { src: "/tutorials/quiz-creation/basic/6.mp4" },
-  },
-  {
-    title: "Fill in question content (Open Ended)",
-    subtitle: "Provide the question text and optional image.",
-    media: { src: "/tutorials/quiz-creation/basic/7.mp4" },
   },
   {
     title: "Add correct answers (Open Ended)",
     subtitle:
-      "Add one or more correct answers. \
-      Students will be given full credit if their response matches any of the provided answers.\
-      You can also specify whether each answer should be case sensitive.",
+      "Add one or more accepted answers. A response is given full credit if it matches any accepted answer. \
+      Use the toggle to mark answers as case sensitive when needed.",
+    media: { src: "/tutorials/quiz-creation/basic/7.mp4" },
+  },
+  {
+    title: "Fill in content (Context)",
+    subtitle:
+      "Context items provide reading material for later questions. They are not graded and have no answers. \
+      Add text and an optional image.",
     media: { src: "/tutorials/quiz-creation/basic/8.mp4" },
   },
   {
-    title: "Fill in question content (Context)",
-    subtitle:
-      "Context pages can be used to provide additional information or reading material for subsequent questions. \
-      Context items do not have correct answers and are not graded. They can include text and an optional image.",
-    media: { src: "/tutorials/quiz-creation/basic/9.mp4" },
-  },
-  {
     title: "Create the quiz",
-    subtitle: "Review errors, then submit to create the quiz.",
-    media: { src: "/tutorials/quiz-creation/basic/10.mp4" },
+    subtitle: "Fix any errors, then submit to create the quiz.",
+    media: { src: "/tutorials/quiz-creation/basic/9.mp4" },
   },
 ];
 
@@ -209,6 +203,7 @@ export default function BasicQuizForm({
     addQuestion,
     deleteQuestion,
     selectQuestion,
+    moveQuestion,
 
     setText,
     setImageMeta,
@@ -244,11 +239,37 @@ export default function BasicQuizForm({
     clearErrorAtIndex,
     erroredIndexes,
     removeErrorIndex,
+    moveErrorIndex,
   } = useIndexedErrorMask(state.questionErrors);
 
   const handleDeleteQuestion = (idx: number) => {
     deleteQuestion(idx);
     removeErrorIndex(idx);
+  };
+
+  const handleReorderQuestion = (from: number, to: number) => {
+    moveQuestion(from, to);
+    moveErrorIndex(from, to);
+  };
+
+  const canDeleteItem = items.length > 1;
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(
+    null
+  );
+
+  const handleDeleteRequest = (idx: number) => {
+    if (!canDeleteItem) return;
+    setPendingDeleteIndex(idx);
+  };
+
+  const handleDeleteCancel = () => {
+    setPendingDeleteIndex(null);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (pendingDeleteIndex === null) return;
+    handleDeleteQuestion(pendingDeleteIndex);
+    setPendingDeleteIndex(null);
   };
 
   const currentQuestionErrors = visibleQuestionErrors[currentIndex];
@@ -410,11 +431,26 @@ export default function BasicQuizForm({
    * -------------------------------------------------------------- */
   const headerLabel = "Basic Quiz";
   const submitLabel =
-    mode === "edit" ? "Save Changes" : isClone ? "Create Copy" : "Create Quiz";
+    mode === "edit"
+      ? "Save Changes"
+      : isClone
+      ? "Create Copy"
+      : "Finalize Quiz";
   const headerStyle =
     typeColorHex && typeColorHex.startsWith("#")
       ? { backgroundColor: `${typeColorHex}1A`, color: typeColorHex }
       : undefined;
+  const hasNextQuestion = currentIndex < items.length - 1;
+  const hasPrevQuestion = currentIndex > 0;
+  const [selectorVertical, setSelectorVertical] = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const apply = () => setSelectorVertical(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   return (
     <form
@@ -423,10 +459,10 @@ export default function BasicQuizForm({
       onKeyDown={onFormKeyDown}
       noValidate
       action={formAction}
-      className="grid grid-cols-1 gap-6 lg:grid-cols-12"
+      className="grid grid-cols-1 gap-6 pb-40 lg:grid-cols-12 min-w-[600px]"
     >
       {/* LEFT: fields */}
-      <div className="space-y-4 lg:col-span-8">
+      <div className="space-y-4 lg:col-span-9">
         {/* Header + version selector */}
         <div className="flex items-center justify-between gap-2">
           <span
@@ -445,11 +481,6 @@ export default function BasicQuizForm({
               triggerClassName="gap-2 rounded-full px-3 py-1.5"
               triggerTitle="How to use the basic quiz form"
             />
-            <VersionSelector
-              mode={mode}
-              versions={versions}
-              currentVersion={currentVersion ?? initialData?.version}
-            />
           </div>
         </div>
 
@@ -464,161 +495,242 @@ export default function BasicQuizForm({
         />
 
         {/* Overall timer */}
-        <div className="flex items-end justify-between">
-          <div className="flex flex-col gap-2">
-            <label className="text-md text-[var(--color-text-primary)]">
-              Question Selector
-            </label>
-            {/* Selector + type tabs */}
-            <div className="flex flex-wrap items-center gap-3">
-              <QuestionSelector
-                count={items.length}
-                labels={selectorLabels}
-                currentIndex={currentIndex}
-                onAdd={addQuestion}
-                onSelect={selectQuestion}
-                max={MAX_QUESTIONS}
-                onDelete={handleDeleteQuestion}
-                errorIndexes={erroredIndexes}
+        <div className="grid w-full gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-stretch">
+          <div className="flex h-full items-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-1">
+            {mode === "edit" ? (
+              <VersionSelector
+                mode={mode}
+                versions={versions}
+                currentVersion={currentVersion ?? initialData?.version}
               />
-              <div className="h-6 w-px bg-[var(--color-bg3)]" />
-              <TypeTabs
-                value={current.type}
-                onChange={(t) => {
-                  clearErrorAtIndex(currentIndex);
-                  if (t === "open") switchToOpen();
-                  else if (t === "context") switchToContext();
-                  else switchToMc();
-                }}
-                options={[
-                  { value: "mc", label: "Multiple Choice" },
-                  { value: "open", label: "Open Ended" },
-                  { value: "context", label: "Context" },
-                ]}
-              />
-            </div>
+            ) : (
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
+                  Quick Tips
+                </span>
+                <p
+                  className="text-xs leading-4 text-[var(--color-text-secondary)] h-8 overflow-hidden"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                  }}
+                >
+                  Drag items in the selector to reorder, set a timer if needed,
+                  and add a mix of Multiple Choice + Open-Ended, or Context
+                  items.
+                </p>
+              </div>
+            )}
           </div>
-          <TimerField
-            id="basic-total-time"
-            name="totalTimeLimit"
-            value={totalTime}
-            onChange={(v) => {
-              setTotalTime(v);
-              clearFieldError("totalTimeLimit");
-            }}
-            min={60}
-            max={7200}
-          />
+          <div className="flex h-full w-full items-center gap-3 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3 xl:w-fit xl:justify-self-end">
+            <div className="flex items-center gap-3">
+              <Icon
+                icon="mingcute:time-line"
+                className="h-7 w-7 text-[var(--color-icon)]"
+              />
+              <div className="space-y-1">
+                <label className="text-sm text-[var(--color-text-primary)]">
+                  Overall Timer
+                </label>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  Optional time limit for the entire quiz.
+                </p>
+              </div>
+            </div>
+            <div className="hidden h-10 w-px bg-[var(--color-bg4)] xl:block" />
+            <TimerField
+              id="basic-total-time"
+              name="totalTimeLimit"
+              value={totalTime}
+              onChange={(v) => {
+                setTotalTime(v);
+                clearFieldError("totalTimeLimit");
+              }}
+              min={60}
+              max={7200}
+              showIcon={false}
+              layout="inputs-toggle-status"
+              showStatusText
+              statusTextOn="On"
+              statusTextOff="No limit"
+            />
+          </div>
         </div>
         {getVisibleFieldError("totalTimeLimit") && (
-          <p className="text-xs text-[var(--color-error)]">
+          <p className="text-xs text-[var(--color-error)] px-1">
             {String(getVisibleFieldError("totalTimeLimit"))}
           </p>
         )}
 
-        {/* Per-question error banner */}
-        {(() => {
-          const err = currentQuestionErrors;
-          if (!err) return null;
-          return Array.isArray(err) ? (
-            <ul className="list-disc px-3 text-sm text-[var(--color-error)] space-y-0.5">
-              {err.map((m, i) => (
-                <li key={i}>{m}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="px-3 text-xs text-[var(--color-error)]">{err}</p>
-          );
-        })()}
+        {/* Items + question editor */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[max-content_minmax(0,1fr)]">
+          <div className="space-y-2">
+            <label className="block text-center text-sm text-[var(--color-text-primary)] leading-4">
+              Select
+              <br />
+              Items
+            </label>
+            <div className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/60 p-3">
+              <QuestionSelector
+                count={items.length}
+                labels={selectorLabels}
+                ids={items.map((item) => item.id)}
+                currentIndex={currentIndex}
+                onAdd={addQuestion}
+                onSelect={selectQuestion}
+                onReorder={handleReorderQuestion}
+                max={MAX_QUESTIONS}
+                errorIndexes={erroredIndexes}
+                layout="grid"
+                gridRows={10}
+                direction={selectorVertical ? "vertical" : "horizontal"}
+                controlsPosition="none"
+                addInline
+              />
+            </div>
+          </div>
 
-        {/* Editors by type (MC/Open include text+timer+image) */}
-        {current.type === "context" ? (
-          <ContextEditor
-            text={current.text}
-            image={current.image ?? null}
-            onChangeText={(v) => {
-              clearErrorAtIndex(currentIndex);
-              setText(v);
-            }}
-            onSetImage={(meta) => {
-              clearErrorAtIndex(currentIndex);
-              setImageMeta(meta);
-            }}
-            onDeleteImage={() => {
-              clearErrorAtIndex(currentIndex);
-              setImageMeta(null);
-            }}
-          />
-        ) : current.type === "mc" ? (
-          <MCOptionsEditor
-            text={current.text}
-            image={current.image ?? null}
-            onChangeText={(v) => {
-              clearErrorAtIndex(currentIndex);
-              setText(v);
-            }}
-            onSetImage={(meta) => {
-              clearErrorAtIndex(currentIndex);
-              setImageMeta(meta);
-            }}
-            onDeleteImage={() => {
-              clearErrorAtIndex(currentIndex);
-              setImageMeta(null);
-            }}
-            options={current.options ?? []}
-            onAdd={() => {
-              clearErrorAtIndex(currentIndex);
-              addMCOption();
-            }}
-            onRemove={(id) => {
-              clearErrorAtIndex(currentIndex);
-              removeMCOption(id);
-            }}
-            onSetText={(id, text) => {
-              clearErrorAtIndex(currentIndex);
-              setMCOptionText(id, text);
-            }}
-            onToggleCorrect={(id) => {
-              clearErrorAtIndex(currentIndex);
-              toggleCorrect(id);
-            }}
-            maxOptions={MAX_OPTIONS}
-          />
-        ) : (
-          <OpenAnswersEditor
-            text={current.text}
-            image={current.image ?? null}
-            onChangeText={(v) => {
-              clearErrorAtIndex(currentIndex);
-              setText(v);
-            }}
-            onSetImage={(meta) => {
-              clearErrorAtIndex(currentIndex);
-              setImageMeta(meta);
-            }}
-            onDeleteImage={() => {
-              clearErrorAtIndex(currentIndex);
-              setImageMeta(null);
-            }}
-            answers={current.answers ?? []}
-            onAdd={() => {
-              clearErrorAtIndex(currentIndex);
-              addOpenAnswer();
-            }}
-            onRemove={(id) => {
-              clearErrorAtIndex(currentIndex);
-              removeOpenAnswer(id);
-            }}
-            onSetText={(id, text) => {
-              clearErrorAtIndex(currentIndex);
-              setOpenAnswerText(id, text);
-            }}
-            onToggleCaseSensitive={(id) => {
-              clearErrorAtIndex(currentIndex);
-              toggleAnswerCaseSensitive(id);
-            }}
-          />
-        )}
+          <div className="space-y-4 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="text-sm text-[var(--color-text-primary)]">
+                  Select Item Type
+                </label>
+                <TypeTabs
+                  value={current.type}
+                  onChange={(t) => {
+                    clearErrorAtIndex(currentIndex);
+                    if (t === "open") switchToOpen();
+                    else if (t === "context") switchToContext();
+                    else switchToMc();
+                  }}
+                  options={[
+                    { value: "mc", label: "Multiple Choice" },
+                    { value: "open", label: "Open Ended" },
+                    { value: "context", label: "Context" },
+                  ]}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="error"
+                onClick={() => handleDeleteRequest(currentIndex)}
+                disabled={!canDeleteItem}
+                className="min-w-[140px] self-start"
+              >
+                Delete Question
+              </Button>
+            </div>
+            <div className="px-2">
+              <div className="h-px w-full bg-[var(--color-bg4)]" />
+            </div>
+
+            {/* Editors by type (MC/Open include text+timer+image) */}
+            {current.type === "context" ? (
+              <ContextEditor
+                text={current.text}
+                image={current.image ?? null}
+                onChangeText={(v) => {
+                  clearErrorAtIndex(currentIndex);
+                  setText(v);
+                }}
+                onSetImage={(meta) => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(meta);
+                }}
+                onDeleteImage={() => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(null);
+                }}
+              />
+            ) : current.type === "mc" ? (
+              <MCOptionsEditor
+                text={current.text}
+                image={current.image ?? null}
+                onChangeText={(v) => {
+                  clearErrorAtIndex(currentIndex);
+                  setText(v);
+                }}
+                onSetImage={(meta) => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(meta);
+                }}
+                onDeleteImage={() => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(null);
+                }}
+                options={current.options ?? []}
+                onAdd={() => {
+                  clearErrorAtIndex(currentIndex);
+                  addMCOption();
+                }}
+                onRemove={(id) => {
+                  clearErrorAtIndex(currentIndex);
+                  removeMCOption(id);
+                }}
+                onSetText={(id, text) => {
+                  clearErrorAtIndex(currentIndex);
+                  setMCOptionText(id, text);
+                }}
+                onToggleCorrect={(id) => {
+                  clearErrorAtIndex(currentIndex);
+                  toggleCorrect(id);
+                }}
+                maxOptions={MAX_OPTIONS}
+              />
+            ) : (
+              <OpenAnswersEditor
+                text={current.text}
+                image={current.image ?? null}
+                onChangeText={(v) => {
+                  clearErrorAtIndex(currentIndex);
+                  setText(v);
+                }}
+                onSetImage={(meta) => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(meta);
+                }}
+                onDeleteImage={() => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(null);
+                }}
+                answers={current.answers ?? []}
+                onAdd={() => {
+                  clearErrorAtIndex(currentIndex);
+                  addOpenAnswer();
+                }}
+                onRemove={(id) => {
+                  clearErrorAtIndex(currentIndex);
+                  removeOpenAnswer(id);
+                }}
+                onSetText={(id, text) => {
+                  clearErrorAtIndex(currentIndex);
+                  setOpenAnswerText(id, text);
+                }}
+                onToggleCaseSensitive={(id) => {
+                  clearErrorAtIndex(currentIndex);
+                  toggleAnswerCaseSensitive(id);
+                }}
+              />
+            )}
+
+            {/* Per-question error banner */}
+            {(() => {
+              const err = currentQuestionErrors;
+              if (!err) return null;
+              return Array.isArray(err) ? (
+                <ul className="list-disc px-4 text-sm text-[var(--color-error)] space-y-0.5">
+                  {err.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-4 text-xs text-[var(--color-error)]">{err}</p>
+              );
+            })()}
+          </div>
+        </div>
 
         {/* Hidden payload (server action reads these) */}
         <input type="hidden" name="quizType" value="basic" />
@@ -647,8 +759,32 @@ export default function BasicQuizForm({
           </>
         )}
 
-        {/* Submit */}
-        <div className="flex mt-4 mb-10 justify-end">
+        {/* Previous/Next question + submit */}
+        <div className="flex mt-4 mb-10 justify-end gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={!hasPrevQuestion}
+            onClick={() => {
+              if (!hasPrevQuestion) return;
+              selectQuestion(currentIndex - 1);
+            }}
+            className="min-w-[180px] min-h-[45px]"
+          >
+            Previous Question
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={!hasNextQuestion}
+            onClick={() => {
+              if (!hasNextQuestion) return;
+              selectQuestion(currentIndex + 1);
+            }}
+            className="min-w-[180px] min-h-[45px]"
+          >
+            Next Question
+          </Button>
           <Button
             type="submit"
             loading={pending || state.ok}
@@ -659,6 +795,8 @@ export default function BasicQuizForm({
         </div>
       </div>
 
+      <div className="hidden lg:block lg:col-span-3" />
+
       {/* Version modal (edit mode) */}
       {mode === "edit" && (
         <QuizVersionModal
@@ -668,6 +806,21 @@ export default function BasicQuizForm({
           contentChanged={contentChanged}
         />
       )}
+      <WarningModal
+        open={pendingDeleteIndex !== null}
+        title="Delete item?"
+        message={
+          pendingDeleteIndex !== null
+            ? `Are you sure you want to delete ${
+                selectorLabels[pendingDeleteIndex] ?? "this item"
+              }?`
+            : undefined
+        }
+        cancelLabel="Cancel"
+        continueLabel="Delete"
+        onCancel={handleDeleteCancel}
+        onContinue={handleDeleteConfirm}
+      />
     </form>
   );
 }

@@ -59,11 +59,11 @@ export default function AttemptHeader({
   const gradePct = pct(attempt.score, attempt.maxScore);
 
   const subjectColor = normalizeHex(
-    quizMeta?.subjectColorHex ?? spec?.meta?.subjectColorHex
+    quizMeta?.subjectColorHex ?? spec?.meta?.subjectColorHex ?? undefined
   );
 
   const typeColor = normalizeHex(
-    quizMeta?.typeColorHex ?? spec?.meta?.typeColorHex
+    quizMeta?.typeColorHex ?? spec?.meta?.typeColorHex ?? undefined
   );
 
   const quizType = quizMeta?.quizType ?? spec?.quizType;

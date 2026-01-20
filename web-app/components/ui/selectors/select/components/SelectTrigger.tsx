@@ -65,7 +65,7 @@ export function SelectTrigger({
       disabled={disabled}
       onClick={onToggle}
       className={clsx(
-        "h-11 w-full rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 text-left text-sm",
+        "h-11 w-full min-w-0 overflow-hidden rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 text-left text-sm",
         "text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]",
         disabled
           ? "cursor-not-allowed text-[var(--color-text-secondary)]"
@@ -75,7 +75,7 @@ export function SelectTrigger({
       <div className="flex items-center justify-between">
         <span
           className={clsx(
-            "flex items-center gap-2",
+            "flex min-w-0 flex-1 items-center gap-2",
             !hasValue && "text-[var(--color-text-tertiary)]"
           )}
         >
@@ -85,7 +85,9 @@ export function SelectTrigger({
               style={{ backgroundColor: colorHex ?? "#ffffff" }}
             />
           )}
-          {hasValue ? text : placeholder ?? ""}
+          <span className="min-w-0 truncate">
+            {hasValue ? text : placeholder ?? ""}
+          </span>
         </span>
         <Icon
           icon={open ? "mingcute:up-line" : "mingcute:down-line"}

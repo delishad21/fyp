@@ -18,6 +18,7 @@ export default function RowActions({
   onView,
   onEdit,
   onDuplicate,
+  onSchedule,
   onDelete,
   editLoading,
   deleteLoading,
@@ -25,6 +26,7 @@ export default function RowActions({
   onView?: (e?: React.MouseEvent) => void;
   onEdit?: (e?: React.MouseEvent) => void;
   onDuplicate?: (e?: React.MouseEvent) => void;
+  onSchedule?: (e?: React.MouseEvent) => void;
   onDelete?: (e?: React.MouseEvent) => void;
   editLoading?: boolean;
   deleteLoading?: boolean;
@@ -67,6 +69,19 @@ export default function RowActions({
           onClick={(e) => {
             e.stopPropagation();
             onDuplicate?.(e);
+          }}
+        />
+      )}
+
+      {onSchedule && (
+        <IconButton
+          icon="mingcute:calendar-add-line"
+          title="Schedule"
+          variant="borderless"
+          size="md"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSchedule?.(e);
           }}
         />
       )}

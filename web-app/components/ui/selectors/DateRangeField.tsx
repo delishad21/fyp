@@ -87,6 +87,7 @@ export default function DateRangeField({
   loading = false,
   className,
   error,
+  disableBeforeToday = false,
 }: {
   label: string;
   start?: string; // 'YYYY-MM-DD'
@@ -95,6 +96,7 @@ export default function DateRangeField({
   loading?: boolean;
   className?: string;
   error?: string | string[];
+  disableBeforeToday?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const errors = Array.isArray(error) ? error : error ? [error] : [];
@@ -152,6 +154,8 @@ export default function DateRangeField({
     [UI.DayButton]:
       "grid h-9 w-9 place-items-center rounded-full text-sm text-[var(--color-text-primary)] " +
       "hover:bg-[var(--color-bg2)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+    [DayFlag.disabled]:
+      "text-[var(--color-text-secondary)] opacity-40 cursor-not-allowed hover:bg-transparent",
     [DayFlag.today]:
       "relative after:absolute after:right-0.5 after:top-0.5 after:h-1.5 after:w-1.5 after:rounded-full after:bg-[var(--color-primary)]",
   } as const;
@@ -181,6 +185,13 @@ export default function DateRangeField({
     setDraft(undefined);
     onChange({ start: undefined, end: undefined });
   };
+
+  const disabledDays = useMemo(() => {
+    if (!disableBeforeToday) return undefined;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return { before: today };
+  }, [disableBeforeToday]);
 
   return (
     <div ref={rootRef} className={`relative ${className ?? ""}`}>
@@ -244,6 +255,7 @@ export default function DateRangeField({
               defaultMonth={draft?.from ?? new Date()}
               classNames={classNames}
               modifiersClassNames={modifiersClassNames}
+              disabled={disabledDays}
               components={{
                 MonthCaption: CustomMonthCaption,
                 Nav: () => <></>, // disables the built-in nav

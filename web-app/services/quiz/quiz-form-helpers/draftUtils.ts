@@ -1,7 +1,7 @@
 import { BaseFormItemDraft, BaseFormItem } from "../types/quizTypes";
 
 export const makeMcDraft = (
-  initialNumOptions: number = 1
+  initialNumOptions: number = 4
 ): BaseFormItemDraft => ({
   id: crypto.randomUUID(),
   type: "mc",

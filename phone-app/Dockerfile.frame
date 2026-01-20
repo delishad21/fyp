@@ -1,0 +1,4 @@
+FROM nginx:1.27-alpine
+COPY frame/nginx.frame.conf /etc/nginx/conf.d/default.conf
+COPY frame/phone-frame.html /usr/share/nginx/html/phone-app/index.html
+EXPOSE 8080

@@ -178,6 +178,7 @@ export const SpanPill = memo(function SpanPill({
           item={item}
           classTimezone={classTimezone}
           position={hoverPos}
+          showEditHint
         />
       )}
 

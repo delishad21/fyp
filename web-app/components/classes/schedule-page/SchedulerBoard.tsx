@@ -4,7 +4,6 @@ import { useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
-  type DragCancelEvent,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -131,10 +130,24 @@ export default function SchedulerBoard({
 
   const handleDragOver = useCallback((e: DragOverEvent) => {
     const drag = e.active?.data?.current as DragData | undefined;
-    const overId = (e.over?.id ?? null) as string | null;
+    const overId = typeof e.over?.id === "string" ? e.over.id : null;
     if (!drag || drag.kind !== "pill-resize" || !resizeStateRef.current) return;
 
     if (overId && overId !== "trash" && /^\d{4}-\d{2}-\d{2}$/.test(overId)) {
+      const originalItem = resizeStateRef.current.originalItem;
+      const startKey = dayKeyFromDateInTZ(
+        new Date(originalItem.startDate),
+        classTimezone
+      );
+
+      if (drag.dir === "right" && overId < startKey) {
+        setPreviewById((prev) => ({
+          ...prev,
+          [drag.clientId]: { endDate: originalItem.endDate },
+        }));
+        return;
+      }
+
       resizeStateRef.current.lastValidDayId = overId;
 
       if (drag.dir === "left") {
@@ -155,8 +168,8 @@ export default function SchedulerBoard({
 
   const handleDragEnd = useCallback(
     async (e: DragEndEvent) => {
-      const drag: DragData | null = e.active?.data?.current || null;
-      const overId: string | null = e.over?.id ?? null;
+      const drag = (e.active?.data?.current ?? null) as DragData | null;
+      const overId = typeof e.over?.id === "string" ? e.over.id : null;
       const todayYMD_TZ = tzDayKey(new Date(), classTimezone);
 
       if (!drag) {
@@ -629,7 +642,7 @@ export default function SchedulerBoard({
     ]
   );
 
-  const handleDragCancel = useCallback((_: DragCancelEvent) => {
+  const handleDragCancel = useCallback(() => {
     setActiveDrag(null);
     setPreviewById({});
     resizeStateRef.current = null;

@@ -1,6 +1,7 @@
 import { ColorSwatches } from "@/components/ui/selectors/color-select/ColorSwatches";
 import Select from "@/components/ui/selectors/select/Select";
 import TextInput from "@/components/ui/text-inputs/TextInput";
+import type { ClassFormState } from "@/services/class/types/class-types";
 
 type ClassFieldsProps = {
   values: {
@@ -9,7 +10,7 @@ type ClassFieldsProps = {
     timezoneDefault?: string;
     color: string;
   };
-  errors?: Record<string, string | string[] | undefined>;
+  errors?: ClassFormState["fieldErrors"];
   tzOptions: string[];
   onColorChange: (c: string) => void;
 };
@@ -20,6 +21,10 @@ export function ClassFields({
   tzOptions,
   onColorChange,
 }: ClassFieldsProps) {
+  const colorError = Array.isArray(errors?.color)
+    ? errors?.color.join(", ")
+    : errors?.color;
+
   return (
     <>
       <div className="flex gap-4 items-start">
@@ -45,7 +50,7 @@ export function ClassFields({
           value={values.color}
           onChange={onColorChange}
           name="color"
-          error={errors?.color}
+          error={colorError}
         />
       </div>
 

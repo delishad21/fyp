@@ -19,6 +19,8 @@ import {
 } from "@/services/class/types/student-types";
 import StudentCsvProcessor from "./StudentCsvProcessor";
 import { deriveUsername } from "@/services/class/helpers/class-helpers";
+import ToggleButton from "@/components/ui/buttons/ToggleButton";
+import InfoModal from "@/components/ui/InfoModal";
 
 const initialState: AddStudentsState = {
   ok: false,
@@ -38,6 +40,8 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
   const [students, setStudents] = React.useState<StudentDraft[]>([
     { name: "", email: "", username: "" },
   ]);
+  const [autoUsername, setAutoUsername] = React.useState(true);
+  const [csvInfoOpen, setCsvInfoOpen] = React.useState(false);
 
   // If success WITHOUT credentials, redirect as before
   useEffect(() => {
@@ -57,7 +61,7 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
       rows.map((r, i) => {
         if (i !== idx) return r;
         const next = { ...r, ...patch };
-        if (patch.username === undefined) {
+        if (autoUsername && patch.username === undefined) {
           next.username = deriveUsername(
             patch.name ?? r.name,
             patch.email ?? r.email
@@ -66,6 +70,23 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
         return next;
       })
     );
+
+  const toggleAutoUsername = () =>
+    setAutoUsername((prev) => {
+      const next = !prev;
+      if (next) {
+        setStudents((rows) =>
+          rows.map((r) => {
+            if ((r.username ?? "").trim()) return r;
+            return {
+              ...r,
+              username: deriveUsername(r.name ?? "", r.email ?? ""),
+            };
+          })
+        );
+      }
+      return next;
+    });
 
   const handleCsvImport = async (drafts: StudentDraft[]) => {
     setStudents(
@@ -106,13 +127,34 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
   return (
     <form action={formAction} className="flex flex-col gap-6 max-w-[1000px]">
       <div className="grid gap-3">
-        <h2 className="text-base font-semibold">Import Students (CSV)</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold">Import Students (CSV)</h2>
+          <IconButton
+            icon="mingcute:information-line"
+            title="CSV format info"
+            size="sm"
+            onClick={() => setCsvInfoOpen(true)}
+          />
+        </div>
         <StudentCsvProcessor onImport={handleCsvImport} />
       </div>
 
       <div className="grid gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4">
           <h2 className="text-base font-semibold">Students</h2>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--color-text-primary)]">
+                Auto-generate usernames
+              </span>
+              <ToggleButton
+                id="auto-username-toggle"
+                on={autoUsername}
+                onToggle={toggleAutoUsername}
+                size={24}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -136,7 +178,7 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
                 <TextInput
                   id={`student-username-${i}`}
                   name={`student-username-${i}`}
-                  placeholder="Username (optional)"
+                  placeholder="Username"
                   value={s.username ?? ""}
                   onValueChange={(v) => updateRow(i, { username: v })}
                   error={e?.username}
@@ -193,6 +235,21 @@ export default function AddStudentsForm({ classId }: { classId: string }) {
           {state.message}
         </p>
       )}
+
+      <InfoModal
+        open={csvInfoOpen}
+        title="CSV import format"
+        onClose={() => setCsvInfoOpen(false)}
+        message={
+          <div className="grid gap-2">
+            <p>We accept CSV files with headers: Name, Username, and Email.</p>
+            <p>
+              Email is optional. You can upload Name + Username, or just Name
+              and we will auto-generate the username.
+            </p>
+          </div>
+        }
+      />
     </form>
   );
 }

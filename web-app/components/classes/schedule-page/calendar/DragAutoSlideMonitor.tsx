@@ -16,14 +16,21 @@ export function DragAutoSlideMonitor({
   onEnd: () => void;
 }) {
   const startClientXRef = useRef<number | null>(null);
+  const getClientX = (ev: MouseEvent | TouchEvent | null) => {
+    if (!ev) return null;
+    if ("touches" in ev && ev.touches?.[0]) return ev.touches[0].clientX;
+    if ("changedTouches" in ev && ev.changedTouches?.[0])
+      return ev.changedTouches[0].clientX;
+    if ("clientX" in ev) return ev.clientX;
+    return null;
+  };
 
   useDndMonitor({
     onDragStart: (e: DragStartEvent) => {
       const ev = e.activatorEvent as MouseEvent | TouchEvent | null;
       let cx: number | null = null;
-      if (ev?.clientX != null) cx = ev.clientX as number;
-      else if ("touches" in (ev || {}) && ev?.touches?.[0]?.clientX != null)
-        cx = ev.touches[0].clientX as number;
+      const evX = getClientX(ev);
+      if (evX != null) cx = evX;
       else if (e.active?.rect?.current?.initial) {
         const rect = e.active.rect.current.initial;
         cx = rect.left + rect.width / 2;

@@ -57,6 +57,7 @@ import TextInput from "@/components/ui/text-inputs/TextInput";
 import IconButton from "@/components/ui/buttons/IconButton";
 import { ImageMeta } from "@/services/images/types";
 import { uploadQuizImage } from "@/services/quiz/actions/quiz-image-upload-action";
+import { Icon } from "@iconify/react";
 
 export default function MCOptionsEditor({
   text,
@@ -74,6 +75,7 @@ export default function MCOptionsEditor({
   lockCount = false,
   maxOptions,
   blockTimerDisable = false,
+  optionsGuide,
 }: {
   text: string;
   image: ImageMeta | null | undefined;
@@ -93,6 +95,7 @@ export default function MCOptionsEditor({
   timeLimit?: number | null;
   blockTimerDisable?: boolean;
   onChangeTime?: (seconds: number | null) => void;
+  optionsGuide?: React.ReactNode;
 }) {
   const showDelete = !lockCount;
   const showAdd =
@@ -104,11 +107,11 @@ export default function MCOptionsEditor({
       : String(options.length);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,360px)] lg:items-start lg:gap-6 lg:space-y-0">
       {/* Shared: Question text + timer + image */}
       <div>
         <div className="mb-5 flex items-end justify-between">
-          <label className="text-md text-[var(--color-text-primary)]">
+          <label className="text-sm text-[var(--color-text-primary)]">
             Question Text
           </label>
 
@@ -132,7 +135,7 @@ export default function MCOptionsEditor({
           required
         />
 
-        <div className="mt-2">
+        <div className="mt-4">
           <ImageUpload
             uploadFn={uploadQuizImage}
             fileName={image?.filename}
@@ -141,12 +144,44 @@ export default function MCOptionsEditor({
             onDelete={onDeleteImage}
           />
         </div>
+        <div className="px-2 pt-4 lg:hidden">
+          <div className="h-px w-full bg-[var(--color-bg4)]" />
+        </div>
+      </div>
+
+      <div className="hidden h-full lg:block">
+        <div className="h-full w-px bg-[var(--color-bg4)]" />
       </div>
 
       {/* Options */}
-      <div className="space-y-2 max-w-[600px]">
+      <div className="space-y-2 lg:max-w-[360px]">
         <div className="px-2 flex items-center justify-between mb-3">
-          <p className="text-md text-[var(--color-text-primary)]">Options</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-[var(--color-text-primary)]">Options</p>
+            <span className="relative group">
+              <Icon
+                icon="mdi:help-circle-outline"
+                className="text-[var(--color-text-tertiary)] text-lg"
+              />
+              <span className="pointer-events-none absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg1)] px-3 py-2 text-sm text-[var(--color-text-primary)] shadow-sm opacity-0 transition-opacity group-hover:opacity-100">
+                {optionsGuide ?? (
+                  <>
+                    Add 2–6 options.
+                    <br />
+                    1 correct = multiple choice (students can only pick one
+                    option).
+                    <br />
+                    2+ correct = multiple response (students can pick multiple
+                    options).
+                    <br />
+                    Full credit needs all correct and no wrong picks.
+                    <br />
+                    Partial credit is based on correct vs. incorrect selections.
+                  </>
+                )}
+              </span>
+            </span>
+          </div>
           <div className="flex items-center gap-3">
             <span className="text-md text-[var(--color-text-secondary)] whitespace-nowrap">
               {countLabel}

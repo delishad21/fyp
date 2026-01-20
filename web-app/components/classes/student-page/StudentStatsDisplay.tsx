@@ -9,6 +9,8 @@ type StatsProps = {
     sumScore?: number;
     sumMax?: number;
     participationCount?: number;
+    participationPct?: number; // 0..100
+    avgScorePct?: number; // 0..100
     streakDays?: number;
     bestStreakDays?: number;
     lastStreakDate?: string | Date | null;
@@ -40,9 +42,6 @@ type StatsProps = {
   } | null;
 
   rank: number | null;
-
-  participationPct?: number; // 0..100
-  avgScorePct?: number; // 0..100
 };
 
 export default function StudentStatsDisplay({ rank, stats }: StatsProps) {

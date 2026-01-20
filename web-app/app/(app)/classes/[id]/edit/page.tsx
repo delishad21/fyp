@@ -8,13 +8,14 @@ import { notFound } from "next/navigation";
 export default async function EditClassPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const cls = await getClass(params.id);
+  const { id } = await params;
+  const cls = await getClass(id);
   if (!cls) notFound();
 
   const initial: ClassEditInitial = {
-    _id: cls._id ?? cls.id ?? params.id,
+    _id: cls._id ?? cls.id ?? id,
     name: cls.name ?? "",
     level: cls.level ?? "",
     timezone: cls.timezone,

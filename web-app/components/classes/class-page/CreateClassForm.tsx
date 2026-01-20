@@ -5,10 +5,14 @@ import { useActionState } from "react";
 import { processClass } from "@/services/class/actions/class-actions";
 import SubmitButton from "@/components/ui/buttons/SubmitButton";
 import IconButton from "@/components/ui/buttons/IconButton";
+import { Icon } from "@iconify/react";
 import { ImageMeta } from "@/services/images/types";
 import ImageUpload from "@/components/ImageUpload";
 import Button from "@/components/ui/buttons/Button";
-import { ClassFormState, IssuedCredential } from "@/services/class/types/class-types";
+import {
+  ClassFormState,
+  IssuedCredential,
+} from "@/services/class/types/class-types";
 import { DEFAULT_COLOR_PALETTE } from "@/utils/utils";
 import {
   StudentDraft,
@@ -21,6 +25,7 @@ import { ClassFields } from "./ClassFields";
 import IssuedCredentialsPanel from "./IssuedCredentialsPanel";
 import StudentCsvProcessor from "./StudentCsvProcessor";
 import { deriveUsername } from "@/services/class/helpers/class-helpers";
+import ToggleButton from "@/components/ui/buttons/ToggleButton";
 
 const initialState: ClassFormState = {
   ok: false,
@@ -37,6 +42,7 @@ export default function CreateClassForm() {
   const [students, setStudents] = React.useState<StudentDraft[]>([
     { name: "", email: "", username: "" },
   ]);
+  const [autoUsername, setAutoUsername] = React.useState(true);
 
   const [image, setImage] = React.useState<ImageMeta | null>(null);
   const [color, setColor] = React.useState<string>(
@@ -49,6 +55,11 @@ export default function CreateClassForm() {
     Array.isArray(state.issuedCredentials) &&
     state.issuedCredentials.length > 0;
 
+  React.useEffect(() => {
+    if (!hasCreds) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, [hasCreds]);
+
   const addRow = () =>
     setStudents((rows) => [...rows, { name: "", email: "", username: "" }]);
 
@@ -60,7 +71,7 @@ export default function CreateClassForm() {
       rows.map((r, i) => {
         if (i !== idx) return r;
         const next = { ...r, ...patch };
-        if (patch.username === undefined) {
+        if (autoUsername && patch.username === undefined) {
           next.username = deriveUsername(
             patch.name ?? r.name,
             patch.email ?? r.email
@@ -69,6 +80,23 @@ export default function CreateClassForm() {
         return next;
       })
     );
+
+  const toggleAutoUsername = () =>
+    setAutoUsername((prev) => {
+      const next = !prev;
+      if (next) {
+        setStudents((rows) =>
+          rows.map((r) => {
+            if ((r.username ?? "").trim()) return r;
+            return {
+              ...r,
+              username: deriveUsername(r.name ?? "", r.email ?? ""),
+            };
+          })
+        );
+      }
+      return next;
+    });
 
   const handleCsvImport = async (drafts: StudentDraft[]) => {
     setStudents(
@@ -100,7 +128,10 @@ export default function CreateClassForm() {
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-8 max-w-[1000px]">
+    <form
+      action={formAction}
+      className="flex flex-col gap-8 max-w-[1000px] min-w-[960px]"
+    >
       {/* Basics (Name, Level, Color, Timezone) */}
       <ClassFields
         values={{
@@ -115,7 +146,8 @@ export default function CreateClassForm() {
       />
 
       {/* Image */}
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-3">
+        <h2 className="text-base font-semibold">Class Photo (optional)</h2>
         <div className="justify-center">
           <ImageUpload
             uploadFn={uploadClassImage}
@@ -127,14 +159,41 @@ export default function CreateClassForm() {
       </div>
 
       <div className="grid gap-3">
-        <h2 className="text-base font-semibold">Import Students (CSV)</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold">Import Students (CSV)</h2>
+          <span className="relative group">
+            <Icon
+              icon="mdi:help-circle-outline"
+              className="text-[var(--color-text-tertiary)] text-lg"
+            />
+            <span className="pointer-events-none absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg1)] px-3 py-2 text-sm text-[var(--color-text-primary)] shadow-sm opacity-0 transition-opacity group-hover:opacity-100">
+              We accept CSV files with headers: Name, Username, and Email.
+              <br />
+              Email is optional. You can upload Name + Username, or just Name
+              and we will auto-generate the username.
+            </span>
+          </span>
+        </div>
         <StudentCsvProcessor onImport={handleCsvImport} />
       </div>
 
       {/* Students (manual edit after import is still possible) */}
       <div className="grid gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4">
           <h2 className="text-base font-semibold">Add Students</h2>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--color-text-primary)]">
+                Auto-generate usernames
+              </span>
+              <ToggleButton
+                id="auto-username-toggle"
+                on={autoUsername}
+                onToggle={toggleAutoUsername}
+                size={24}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -157,7 +216,7 @@ export default function CreateClassForm() {
                 <TextInput
                   id={`student-username-${i}`}
                   name={`student-username-${i}`}
-                  placeholder="Username (optional)"
+                  placeholder="Username"
                   value={s.username ?? ""}
                   onValueChange={(v) => updateRow(i, { username: v })}
                   error={e?.username}

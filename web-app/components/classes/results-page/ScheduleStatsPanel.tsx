@@ -3,6 +3,8 @@
 
 import BasicRapidStats from "./ScheduleStatsType/BasicRapidStats";
 import CrosswordStats from "./ScheduleStatsType/CrosswordStats";
+import type { BasicRapidStatsProps } from "./ScheduleStatsType/BasicRapidStats";
+import type { CrosswordStatsProps } from "./ScheduleStatsType/CrosswordStats";
 
 export default function ScheduleStatsPanel({
   quizType,
@@ -26,9 +28,17 @@ export default function ScheduleStatsPanel({
 
   const t = (quizType || "").toLowerCase();
   if (t === "crossword") {
-    return <CrosswordStats breakdown={breakdown as { items: unknown[] }} />;
+    return (
+      <CrosswordStats
+        breakdown={breakdown as CrosswordStatsProps["breakdown"]}
+      />
+    );
   }
 
   // "basic" and "rapid" share the same item shape
-  return <BasicRapidStats breakdown={breakdown as { items: unknown[] }} />;
+  return (
+    <BasicRapidStats
+      breakdown={breakdown as BasicRapidStatsProps["breakdown"]}
+    />
+  );
 }

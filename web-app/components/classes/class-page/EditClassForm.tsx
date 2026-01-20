@@ -81,6 +81,12 @@ export default function EditClassForm({
     });
   };
 
+  React.useEffect(() => {
+    if (!state.ok) return;
+    router.replace(`/classes/${encodeURIComponent(initial._id)}`);
+    router.refresh();
+  }, [state.ok, initial._id, router]);
+
   return (
     <>
       {/* Delete confirmation */}

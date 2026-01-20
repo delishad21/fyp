@@ -3,15 +3,15 @@ import StudentsTable from "@/components/classes/class-page/StudentsTable";
 import { getClassStudents } from "@/services/class/actions/get-class-students-action";
 
 type PageProps = {
-  params: { id: string };
-  searchParams?: { q?: string };
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ q?: string }>;
 };
 
 export default async function StudentsPage({
   params,
   searchParams,
 }: PageProps) {
-  const classId = (await params).id;
+  const { id: classId } = await params;
   const initialQ = ((await searchParams)?.q ?? "").toString();
 
   const result = await getClassStudents(classId);

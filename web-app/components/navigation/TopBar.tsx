@@ -14,7 +14,15 @@
 import { Icon } from "@iconify/react";
 import ThemeToggle from "../ui/ThemeToggle";
 
-export function TopBar({ className = "" }: { className?: string }) {
+export function TopBar({
+  className = "",
+  onToggleSidebar,
+  sidebarCollapsed = false,
+}: {
+  className?: string;
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
+}) {
   return (
     <header
       className={[
@@ -23,7 +31,22 @@ export function TopBar({ className = "" }: { className?: string }) {
         className,
       ].join(" ")}
     >
-      <h1 className="text-lg font-semibold">Home</h1>
+      {onToggleSidebar ? (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="p-2 rounded-md hover:bg-[var(--color-bg3)]"
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <Icon
+            icon="mingcute:menu-line"
+            className="text-[var(--color-icon)]"
+            width={22}
+          />
+        </button>
+      ) : (
+        <span />
+      )}
 
       <div className="flex items-center gap-3">
         <button className="p-2 rounded-md hover:bg-[var(--color-bg3)]">

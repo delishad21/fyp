@@ -10,9 +10,9 @@ export default async function ClassLayout({
   params,
 }: {
   children: ReactNode;
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const classId = (await params).id;
+  const { id: classId } = await params;
   const cls = await getClass(classId);
 
   const imgUrl = cls?.image?.url || DEFAULT_IMG;

@@ -151,7 +151,7 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
       ) {
         throw httpError(
           409,
-          "This quiz version already has a schedule overlapping the selected time range."
+          "This quiz overlaps an existing schedule for this class."
         );
       }
 
@@ -334,7 +334,7 @@ export async function editScheduleItem(req: CustomRequest, res: Response) {
       ) {
         throw httpError(
           409,
-          "This quiz version already has a schedule overlapping the selected time range."
+          "This quiz overlaps an existing schedule for this class."
         );
       }
 

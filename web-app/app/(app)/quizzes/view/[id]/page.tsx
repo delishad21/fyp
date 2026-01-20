@@ -10,13 +10,13 @@ import {
 import { notFound } from "next/navigation";
 
 type PageProps = {
-  params: { id: string };
-  searchParams: { version?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ version?: string }>;
 };
 
 export default async function Page({ params, searchParams }: PageProps) {
-  const quizId = params.id;
-  const versionParam = searchParams.version;
+  const { id: quizId } = await params;
+  const versionParam = (await searchParams).version;
   const version =
     typeof versionParam === "string" && versionParam.trim() !== ""
       ? Number(versionParam)

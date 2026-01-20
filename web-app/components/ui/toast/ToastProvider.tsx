@@ -46,6 +46,7 @@
 
 import React, {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useRef,
@@ -83,7 +84,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const timers = useRef(new Map<string, number>());
   const ANIM_MS = 300;
 
-  const dismiss = (id: string) => {
+  const dismiss = useCallback((id: string) => {
     setToasts((prev) =>
       prev.map((t) => (t.id === id ? { ...t, leaving: true } : t))
     );
@@ -95,46 +96,49 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         timers.current.delete(id);
       }
     }, ANIM_MS);
-  };
+  }, []);
 
-  const showToast: ToastContextValue["showToast"] = (opts) => {
-    const id = opts.id ?? crypto.randomUUID();
-    const toast: InternalToast = {
-      id,
-      title: opts.title ?? "",
-      description: opts.description ?? "",
-      variant: opts.variant ?? "default",
-      duration: opts.duration ?? 3000,
-      createdAt: Date.now(),
-      entering: true,
-    };
+  const showToast: ToastContextValue["showToast"] = useCallback(
+    (opts) => {
+      const id = opts.id ?? crypto.randomUUID();
+      const toast: InternalToast = {
+        id,
+        title: opts.title ?? "",
+        description: opts.description ?? "",
+        variant: opts.variant ?? "default",
+        duration: opts.duration ?? 3000,
+        createdAt: Date.now(),
+        entering: true,
+      };
 
-    setToasts((prev) => [toast, ...prev]);
+      setToasts((prev) => [toast, ...prev]);
 
-    requestAnimationFrame(() =>
       requestAnimationFrame(() =>
-        setToasts((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, entering: false } : t))
+        requestAnimationFrame(() =>
+          setToasts((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, entering: false } : t))
+          )
         )
-      )
-    );
+      );
 
-    if (toast.duration > 0) {
-      const handle = window.setTimeout(() => dismiss(id), toast.duration);
-      timers.current.set(id, handle);
-    }
+      if (toast.duration > 0) {
+        const handle = window.setTimeout(() => dismiss(id), toast.duration);
+        timers.current.set(id, handle);
+      }
 
-    return id;
-  };
+      return id;
+    },
+    [dismiss]
+  );
 
-  const clear = () => {
+  const clear = useCallback(() => {
     setToasts((prev) => prev.map((t) => ({ ...t, leaving: true })));
     window.setTimeout(() => {
       setToasts([]);
       timers.current.forEach((tm) => window.clearTimeout(tm));
       timers.current.clear();
     }, ANIM_MS);
-  };
+  }, []);
 
   const value = useMemo(
     () => ({ toasts, showToast, dismiss, clear }),

@@ -4,10 +4,16 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 ENV EXPO_BASE_URL=phone-app/app
+ARG EXPO_PUBLIC_USER_SVC_URL
+ARG EXPO_PUBLIC_QUIZ_SVC_URL
+ARG EXPO_PUBLIC_CLASS_SVC_URL
+ENV EXPO_PUBLIC_USER_SVC_URL=$EXPO_PUBLIC_USER_SVC_URL
+ENV EXPO_PUBLIC_QUIZ_SVC_URL=$EXPO_PUBLIC_QUIZ_SVC_URL
+ENV EXPO_PUBLIC_CLASS_SVC_URL=$EXPO_PUBLIC_CLASS_SVC_URL
 RUN npx expo export --platform web --output-dir dist
 
 FROM nginx:1.27-alpine
-COPY phone-app/frame/nginx.conf /etc/nginx/conf.d/default.conf
-COPY phone-app/frame/phone-frame.html /usr/share/nginx/html/phone-app/index.html
+COPY frame/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frame/phone-frame.html /usr/share/nginx/html/phone-app/index.html
 COPY --from=build /app/dist /usr/share/nginx/html/phone-app/app
 EXPOSE 8080

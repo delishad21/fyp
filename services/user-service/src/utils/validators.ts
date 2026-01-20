@@ -73,6 +73,23 @@ export const validatePassword = (password: string): string[] => {
   return errors;
 };
 
+export const validateStudentPassword = (password: string): string[] => {
+  const errors: string[] = [];
+
+  if (!password || password.trim().length === 0) {
+    errors.push("Password is required.");
+    return errors;
+  }
+
+  const trimmed = password.trim();
+
+  if (trimmed.length < 8) {
+    errors.push("Be at least 8 characters long.");
+  }
+
+  return errors;
+};
+
 export const validateName = (name: string): string[] => {
   const errors: string[] = [];
 
@@ -182,6 +199,11 @@ export const isValidPassword = (password: string): boolean => {
   return errors.length === 0;
 };
 
+export const isValidStudentPassword = (password: string): boolean => {
+  const errors = validateStudentPassword(password);
+  return errors.length === 0;
+};
+
 export const isValidName = (name: string): boolean => {
   const errors = validateName(name);
   return errors.length === 0;
@@ -227,7 +249,7 @@ export const validateStudentUserData = (
 
   // Validate password only if required or provided
   if (passwordRequired || (password && password.trim().length > 0)) {
-    result.password = validatePassword(password ?? "");
+    result.password = validateStudentPassword(password ?? "");
   }
 
   return result;

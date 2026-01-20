@@ -12,11 +12,13 @@ export default function ScheduleItemHoverCard({
   item,
   classTimezone,
   position,
+  showEditHint = true,
 }: {
   open: boolean;
   item: LaneItem;
   classTimezone: string;
   position: { top: number; left: number } | null;
+  showEditHint?: boolean;
 }) {
   if (!open || typeof document === "undefined" || !position) return null;
 
@@ -99,9 +101,11 @@ export default function ScheduleItemHoverCard({
         </div>
       </div>
 
-      <div className="mt-3 text-[var(--color-text-secondary)]">
-        right click to edit details
-      </div>
+      {showEditHint && (
+        <div className="mt-3 text-[var(--color-text-secondary)]">
+          right click to edit details
+        </div>
+      )}
     </div>,
     document.body
   );

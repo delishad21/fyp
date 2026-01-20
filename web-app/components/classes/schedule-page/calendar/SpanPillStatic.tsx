@@ -1,9 +1,10 @@
 import { isDragging, motion } from "framer-motion";
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   LaneItem,
   RESIZE_SPRING,
 } from "@/services/class/helpers/scheduling/scheduling-helpers";
+import ScheduleItemHoverCard from "./ScheduleItemHoverCard";
 
 /** Read-only pill (no DnD) */
 export const SpanPillStatic = memo(function SpanPillStatic({
@@ -11,11 +12,13 @@ export const SpanPillStatic = memo(function SpanPillStatic({
   isSliding,
   isSettling,
   suppressLayoutId,
+  classTimezone,
 }: {
   item: LaneItem;
   isSliding?: boolean;
   isSettling: boolean;
   suppressLayoutId?: boolean;
+  classTimezone: string;
 }) {
   const gridColumn = `${item.colStart} / ${item.colEnd + 1}`;
   const gridRow = `${item.lane + 1} / ${item.lane + 2}`;
@@ -37,6 +40,11 @@ export const SpanPillStatic = memo(function SpanPillStatic({
     ? { layout: false }
     : { layout: true, layoutId: `pill-text-${item.clientId}-static` };
 
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const [hoverPos, setHoverPos] = useState<{ top: number; left: number } | null>(
+    null
+  );
+
   return (
     <motion.div
       {...layoutAnimationProps}
@@ -49,7 +57,11 @@ export const SpanPillStatic = memo(function SpanPillStatic({
         opacity: { duration: 0.15, ease: "easeOut" },
       }}
       className="relative"
-      style={{ gridColumn, gridRow, pointerEvents: "none" }}
+      style={{ gridColumn, gridRow, pointerEvents: "auto" }}
+      onMouseLeave={() => {
+        setHoverOpen(false);
+        setHoverPos(null);
+      }}
     >
       <div
         className={[
@@ -59,6 +71,14 @@ export const SpanPillStatic = memo(function SpanPillStatic({
           item.clippedRight ? "" : "rounded-r-full ",
           "flex items-center",
         ].join(" ")}
+        onMouseEnter={(e) => {
+          setHoverPos({ top: e.clientY + 12, left: e.clientX + 12 });
+          setHoverOpen(true);
+        }}
+        onMouseMove={(e) => {
+          if (!hoverOpen) return;
+          setHoverPos({ top: e.clientY + 12, left: e.clientX + 12 });
+        }}
       >
         <motion.div {...layoutTextAnimationProps} className="min-w-0 flex-1">
           <div className="min-w-0 overflow-hidden flex items-center gap-2">
@@ -74,6 +94,16 @@ export const SpanPillStatic = memo(function SpanPillStatic({
           </div>
         </motion.div>
       </div>
+
+      {hoverOpen && (
+        <ScheduleItemHoverCard
+          open={hoverOpen}
+          item={item}
+          classTimezone={classTimezone}
+          position={hoverPos}
+          showEditHint={false}
+        />
+      )}
     </motion.div>
   );
 });

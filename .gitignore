@@ -2,9 +2,11 @@ node_modules
 .vscode
 setup-project.sh
 .env
+.env.prod
 mongo
 mongo_old
 uploads
 .code-workspace
 issued-credentials.csv
 archive
+teacher-credentials.csv

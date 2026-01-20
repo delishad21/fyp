@@ -6,36 +6,36 @@ const steps: TutorialStep[] = [
   {
     title: "Schedule Quiz",
     subtitle: "Drag a quiz from the table onto the calendar to schedule it.",
-    media: { src: "/tutorials/scheduling/ScheduleQuiz.mp4" },
+    media: { src: "/tutorials/scheduling/1.mp4" },
   },
   {
     title: "Adjust Quiz Duration",
     subtitle:
       "Drag the edges of a scheduled quiz to extend or shorten the date range. Dragging over the side will auto-scroll the calendar.",
-    media: { src: "/tutorials/scheduling/AdjustQuizDuration.mp4" },
+    media: { src: "/tutorials/scheduling/2.mp4" },
   },
   {
     title: "Adjust Quiz Dates",
     subtitle:
       "Drag and drop a scheduled quiz to change its dates. Dragging over the side will auto-scroll the calendar.",
-    media: { src: "/tutorials/scheduling/AdjustQuizDates.mp4" },
+    media: { src: "/tutorials/scheduling/3.mp4" },
   },
   {
     title: "Edit Settings",
     subtitle:
       "Right-click a pill to manually choose dates, attempts allowed, contribution, and answer rules.",
-    media: { src: "/tutorials/scheduling/EditSettings.mp4" },
+    media: { src: "/tutorials/scheduling/4.mp4" },
   },
   {
     title: "Remove Quiz",
     subtitle: "Drag a pill off the calendar to remove it from the schedule.",
-    media: { src: "/tutorials/scheduling/RemoveQuiz.mp4" },
+    media: { src: "/tutorials/scheduling/5.mp4" },
   },
   {
     title: "Move Calendar",
     subtitle:
       "Scroll along the calendar to view more dates. Use the date picker to jump to a specific date.",
-    media: { src: "/tutorials/scheduling/MoveCalendar.mp4" },
+    media: { src: "/tutorials/scheduling/6.mp4" },
   },
 ];
 

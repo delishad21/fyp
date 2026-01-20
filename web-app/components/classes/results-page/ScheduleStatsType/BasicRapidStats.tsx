@@ -72,9 +72,6 @@ export default function BasicRapidStats({ breakdown }: BasicRapidStatsProps) {
       {/* Per-question */}
       {breakdown.items.map((it, idx) => {
         const kind = it.type;
-        const correctIds: string[] = Array.isArray(it.correctOptionIds)
-          ? it.correctOptionIds
-          : [];
 
         return (
           <div
@@ -103,6 +100,9 @@ export default function BasicRapidStats({ breakdown }: BasicRapidStatsProps) {
 
                 <ul className="mt-2 space-y-1.5">
                   {it.options.map((opt) => {
+                    const correctIds = Array.isArray(it.correctOptionIds)
+                      ? it.correctOptionIds
+                      : [];
                     const isCorrect = correctIds.includes(opt.id);
                     return (
                       <li

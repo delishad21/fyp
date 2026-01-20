@@ -8,7 +8,7 @@
  *   - Provides querying, editing, deletion, viewing, duplication.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DataTable from "@/components/table/DataTable";
 import type {
@@ -22,19 +22,24 @@ import type { DragConfig } from "@/components/table/CardTable";
 import { QuizLite } from "@/services/class/types/class-types";
 import EmptyStateBox from "../ui/EmptyStateBox";
 import Button from "../ui/buttons/Button";
+import ScheduleQuizModal from "./ScheduleQuizModal";
 
 export default function QuizzesTable({
   initial,
   columns,
   draggable = false,
   editable = true,
+  schedulable = false,
 }: {
   initial: InitialPayload;
   columns: ColumnDef[];
   draggable?: boolean;
   editable?: boolean;
+  schedulable?: boolean;
 }) {
   const router = useRouter();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleRow, setScheduleRow] = useState<RowData | null>(null);
 
   const onQuery = useCallback(async (q: InitialPayload["query"]) => {
     return await queryQuizzes(q);
@@ -78,6 +83,16 @@ export default function QuizzesTable({
     return await deleteQuizAction(String(row.id));
   }, []);
 
+  const onSchedule = useCallback((row: RowData) => {
+    setScheduleRow(row);
+    setScheduleOpen(true);
+  }, []);
+
+  const closeSchedule = useCallback(() => {
+    setScheduleOpen(false);
+    setScheduleRow(null);
+  }, []);
+
   // Quiz-specific drag payload for SchedulerBoard
   const dragConfig: DragConfig | undefined = useMemo(() => {
     if (!draggable) return undefined;
@@ -109,28 +124,37 @@ export default function QuizzesTable({
   }, [draggable]);
 
   return (
-    <DataTable
-      columns={columns}
-      initial={initial}
-      onQuery={onQuery}
-      onEdit={editable ? onEdit : undefined}
-      onView={editable ? onView : undefined}
-      onDuplicate={editable ? onDuplicate : undefined}
-      onDelete={editable ? onDelete : undefined}
-      draggable={draggable}
-      editable={editable}
-      dragConfig={dragConfig}
-      renderEmpty={() => (
-        <EmptyStateBox
-          title="You don't have any quizzes yet"
-          description="Create your first quiz to get started."
-          action={
-            <Button href="/quizzes/create" variant="primary">
-              Create New Quiz
-            </Button>
-          }
-        />
-      )}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        initial={initial}
+        onQuery={onQuery}
+        onEdit={editable ? onEdit : undefined}
+        onView={editable ? onView : undefined}
+        onDuplicate={editable ? onDuplicate : undefined}
+        onSchedule={schedulable && editable ? onSchedule : undefined}
+        onDelete={editable ? onDelete : undefined}
+        draggable={draggable}
+        editable={editable}
+        dragConfig={dragConfig}
+        renderEmpty={() => (
+          <EmptyStateBox
+            title="You don't have any quizzes yet"
+            description="Create your first quiz to get started."
+            action={
+              <Button href="/quizzes/create" variant="primary">
+                Create New Quiz
+              </Button>
+            }
+          />
+        )}
+      />
+
+      <ScheduleQuizModal
+        open={scheduleOpen}
+        row={scheduleRow}
+        onClose={closeSchedule}
+      />
+    </>
   );
 }

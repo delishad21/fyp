@@ -16,13 +16,13 @@ export default function TypeTabs({
   options: Tab[];
 }) {
   return (
-    <div className="ml-2 flex gap-2">
+    <div className="flex flex-wrap gap-3">
       {options.map((t) => (
         <button
           key={t.value}
           type="button"
           onClick={() => onChange(t.value)}
-          className={`rounded-sm px-3 py-1 text-xs ${
+          className={`rounded-md px-4 py-2 text-sm font-medium ${
             value === t.value
               ? "bg-[var(--color-primary)] text-white"
               : "bg-[var(--color-bg3)] text-[var(--color-text-primary)] hover:opacity-90"

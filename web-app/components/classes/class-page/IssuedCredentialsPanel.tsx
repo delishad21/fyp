@@ -14,6 +14,14 @@ export default function IssuedCredentialsPanel({
   onDoneHref = "/classes",
 }: Props) {
   const hasCreds = Array.isArray(creds) && creds.length > 0;
+  React.useEffect(() => {
+    const main = document.querySelector("main");
+    if (main && "scrollTo" in main) {
+      (main as HTMLElement).scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      return;
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, []);
 
   const copyAll = async () => {
     if (!hasCreds) return;
@@ -57,23 +65,38 @@ export default function IssuedCredentialsPanel({
 
   return (
     <div className="rounded-md bg-[var(--color-bg2)] p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-md font-semibold text-[var(--color-text-primary)]">
-          Issued Credentials ({creds.length})
-        </h3>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={downloadCsv}>
-            Download CSV
-          </Button>
-          <Button variant="ghost" onClick={copyAll}>
-            Copy all
-          </Button>
+      <div className="mb-3 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-md font-semibold text-[var(--color-text-primary)]">
+              Issued Credentials ({creds.length})
+            </h3>
+            <span className="text-sm font-semibold text-[var(--color-error)]">
+              IMPORTANT! Make sure to save or distribute these credentials
+              securely. They won’t be shown again.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 self-start">
+            <Button variant="ghost" onClick={downloadCsv} className="py-1.5">
+              Download CSV
+            </Button>
+            <Button variant="ghost" onClick={copyAll} className="py-1.5">
+              Copy all
+            </Button>
+            <Button
+              href={onDoneHref}
+              className="rounded-sm bg-[var(--color-primary)] px-4 py-2 text-sm text-white"
+            >
+              Done
+            </Button>
+          </div>
         </div>
+        <div className="h-px w-full bg-[var(--color-bg4)]" />
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-md">
-          <thead className="text-left text-[var(--color-text-secondary)]">
+          <thead className="text-left text-[var(--color-text-secondary)] border-b border-[var(--color-bg4)]">
             <tr>
               <th className="py-2 pr-4">#</th>
               <th className="py-2 pr-4">Name</th>
@@ -83,20 +106,20 @@ export default function IssuedCredentialsPanel({
               <th className="py-2 pr-4"></th>
             </tr>
           </thead>
-          <tbody className="align-top">
+          <tbody className="align-middle">
             {creds.map((c, i) => (
               <tr
                 key={`${c.userId || c.username || i}-${i}`}
-                className="border-t border-[var(--color-bg4)]"
+                className="border-b border-[var(--color-bg4)]"
               >
-                <td className="py-2 pr-4">{i + 1}</td>
-                <td className="py-2 pr-4">{c.name ?? "—"}</td>
-                <td className="py-2 pr-4">{c.username ?? "—"}</td>
-                <td className="py-2 pr-4">{c.email ?? "—"}</td>
-                <td className="py-2 pr-4 font-mono">
+                <td className="py-1 pr-4">{i + 1}</td>
+                <td className="py-1 pr-4">{c.name ?? "—"}</td>
+                <td className="py-1 pr-4">{c.username ?? "—"}</td>
+                <td className="py-1 pr-4">{c.email ?? "—"}</td>
+                <td className="py-1 pr-4 font-mono">
                   {c.temporaryPassword ?? "—"}
                 </td>
-                <td className="py-2 pr-0">
+                <td className="py-1 pr-0">
                   <Button variant="ghost" onClick={() => copyOne(c)}>
                     Copy
                   </Button>
@@ -107,19 +130,6 @@ export default function IssuedCredentialsPanel({
         </table>
       </div>
 
-      <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
-        Make sure to save or distribute these credentials securely. They won’t
-        be shown again.
-      </p>
-
-      <div className="mt-4 flex justify-end">
-        <a
-          href={onDoneHref}
-          className="rounded-sm bg-[var(--color-primary)] px-4 py-2 text-sm text-white"
-        >
-          Done
-        </a>
-      </div>
     </div>
   );
 }

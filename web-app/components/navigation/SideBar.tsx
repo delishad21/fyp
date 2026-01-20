@@ -49,7 +49,13 @@ function normalizePathname(pathname: string | null) {
   return pathname;
 }
 
-export function SideBar({ className = "" }: { className?: string }) {
+export function SideBar({
+  className = "",
+  collapsed = false,
+}: {
+  className?: string;
+  collapsed?: boolean;
+}) {
   const rawPathname = usePathname();
   const pathname = normalizePathname(rawPathname);
 
@@ -69,13 +75,14 @@ export function SideBar({ className = "" }: { className?: string }) {
     <aside
       className={[
         "h-full bg-[var(--color-bg2)] border-r border-[var(--color-bg3)]",
-        "flex flex-col w-70",
+        "flex flex-col transition-[width] duration-200 ease-out",
+        collapsed ? "w-20" : "w-70",
         className,
       ].join(" ")}
       role="navigation"
     >
-      <div className="px-7 mt-4 mb-8">
-        <AppTitle />
+      <div className={collapsed ? "px-2 mt-4 mb-8" : "px-7 mt-4 mb-8"}>
+        <AppTitle compact={collapsed} />
       </div>
 
       <nav className="mt-2 px-3 space-y-2 overflow-auto">
@@ -86,8 +93,10 @@ export function SideBar({ className = "" }: { className?: string }) {
             <Link
               key={it.label}
               href={it.href}
+              title={it.label}
               className={[
-                "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+                "w-full flex items-center rounded-md transition-colors",
+                collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                 active
                   ? "bg-[var(--color-primary)] text-white"
                   : "hover:bg-[var(--color-bg3)] text-[var(--color-text-primary)]",
@@ -98,14 +107,14 @@ export function SideBar({ className = "" }: { className?: string }) {
                 width={20}
                 className={active ? "text-white" : "text-[var(--color-icon)]"}
               />
-              <span>{it.label}</span>
+              <span className={collapsed ? "sr-only" : ""}>{it.label}</span>
             </Link>
           );
         })}
       </nav>
 
       <div className="mt-auto mx-auto mb-5">
-        <SignOutButton />
+        <SignOutButton compact={collapsed} />
       </div>
     </aside>
   );

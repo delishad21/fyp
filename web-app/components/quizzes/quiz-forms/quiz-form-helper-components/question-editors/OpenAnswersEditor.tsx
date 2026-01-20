@@ -51,6 +51,7 @@ import ToggleButton from "@/components/ui/buttons/ToggleButton";
 import IconButton from "@/components/ui/buttons/IconButton";
 import { ImageMeta } from "@/services/images/types";
 import { uploadQuizImage } from "@/services/quiz/actions/quiz-image-upload-action";
+import { Icon } from "@iconify/react";
 
 type Props = {
   text: string;
@@ -83,10 +84,10 @@ export default function OpenAnswersEditor({
   onDeleteImage,
 }: Props) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,360px)] lg:items-start lg:gap-6 lg:space-y-0">
       <div>
         <div className="mb-5 flex items-end justify-between">
-          <label className="text-md text-[var(--color-text-primary)]">
+          <label className="text-sm text-[var(--color-text-primary)]">
             Question Text
           </label>
           {onChangeTime && (
@@ -108,7 +109,7 @@ export default function OpenAnswersEditor({
           required
         />
 
-        <div className="mt-2">
+        <div className="mt-4">
           <ImageUpload
             uploadFn={uploadQuizImage}
             fileName={image?.filename}
@@ -117,13 +118,35 @@ export default function OpenAnswersEditor({
             onDelete={onDeleteImage}
           />
         </div>
+        <div className="px-2 pt-4 lg:hidden">
+          <div className="h-px w-full bg-[var(--color-bg4)]" />
+        </div>
+      </div>
+
+      <div className="hidden h-full lg:block">
+        <div className="h-full w-px bg-[var(--color-bg4)]" />
       </div>
 
       {/* Answers */}
-      <div className="space-y-2 max-w-[600px]">
-        <div className="px-2 text-md flex justify-between text-[var(--color-text-primary)] mb-3">
-          <p>Accepted Answers</p>
-          <p>Case Sensitivity</p>
+      <div className="space-y-2 lg:max-w-[360px]">
+        <div className="px-2 text-sm flex justify-between text-[var(--color-text-primary)] mb-3">
+          <div className="flex items-center gap-2">
+            <p>Accepted Answers</p>
+            <span className="relative group">
+              <Icon
+                icon="mdi:help-circle-outline"
+                className="text-[var(--color-text-tertiary)] text-lg"
+              />
+              <span className="pointer-events-none absolute left-0 top-full z-10 mt-2 w-60 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg1)] px-3 py-2 text-xs text-[var(--color-text-primary)] shadow-sm opacity-0 transition-opacity group-hover:opacity-100">
+                Add one or more accepted answers.
+                <br />
+                Any match earns full credit.
+                <br />
+                Use case‑sensitive only if needed.
+              </span>
+            </span>
+          </div>
+          <p className="w-[140px] text-center">Case Sensitivity</p>
         </div>
 
         <ul className="space-y-2">
@@ -165,9 +188,9 @@ export default function OpenAnswersEditor({
           type="button"
           variant="ghost"
           onClick={onAdd}
-          className="ml-9 rounded-sm text-sm max-w-[130px]"
+          className="ml-9 rounded-sm text-sm max-w-[200px]"
         >
-          Add Options
+          Add Accepted Answer
         </Button>
       </div>
     </div>

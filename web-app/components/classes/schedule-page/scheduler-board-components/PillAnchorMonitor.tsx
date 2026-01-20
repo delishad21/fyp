@@ -17,6 +17,23 @@ export function PillAnchorMonitor({
   classTimezone: string;
   setOffsetDays: (n: number) => void;
 }) {
+  const getClientPoint = (ev: MouseEvent | TouchEvent | null) => {
+    if (!ev) return null;
+    if ("touches" in ev && ev.touches?.[0]) {
+      return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+    }
+    if ("changedTouches" in ev && ev.changedTouches?.[0]) {
+      return {
+        x: ev.changedTouches[0].clientX,
+        y: ev.changedTouches[0].clientY,
+      };
+    }
+    if ("clientX" in ev && "clientY" in ev) {
+      return { x: ev.clientX, y: ev.clientY };
+    }
+    return null;
+  };
+
   useDndMonitor({
     onDragStart: (e: DragStartEvent) => {
       const data = e.active?.data?.current as DragData | undefined;
@@ -27,15 +44,10 @@ export function PillAnchorMonitor({
       let cx: number | null = null;
       let cy: number | null = null;
 
-      if (ev?.clientX != null && ev?.clientY != null) {
-        cx = ev.clientX;
-        cy = ev.clientY;
-      } else if ("touches" in (ev || {}) && ev?.touches?.[0]) {
-        cx = ev.touches[0].clientX;
-        cy = ev.touches[0].clientY;
-      } else if ("changedTouches" in (ev || {}) && ev?.changedTouches?.[0]) {
-        cx = ev.changedTouches[0].clientX;
-        cy = ev.changedTouches[0].clientY;
+      const point = getClientPoint(ev);
+      if (point) {
+        cx = point.x;
+        cy = point.y;
       } else if (e.active?.rect?.current?.initial) {
         // Fallback to rect center
         const r = e.active.rect.current.initial;

@@ -67,50 +67,61 @@ export default function MetaFields({
   onAddTopic?: HandleAdd;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 items-start">
-      <TextInput
-        id="name"
-        name="name"
-        label="Name"
-        placeholder="Quiz Name"
-        required
-        defaultValue={defaults.name ?? ""}
-        error={errorFor("name")}
-        onChange={() => clearError("name")}
-      />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-start">
+      <div className="min-w-0">
+        <TextInput
+          id="name"
+          name="name"
+          label="Name"
+          labelClassName="text-sm text-[var(--color-text-primary)]"
+          placeholder="Quiz Name"
+          required
+          defaultValue={defaults.name ?? ""}
+          error={errorFor("name")}
+          onChange={() => clearError("name")}
+        />
+      </div>
 
-      <Select
-        id="subject"
-        name="subject"
-        label="Subject"
-        placeholder="Select A Subject"
-        options={meta.subjects.map((s) => ({
-          label: s.label,
-          value: s.value,
-          colorHex: s.colorHex,
-        }))}
-        required
-        handleAdd={onAddSubject}
-        defaultValue={defaults.subject ?? ""}
-        error={errorFor("subject")}
-        onChange={() => clearError("subject")}
-        colorMode="always"
-        searchable
-      />
+      <div className="min-w-0">
+        <Select
+          id="subject"
+          name="subject"
+          label="Subject"
+          labelClassName="text-sm text-[var(--color-text-primary)]"
+          placeholder="Select A Subject"
+          options={meta.subjects.map((s) => ({
+            label: s.label,
+            value: s.value,
+            colorHex: s.colorHex,
+          }))}
+          required
+          handleAdd={onAddSubject}
+          defaultValue={defaults.subject ?? ""}
+          error={errorFor("subject")}
+          onChange={() => clearError("subject")}
+          colorMode="always"
+          searchable
+          className="min-w-0"
+        />
+      </div>
 
-      <Select
-        id="topic"
-        name="topic"
-        label="Topic"
-        placeholder="Select A Topic"
-        options={meta.topics.map((t) => ({ label: t.label, value: t.value }))}
-        required
-        handleAdd={onAddTopic}
-        defaultValue={defaults.topic ?? ""}
-        error={errorFor("topic")}
-        onChange={() => clearError("topic")}
-        searchable
-      />
+      <div className="min-w-0">
+        <Select
+          id="topic"
+          name="topic"
+          label="Topic"
+          labelClassName="text-sm text-[var(--color-text-primary)]"
+          placeholder="Select A Topic"
+          options={meta.topics.map((t) => ({ label: t.label, value: t.value }))}
+          required
+          handleAdd={onAddTopic}
+          defaultValue={defaults.topic ?? ""}
+          error={errorFor("topic")}
+          onChange={() => clearError("topic")}
+          searchable
+          className="min-w-0"
+        />
+      </div>
     </div>
   );
 }

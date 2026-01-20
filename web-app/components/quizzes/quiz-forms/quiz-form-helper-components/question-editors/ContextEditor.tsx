@@ -40,9 +40,9 @@ export default function ContextEditor({
   onDeleteImage: () => void;
 }) {
   return (
-    <div className="space-y-3 pt-2">
+    <div className="space-y-3">
       <div className="mb-5 flex items-end justify-between">
-        <label className="text-md text-[var(--color-text-primary)]">
+        <label className="text-sm text-[var(--color-text-primary)]">
           Context Text
         </label>
       </div>
@@ -51,7 +51,7 @@ export default function ContextEditor({
         onChange={onChangeText}
         placeholder="Add helpful context for the upcoming questions…"
       />
-      <div className="mt-2">
+      <div className="mt-4">
         <ImageUpload
           uploadFn={uploadQuizImage}
           fileName={image?.filename}

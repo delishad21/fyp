@@ -52,6 +52,7 @@ export const PillsGrid = memo(function PillsGrid({
             item={it}
             isSettling={isSettling}
             isSliding={isSliding}
+            classTimezone={classTimezone}
           />
         ) : (
           <SpanPill

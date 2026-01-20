@@ -19,7 +19,7 @@ export function useBaseQuizFormItems(
       mcMinOptions: cfg?.mcMinOptions ?? 2,
       mcMaxOptions: cfg?.mcMaxOptions ?? Infinity,
       mcRequireSingleCorrect: cfg?.mcRequireSingleCorrect ?? false,
-      initialNumMCOptions: cfg?.initialNumMCOptions ?? 2,
+      initialNumMCOptions: cfg?.initialNumMCOptions ?? 4,
     }),
     [
       cfg?.maxQuestions,
@@ -60,7 +60,6 @@ export function useBaseQuizFormItems(
       if (prev.length >= (config.maxQuestions as number)) return prev;
 
       const next = clampQuestions([...prev, makeInitialMcDraft()]);
-      setCurrentIndex(next.length - 1);
       return next;
     });
   };
@@ -82,6 +81,26 @@ export function useBaseQuizFormItems(
   };
 
   const selectQuestion = (index: number) => setCurrentIndex(index);
+
+  const moveQuestion = (from: number, to: number) => {
+    setItems((prev) => {
+      const count = prev.length;
+      if (count <= 1) return prev;
+
+      const clampedFrom = Math.max(0, Math.min(from, count - 1));
+      const clampedTo = Math.max(0, Math.min(to, count - 1));
+
+      if (clampedFrom === clampedTo) return prev;
+
+      const next = [...prev];
+      const [moved] = next.splice(clampedFrom, 1);
+      next.splice(clampedTo, 0, moved);
+
+      setCurrentIndex(clampedTo);
+
+      return next;
+    });
+  };
 
   const patchCurrent = (patch: Partial<BaseFormItemDraft>) =>
     setItems((prev) =>
@@ -117,8 +136,11 @@ export function useBaseQuizFormItems(
         current?.options && current.options.length > 0
           ? current.options
           : [
-              { id: crypto.randomUUID(), text: "", correct: false },
-              { id: crypto.randomUUID(), text: "", correct: false },
+              ...Array.from({ length: config.initialNumMCOptions }, () => ({
+                id: crypto.randomUUID(),
+                text: "",
+                correct: false,
+              })),
             ],
       answers: undefined,
       // keep text, image, timeLimit
@@ -270,6 +292,7 @@ export function useBaseQuizFormItems(
     addQuestion,
     deleteQuestion,
     selectQuestion,
+    moveQuestion,
 
     setText,
     setTime,
