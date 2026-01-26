@@ -53,7 +53,7 @@ const CrosswordEntrySchema = new Schema(
     },
     direction: { type: String, enum: ["across", "down"], default: null },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const CrosswordSchema = new Schema(
@@ -65,12 +65,12 @@ const CrosswordSchema = new Schema(
       default: undefined, // saved if user edits layout
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 export const CrosswordQuizModel = QuizBaseModel.discriminator(
   "crossword",
-  CrosswordSchema
+  CrosswordSchema,
 );
 
 /* ─────────────────────────── 3) COERCION HELPERS ───────────────────────── */
@@ -81,8 +81,8 @@ function coerceEntry(raw: any) {
     raw?.direction === "across"
       ? "across"
       : raw?.direction === "down"
-      ? "down"
-      : null;
+        ? "down"
+        : null;
 
   // normalize positions to [{row:number, col:number}]
   const positions = Array.isArray(raw?.positions)
@@ -220,7 +220,7 @@ function buildAttemptSpecCrossword(quizDoc: any): AttemptSpecEnvelope {
 
 function gradeAttemptCrossword(
   spec: AttemptSpecEnvelope,
-  answers: Answer[]
+  answers: Answer[],
 ): AutoscoreResult {
   // Accept either:
   //  (a) a single map answer { [entryId]: string }, or
@@ -318,7 +318,7 @@ export function aggregateScheduledCrossword({
     (a) =>
       typeof a.score === "number" &&
       typeof a.maxScore === "number" &&
-      Number(a.maxScore) > 0
+      Number(a.maxScore) > 0,
   );
   const sumScore = scored.reduce((s, a) => s + Number(a.score || 0), 0);
   const sumMax = scored.reduce((s, a) => s + Number(a.maxScore || 0), 0);
@@ -445,7 +445,109 @@ export function aggregateScheduledCrossword({
   };
 }
 
-/* ─────────────────────────── 9) REGISTER TYPE ───────────────────────────── */
+/* ─────────────────────── 9) AI GENERATION METADATA ──────────────────────── */
+
+/**
+ * AI Generation Metadata for Crossword Quizzes
+ * Schema structure, validation rules, and prompting guidelines
+ */
+export const CROSSWORD_QUIZ_AI_METADATA = {
+  description: "Crossword puzzle quiz with clues and answers",
+
+  schema: {
+    name: { type: "string", required: true },
+    subject: { type: "string", required: true },
+    topic: { type: "string", required: true },
+    totalTimeLimit: {
+      type: "number | null",
+      description: "Total time in seconds or null",
+    },
+    entries: {
+      type: "array",
+      required: true,
+      description: "Crossword entries (grid generation happens server-side)",
+      schema: {
+        id: { type: "string", required: true },
+        answer: {
+          type: "string",
+          required: true,
+          description: "Answer in UPPERCASE, letters only, no spaces",
+          pattern: "^[A-Z]+$",
+        },
+        clue: { type: "string", required: true, description: "The clue text" },
+        positions: {
+          type: "array",
+          default: [],
+          description: "Leave empty - grid positions generated automatically",
+        },
+        direction: {
+          type: "string | null",
+          enum: ["across", "down", null],
+          default: null,
+          description: "Leave null - direction assigned during grid generation",
+        },
+      },
+    },
+  },
+
+  validation: {
+    maxEntries: 10,
+    minEntries: 5,
+    maxAnswerLength: 15,
+    minAnswerLength: 3,
+  },
+
+  aiPromptingRules: {
+    systemPrompt:
+      "You are an expert educational content creator specializing in creating engaging crossword puzzles for primary school students. Create clear clues with single-word answers appropriate for the education level.",
+
+    formatInstructions: `Return a valid JSON object with this structure:
+{
+  "name": "Quiz Title",
+  "subject": "Subject Name",
+  "topic": "Topic Name",
+  "totalTimeLimit": 600,
+  "entries": [
+    {
+      "id": "uuid",
+      "answer": "PARIS",
+      "clue": "Capital of France",
+      "positions": [],
+      "direction": null
+    }
+  ]
+}
+
+CRITICAL RULES:
+- Answers must be UPPERCASE letters only (A-Z), no spaces or special characters
+- Answer length: 3-15 characters
+- Generate 5-10 entries (crossword needs at least 5, max 10 for solvability)
+- Clues should be clear and age-appropriate
+- ALWAYS leave positions as [] and direction as null - grid is generated automatically
+- DO NOT try to create grid layout - this is handled server-side
+- Answers should be single words (compound words without spaces are OK: NEWYORK)
+- Avoid answers that are too similar (e.g., PARIS and PARISE)`,
+
+    examples: [
+      {
+        id: "550e8400-e29b-41d4-a716-446655440003",
+        answer: "PARIS",
+        clue: "Capital of France",
+        positions: [],
+        direction: null,
+      },
+      {
+        id: "550e8400-e29b-41d4-a716-446655440004",
+        answer: "LONDON",
+        clue: "Capital of England",
+        positions: [],
+        direction: null,
+      },
+    ],
+  },
+};
+
+/* ─────────────────────────── 10) REGISTER TYPE ──────────────────────────── */
 
 export function registerCrosswordQuiz() {
   registerQuizType({

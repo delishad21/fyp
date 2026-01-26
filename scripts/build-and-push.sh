@@ -68,6 +68,7 @@ build_args=(
   --build-arg EXPO_PUBLIC_USER_SVC_URL="${EXPO_PUBLIC_USER_SVC_URL:-}"
   --build-arg EXPO_PUBLIC_QUIZ_SVC_URL="${EXPO_PUBLIC_QUIZ_SVC_URL:-}"
   --build-arg EXPO_PUBLIC_CLASS_SVC_URL="${EXPO_PUBLIC_CLASS_SVC_URL:-}"
+  --build-arg EXPO_PUBLIC_AI_SVC_URL="${EXPO_PUBLIC_AI_SVC_URL:-}"
 )
 
 # Build each service image and push it to the configured registry/tag.
@@ -75,6 +76,7 @@ images=(
   "class-service:./services/class-service"
   "quiz-service:./services/quiz-service"
   "user-service:./services/user-service"
+  "ai-service:./services/ai-service"
   "web-app:./web-app"
   "phone-app:./phone-app"
   "phone-frame:./phone-app:Dockerfile.frame"

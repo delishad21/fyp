@@ -17,10 +17,11 @@
 #       /api/user    -> user-service (port 7301)
 #       /api/quiz    -> quiz-service (port 7302)
 #       /api/class   -> class-service (port 7303)
+#       /api/ai      -> ai-service (port 7304)
 #       /phone-app   -> phone-frame (port 8080)
 #       /phone-web   -> phone-web-app (port 8080)
 #   - Uploads are persisted via named volumes:
-#       class-uploads, quiz-uploads
+#       class-uploads, quiz-uploads, ai-uploads
 # -----------------------------------------------------------------------------
 services:
   redis:
@@ -65,7 +66,7 @@ services:
       - "8085:8085"
     volumes:
       - /srv/quizapp/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on: [web-app, user-service, quiz-service, class-service, phone-frame, phone-web-app]
+    depends_on: [web-app, user-service, quiz-service, class-service, ai-service, phone-frame, phone-web-app]
 
   mongo-class:
     image: mongo:7
@@ -106,6 +107,19 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
 
+
+  mongo-ai:
+    image: mongo:7
+    container_name: mongodb-ai
+    command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    ports:
+      - "27020:27017"
+    volumes:
+      - /srv/quizapp/mongo/mongo-ai-data:/data/db
+      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
   mongo-init-class:
     image: mongo:7
     depends_on: [mongo-class]
@@ -130,6 +144,14 @@ services:
       "until mongosh --host mongo-quiz:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done;
       mongosh --host mongo-quiz:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'rs.initiate({_id: \"rs0\", members: [{ _id: 0, host: \"mongo-quiz:27017\" }]})' || true"
 
+
+  mongo-init-ai:
+    image: mongo:7
+    depends_on: [mongo-ai]
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "until mongosh --host mongo-ai:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done;
+      mongosh --host mongo-ai:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'rs.initiate({_id: "rs0", members: [{ _id: 0, host: "mongo-ai:27017" }]})' || true"
   class-service:
     image: ${REGISTRY:-delishad21}/class-service:${IMAGE_TAG:-latest}
     environment:
@@ -215,6 +237,22 @@ services:
       - "7301:7301"
     depends_on: [mongo-user]
 
+
+  ai-service:
+    image: ${REGISTRY:-delishad21}/ai-service:${IMAGE_TAG:-latest}
+    environment:
+      NODE_ENV: production
+      AI_PORT: ${AI_PORT:-7304}
+      AI_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-ai:27017/ai?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
+      QUIZ_SVC_URL: http://quiz-service:7302
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+    ports:
+      - "7304:7304"
+    volumes:
+      - /srv/quizapp/uploads/ai:/app/uploads
+    depends_on: [mongo-ai, quiz-service]
   web-app:
     image: ${REGISTRY:-delishad21}/web-app:${IMAGE_TAG:-latest}
     environment:
@@ -223,6 +261,7 @@ services:
       USER_SVC_URL: ${NEXT_USER_URL}
       QUIZ_SVC_URL: ${NEXT_QUIZ_URL}
       CLASS_SVC_URL: ${NEXT_CLASS_URL}
+      AI_SVC_URL: ${NEXT_AI_URL}
     ports:
       - "3002:3000"
     depends_on: [user-service]

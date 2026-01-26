@@ -57,13 +57,17 @@ import { Icon } from "@iconify/react";
 
 type Props = {
   meta: FilterMeta;
-  mode: "create" | "edit";
+  mode: "create" | "edit" | "draft";
+  onSubmit?: (data: Record<string, unknown>) => Promise<void>;
+  saving?: boolean;
   initialData?: CrosswordInitial;
   versions?: number[];
   currentVersion?: number;
   /** When true, this is a "duplicate" flow (prefilled create). */
   isClone?: boolean;
   typeColorHex?: string;
+  /** Optional initial question index to select (for edit navigation from preview) */
+  initialQuestionIndex?: number;
 };
 
 const makeEntry = () => ({ id: crypto.randomUUID(), answer: "", clue: "" });
@@ -79,7 +83,7 @@ const normalizeAnswer = (s: unknown) =>
     .toLowerCase();
 
 function normalizeEntries(
-  entriesLike: Array<{ answer: string; clue: string }>
+  entriesLike: Array<{ answer: string; clue: string }>,
 ) {
   const mapped = (entriesLike || []).map((e) => ({
     a: normalizeAnswer(e.answer),
@@ -101,8 +105,8 @@ function normalizePlaced(placed: CrosswordPlacedEntry[]) {
     })) || [];
   mapped.sort((x, y) =>
     (x.a + "|" + x.dir + "|" + JSON.stringify(x.pos)).localeCompare(
-      y.a + "|" + y.dir + "|" + JSON.stringify(y.pos)
-    )
+      y.a + "|" + y.dir + "|" + JSON.stringify(y.pos),
+    ),
   );
   return mapped;
 }
@@ -116,7 +120,7 @@ function normalizeGrid(grid: Cell[][] | null) {
         cell.letter == null || cell.letter === ""
           ? null
           : String(cell.letter).toUpperCase(),
-    }))
+    })),
   );
 }
 
@@ -175,11 +179,14 @@ const tutorialSteps: TutorialStep[] = [
 export default function CrosswordQuizForm({
   meta,
   mode,
+  onSubmit: customOnSubmit,
+  saving: customSaving,
   initialData,
   versions,
   currentVersion,
   isClone = false,
   typeColorHex,
+  initialQuestionIndex: _initialQuestionIndex, // accepted for consistency but not used
 }: Props) {
   const initial: CreateQuizState = {
     ok: false,
@@ -201,12 +208,13 @@ export default function CrosswordQuizForm({
 
   // entries & timer
   const [entries, setEntries] = React.useState(
-    (mode === "edit" || isClone) && initialData?.entries?.length
+    (mode === "edit" || mode === "draft" || isClone) &&
+      initialData?.entries?.length
       ? initialData.entries
-      : [makeEntry()]
+      : [makeEntry()],
   );
   const [totalTime, setTotalTime] = React.useState<number | null>(
-    state.values.totalTimeLimit ?? null
+    state.values.totalTimeLimit ?? null,
   );
 
   // generated state & data
@@ -215,7 +223,7 @@ export default function CrosswordQuizForm({
   const [genMessage, setGenMessage] = React.useState<string | null>(null);
   const [genGrid, setGenGrid] = React.useState<Cell[][] | null>(null);
   const [genEntries, setGenEntries] = React.useState<CrosswordPlacedEntry[]>(
-    []
+    [],
   );
 
   // local errors from generator
@@ -259,7 +267,7 @@ export default function CrosswordQuizForm({
 
   React.useEffect(() => {
     if (!initialData) return;
-    if (mode !== "edit" && !isClone) return;
+    if (mode !== "edit" && mode !== "draft" && !isClone) return;
 
     const hasGrid =
       Array.isArray(initialData.grid) &&
@@ -278,15 +286,15 @@ export default function CrosswordQuizForm({
             e.direction === "across"
               ? "across"
               : e.direction === "down"
-              ? "down"
-              : null,
+                ? "down"
+                : null,
           positions: Array.isArray(e.positions)
             ? e.positions.map((p) => ({
                 row: Number(p.row ?? 0),
                 col: Number(p.col ?? 0),
               }))
             : [],
-        })
+        }),
       );
 
       setGenGrid(initialData.grid!);
@@ -306,12 +314,12 @@ export default function CrosswordQuizForm({
 
   const lastEntriesJsonRef = React.useRef<string>(
     JSON.stringify(
-      entries.map(({ id, answer, clue }) => ({ id, answer, clue }))
-    )
+      entries.map(({ id, answer, clue }) => ({ id, answer, clue })),
+    ),
   );
   React.useEffect(() => {
     const currentJson = JSON.stringify(
-      entries.map(({ id, answer, clue }) => ({ id, answer, clue }))
+      entries.map(({ id, answer, clue }) => ({ id, answer, clue })),
     );
 
     if (currentJson !== lastEntriesJsonRef.current) {
@@ -332,7 +340,7 @@ export default function CrosswordQuizForm({
 
   const entriesForGen = React.useMemo(
     () => entries.map(({ id, answer, clue }) => ({ id, answer, clue })),
-    [entries]
+    [entries],
   );
 
   const entriesJson = React.useMemo(() => {
@@ -342,7 +350,7 @@ export default function CrosswordQuizForm({
 
   const gridJson = React.useMemo(
     () => (generated && genGrid ? JSON.stringify(genGrid) : ""),
-    [generated, genGrid]
+    [generated, genGrid],
   );
 
   async function handleGenerate() {
@@ -371,7 +379,7 @@ export default function CrosswordQuizForm({
       hydratedRef.current = true;
       userEditedRef.current = false;
       lastEntriesJsonRef.current = JSON.stringify(
-        entries.map(({ id, answer, clue }) => ({ id, answer, clue }))
+        entries.map(({ id, answer, clue }) => ({ id, answer, clue })),
       );
     }
 
@@ -444,7 +452,18 @@ export default function CrosswordQuizForm({
   const updateActiveSchedulesInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSubmitGuard = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      // Draft mode: use custom handler if provided
+      if (mode === "draft" && customOnSubmit) {
+        e.preventDefault();
+        if (!formRef.current) return;
+
+        const fd = new FormData(formRef.current);
+        const data = Object.fromEntries(fd.entries());
+        await customOnSubmit(data);
+        return;
+      }
+
       if (mode !== "edit") return; // only prompt on edit
       if (confirmedRef.current) return; // already confirmed; let it submit
 
@@ -477,7 +496,7 @@ export default function CrosswordQuizForm({
 
       setConfirmOpen(true);
     },
-    [mode, initialData, contentChanged, showToast]
+    [mode, customOnSubmit, initialData, contentChanged, showToast],
   );
 
   const handleModalCancel = useCallback(() => {
@@ -504,7 +523,13 @@ export default function CrosswordQuizForm({
 
   const headerLabel = "Crossword Quiz";
   const submitLabel =
-    mode === "edit" ? "Save Changes" : isClone ? "Create Copy" : "Finalize Quiz";
+    mode === "edit"
+      ? "Save Changes"
+      : mode === "draft"
+        ? "Save Draft"
+        : isClone
+          ? "Create Copy"
+          : "Finalize Quiz";
   const headerStyle =
     typeColorHex && typeColorHex.startsWith("#")
       ? { backgroundColor: `${typeColorHex}1A`, color: typeColorHex }
@@ -514,238 +539,250 @@ export default function CrosswordQuizForm({
     visibleRowErrors[i] || genQuestionErrors[i];
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmitGuard}
-      onKeyDown={onFormKeyDown}
-      noValidate
-      action={formAction}
-      className="grid grid-cols-1 gap-6 pb-40 lg:grid-cols-12 min-w-[600px]"
-    >
-      <div className="space-y-4 lg:col-span-9">
-        {/* Header + version selector */}
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className="bg-[var(--color-primary)]/20 px-2 rounded-sm py-1 text-sm font-medium text-[var(--color-primary)]"
-            style={headerStyle}
-          >
-            {headerLabel}
-          </span>
+    <div className="w-full max-w-[1400px] px-4">
+      <form
+        ref={formRef}
+        onSubmit={handleSubmitGuard}
+        onKeyDown={onFormKeyDown}
+        noValidate
+        action={mode === "draft" ? undefined : formAction}
+        className="grid grid-cols-1 gap-6 pb-40 lg:grid-cols-12"
+      >
+        <div className="space-y-4 lg:col-span-12">
+          {/* Header + version selector */}
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="bg-[var(--color-primary)]/20 px-2 rounded-sm py-1 text-sm font-medium text-[var(--color-primary)]"
+              style={headerStyle}
+            >
+              {headerLabel}
+            </span>
 
-          <div className="flex items-center gap-2">
-            <TutorialModal
-              steps={tutorialSteps}
-              triggerLabel="How to Use"
-              triggerIcon="mdi:help-circle-outline"
-              triggerVariant="ghost"
-              triggerClassName="gap-2 rounded-full px-3 py-1.5"
-              triggerTitle="How to use the crossword quiz form"
-            />
-          </div>
-        </div>
-
-        {/* Top meta */}
-        <MetaFields
-          meta={meta}
-          defaults={{
-            name:
-              state.values.name ||
-              (mode === "edit" || isClone ? initialData?.name ?? "" : ""),
-            subject:
-              state.values.subject ||
-              (mode === "edit" || isClone ? initialData?.subject ?? "" : ""),
-            topic:
-              state.values.topic ||
-              (mode === "edit" || isClone ? initialData?.topic ?? "" : ""),
-          }}
-          errorFor={(k) => getVisibleFieldError(k) || genFieldErrors[k]}
-          clearError={(k) => {
-            clearFieldError(k);
-            setGenFieldErrors((prev) => ({ ...prev, [k]: undefined }));
-          }}
-          onAddSubject={addSubject}
-          onAddTopic={addTopic}
-        />
-
-        {/* Entries-level error */}
-        {(() => {
-          const e =
-            getVisibleFieldError("entries") || genFieldErrors["entries"];
-          if (!e) return null;
-          return Array.isArray(e) ? (
-            <ul className="list-disc pl-5 text-xs text-[var(--color-error)] space-y-0.5">
-              {e.map((msg, i) => (
-                <li key={i}>{msg}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-[var(--color-error)]">{e}</p>
-          );
-        })()}
-
-        {/* Overall timer */}
-        <div className="grid w-full gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-stretch">
-          <div className="flex h-full items-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-1">
-            {mode === "edit" ? (
-              <VersionSelector
-                mode={mode}
-                versions={versions}
-                currentVersion={currentVersion ?? initialData?.version}
+            <div className="flex items-center gap-2">
+              <TutorialModal
+                steps={tutorialSteps}
+                triggerLabel="How to Use"
+                triggerIcon="mdi:help-circle-outline"
+                triggerVariant="ghost"
+                triggerClassName="gap-2 rounded-full px-3 py-1.5"
+                triggerTitle="How to use the crossword quiz form"
               />
+            </div>
+          </div>
+
+          {/* Top meta */}
+          <MetaFields
+            meta={meta}
+            defaults={{
+              name:
+                state.values.name ||
+                (mode === "edit" || mode === "draft" || isClone
+                  ? (initialData?.name ?? "")
+                  : ""),
+              subject:
+                state.values.subject ||
+                (mode === "edit" || mode === "draft" || isClone
+                  ? (initialData?.subject ?? "")
+                  : ""),
+              topic:
+                state.values.topic ||
+                (mode === "edit" || mode === "draft" || isClone
+                  ? (initialData?.topic ?? "")
+                  : ""),
+            }}
+            errorFor={(k) => getVisibleFieldError(k) || genFieldErrors[k]}
+            clearError={(k) => {
+              clearFieldError(k);
+              setGenFieldErrors((prev) => ({ ...prev, [k]: undefined }));
+            }}
+            onAddSubject={addSubject}
+            onAddTopic={addTopic}
+          />
+
+          {/* Entries-level error */}
+          {(() => {
+            const e =
+              getVisibleFieldError("entries") || genFieldErrors["entries"];
+            if (!e) return null;
+            return Array.isArray(e) ? (
+              <ul className="list-disc pl-5 text-xs text-[var(--color-error)] space-y-0.5">
+                {e.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+              </ul>
             ) : (
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
-                  Quick Tips
-                </span>
-                <p
-                  className="text-xs leading-4 text-[var(--color-text-secondary)] h-8 overflow-hidden"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                  }}
-                >
-                  Add 1-10 entries, generate the grid, then check the preview
-                  before creating the quiz.
-                </p>
+              <p className="text-xs text-[var(--color-error)]">{e}</p>
+            );
+          })()}
+
+          {/* Overall timer */}
+          <div className="grid w-full gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-stretch">
+            <div className="flex h-full items-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-1">
+              {mode === "edit" ? (
+                <VersionSelector
+                  mode={mode}
+                  versions={versions}
+                  currentVersion={currentVersion ?? initialData?.version}
+                />
+              ) : (
+                <div className="space-y-0.5">
+                  <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
+                    Quick Tips
+                  </span>
+                  <p
+                    className="text-xs leading-4 text-[var(--color-text-secondary)] h-8 overflow-hidden"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
+                    Add 1-10 entries, generate the grid, then check the preview
+                    before creating the quiz.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="flex h-full w-full items-center gap-3 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3 xl:w-fit xl:justify-self-end">
+              <div className="flex items-center gap-3">
+                <Icon
+                  icon="mingcute:time-line"
+                  className="h-7 w-7 text-[var(--color-icon)]"
+                />
+                <div className="space-y-1">
+                  <label className="text-sm text-[var(--color-text-primary)]">
+                    Overall Timer
+                  </label>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    Optional time limit for the entire quiz.
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-          <div className="flex h-full w-full items-center gap-3 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3 xl:w-fit xl:justify-self-end">
-            <div className="flex items-center gap-3">
-              <Icon
-                icon="mingcute:time-line"
-                className="h-7 w-7 text-[var(--color-icon)]"
+              <div className="hidden h-10 w-px bg-[var(--color-bg4)] xl:block" />
+              <TimerField
+                id="crossword-total-time"
+                name="totalTimeLimit"
+                value={totalTime}
+                onChange={(v) => {
+                  setTotalTime(v);
+                  clearFieldError("totalTimeLimit");
+                }}
+                min={60}
+                max={7200}
+                showIcon={false}
+                layout="inputs-toggle-status"
+                showStatusText
+                statusTextOn="On"
+                statusTextOff="No limit"
               />
-              <div className="space-y-1">
-                <label className="text-sm text-[var(--color-text-primary)]">
-                  Overall Timer
-                </label>
+            </div>
+          </div>
+          {getVisibleFieldError("totalTimeLimit") && (
+            <p className="text-xs text-[var(--color-error)]">
+              {String(getVisibleFieldError("totalTimeLimit"))}
+            </p>
+          )}
+
+          {/* Answers & clues editor */}
+          <CrosswordAnswerEditor
+            entries={entries}
+            errors={entries.map((_, i) => rowErrorsToShow(i))}
+            maxEntries={10}
+            onChange={(id, field, value) => {
+              setEntries((prev) =>
+                prev.map((it) =>
+                  it.id === id ? { ...it, [field]: value } : it,
+                ),
+              );
+            }}
+            onDelete={(id) => {
+              setEntries((prev) => prev.filter((e) => e.id !== id));
+            }}
+            onAdd={() => {
+              setEntries((prev) =>
+                prev.length < 10
+                  ? [...prev, { id: crypto.randomUUID(), answer: "", clue: "" }]
+                  : prev,
+              );
+            }}
+            clearErrors={clearRowError}
+          />
+
+          {/* Generated preview */}
+          {genGrid ? (
+            <div className="mt-4">
+              <div className="mb-2">
+                <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
+                  Generated Crossword
+                </h3>
                 <p className="text-xs text-[var(--color-text-secondary)]">
-                  Optional time limit for the entire quiz.
+                  If your crossword does not piece together well, consider
+                  adding more words to serve as &quot;connectors&quot;
                 </p>
               </div>
-            </div>
-            <div className="hidden h-10 w-px bg-[var(--color-bg4)] xl:block" />
-            <TimerField
-              id="crossword-total-time"
-              name="totalTimeLimit"
-              value={totalTime}
-              onChange={(v) => {
-                setTotalTime(v);
-                clearFieldError("totalTimeLimit");
-              }}
-              min={60}
-              max={7200}
-              showIcon={false}
-              layout="inputs-toggle-status"
-              showStatusText
-              statusTextOn="On"
-              statusTextOff="No limit"
-            />
-          </div>
-        </div>
-        {getVisibleFieldError("totalTimeLimit") && (
-          <p className="text-xs text-[var(--color-error)]">
-            {String(getVisibleFieldError("totalTimeLimit"))}
-          </p>
-        )}
-
-        {/* Answers & clues editor */}
-        <CrosswordAnswerEditor
-          entries={entries}
-          errors={entries.map((_, i) => rowErrorsToShow(i))}
-          maxEntries={10}
-          onChange={(id, field, value) => {
-            setEntries((prev) =>
-              prev.map((it) => (it.id === id ? { ...it, [field]: value } : it))
-            );
-          }}
-          onDelete={(id) => {
-            setEntries((prev) => prev.filter((e) => e.id !== id));
-          }}
-          onAdd={() => {
-            setEntries((prev) =>
-              prev.length < 10
-                ? [...prev, { id: crypto.randomUUID(), answer: "", clue: "" }]
-                : prev
-            );
-          }}
-          clearErrors={clearRowError}
-        />
-
-        {/* Generated preview */}
-        {genGrid ? (
-          <div className="mt-4">
-            <div className="mb-2">
-              <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
-                Generated Crossword
-              </h3>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                If your crossword does not piece together well, consider adding
-                more words to serve as &quot;connectors&quot;
-              </p>
-            </div>
-            <CrosswordGrid grid={genGrid} entries={genEntries} cellSize={40} />
-          </div>
-        ) : null}
-
-        {/* Hidden payloads */}
-        <input type="hidden" name="quizType" value="crossword" />
-        <input type="hidden" name="entriesJson" value={entriesJson} />
-        <input type="hidden" name="mode" value={mode} />
-        <input type="hidden" name="gridJson" value={gridJson} />
-        {mode === "edit" && initialData?.id && (
-          <>
-            <input type="hidden" name="quizId" value={initialData.id} />
-            {typeof initialData?.version === "number" && (
-              <input
-                type="hidden"
-                name="baseVersion"
-                value={initialData.version}
+              <CrosswordGrid
+                grid={genGrid}
+                entries={genEntries}
+                cellSize={40}
               />
-            )}
-            <input
-              ref={updateActiveSchedulesInputRef}
-              type="hidden"
-              name="updateActiveSchedules"
-              defaultValue="false"
-            />
-          </>
-        )}
+            </div>
+          ) : null}
 
-        {/* Actions */}
-        <div className="mt-4 mb-10 flex items-center gap-3 justify-end">
-          <Button
-            type="button"
-            onClick={handleGenerate}
-            loading={genLoading}
-            className="max-w-[180px] min-h-[45px]"
-          >
-            Generate crossword
-          </Button>
+          {/* Hidden payloads */}
+          <input type="hidden" name="quizType" value="crossword" />
+          <input type="hidden" name="entriesJson" value={entriesJson} />
+          <input type="hidden" name="mode" value={mode} />
+          <input type="hidden" name="gridJson" value={gridJson} />
+          {mode === "edit" && initialData?.id && (
+            <>
+              <input type="hidden" name="quizId" value={initialData.id} />
+              {typeof initialData?.version === "number" && (
+                <input
+                  type="hidden"
+                  name="baseVersion"
+                  value={initialData.version}
+                />
+              )}
+              <input
+                ref={updateActiveSchedulesInputRef}
+                type="hidden"
+                name="updateActiveSchedules"
+                defaultValue="false"
+              />
+            </>
+          )}
 
-          <Button
-            type="submit"
-            loading={pending || state.ok}
-            disabled={!generated}
-            className="max-w-[180px] min-h-[45px]"
-          >
-            {submitLabel}
-          </Button>
+          {/* Actions */}
+          <div className="mt-4 mb-10 flex items-center gap-3 justify-end">
+            <Button
+              type="button"
+              onClick={handleGenerate}
+              loading={genLoading}
+              className="max-w-[180px] min-h-[45px]"
+            >
+              Generate crossword
+            </Button>
+
+            <Button
+              type="submit"
+              loading={mode === "draft" ? customSaving : pending || state.ok}
+              disabled={!generated}
+              className="max-w-[180px] min-h-[45px]"
+            >
+              {submitLabel}
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <div className="hidden lg:block lg:col-span-3" />
-
-      {mode === "edit" && (
-        <QuizVersionModal
-          open={confirmOpen}
-          onCancel={handleModalCancel}
-          onConfirm={handleModalConfirm}
-          contentChanged={contentChanged}
-        />
-      )}
-    </form>
+        {mode === "edit" && (
+          <QuizVersionModal
+            open={confirmOpen}
+            onCancel={handleModalCancel}
+            onConfirm={handleModalConfirm}
+            contentChanged={contentChanged}
+          />
+        )}
+      </form>
+    </div>
   );
 }

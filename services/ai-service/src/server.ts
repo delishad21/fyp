@@ -1,12 +1,27 @@
-import express from 'express';
+// src/server.ts
+import http from "http";
+import index from "./index";
+import "dotenv/config";
+import { connectToDB } from "./models/registry";
 
-const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 7304;
 
-app.get('/', (_req, res) => {
-    res.send('Hello from ai-service!');
-});
+const server = http.createServer(index);
 
-app.listen(port, () => {
-    console.log(`ai-service running on port ${port}`);
-});
+async function bootstrap() {
+  try {
+    // 1) DB first – HTTP handlers use Mongoose models
+    await connectToDB();
+    console.log("[ai-svc] MongoDB Connected!");
+
+    // 2) Start HTTP server
+    server.listen(PORT, () => {
+      console.log("[ai-svc] HTTP server listening on http://localhost:" + PORT);
+    });
+  } catch (err) {
+    console.error("[ai-svc] Fatal HTTP startup error", err);
+    process.exit(1);
+  }
+}
+
+bootstrap();

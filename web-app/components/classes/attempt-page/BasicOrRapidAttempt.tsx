@@ -17,7 +17,7 @@ export default function BasicOrRapidAttempt({
   const bmap = breakdownMapBasicOrRapid(attempt.breakdown);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 pb-6">
+    <div className="mx-auto max-w-6xl space-y-5 pb-6">
       {items.map((it, idx) => {
         const bd = bmap.get(it.id);
         const awarded = bd?.awarded ?? 0;
@@ -30,22 +30,26 @@ export default function BasicOrRapidAttempt({
         return (
           <div
             key={it.id}
-            className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg3)] p-5 shadow-sm"
+            className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg2)] p-6 transition-all"
+            style={{ boxShadow: "var(--drop-shadow-sm)" }}
           >
             {/* Header */}
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
-                {it.kind} • Q{idx + 1}
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                <span className="px-2.5 py-1 bg-[var(--color-bg3)] rounded-md">
+                  {it.kind}
+                </span>
+                <span>Question {idx + 1}</span>
               </div>
               {it.kind !== "context" && (
                 <div
                   className={[
-                    "rounded-md px-2 py-1 text-sm font-semibold",
+                    "rounded-lg px-3 py-1.5 text-sm font-bold shadow-sm border-2",
                     awarded >= max
-                      ? "bg-[var(--color-success)] text-[var(--color-text-primary)]" // full marks
+                      ? "bg-[var(--color-success)]/15 text-[var(--color-success)] border-[var(--color-success)]" // full marks
                       : awarded <= 0
-                      ? "bg-[var(--color-error)] text-[var(--color-text-primary)]" // zero
-                      : "bg-[var(--color-bg2)] text-[var(--color-text-primary)] border border-[var(--color-bg4)]", // partial
+                        ? "bg-[var(--color-error)]/15 text-[var(--color-error)] border-[var(--color-error)]" // zero
+                        : "bg-[var(--color-warning)]/15 text-[var(--color-warning)] border-[var(--color-warning)]", // partial
                   ].join(" ")}
                 >
                   {awarded}/{max}
@@ -54,8 +58,10 @@ export default function BasicOrRapidAttempt({
             </div>
 
             {/* Prompt */}
-            <div className="text-[var(--color-text-primary)]">
-              <p className="whitespace-pre-wrap leading-relaxed">{it.text}</p>
+            <div className="text-[var(--color-text-primary)] mb-4">
+              <p className="whitespace-pre-wrap leading-relaxed text-base">
+                {it.text}
+              </p>
             </div>
 
             {/* Optional image */}
@@ -86,6 +92,15 @@ export default function BasicOrRapidAttempt({
                 value={String(getAnswerValue(it.id, attempt.answers) ?? "")}
                 awarded={awarded}
                 max={max}
+                correctAnswers={(() => {
+                  const item =
+                    attempt.quizVersionSnapshot.gradingKey?.items.find(
+                      (gk) => gk.kind === "open" && gk.id === it.id,
+                    );
+                  return item && item.kind === "open"
+                    ? item.accepted
+                    : undefined;
+                })()}
               />
             )}
           </div>

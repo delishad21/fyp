@@ -11,12 +11,15 @@ export default async function EditQuizPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ version?: string }>;
+  searchParams: Promise<{ version?: string; question?: string }>;
 }) {
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams;
   const version = searchParamsResolved?.version
     ? Number(searchParamsResolved.version)
+    : undefined;
+  const questionIndex = searchParamsResolved?.question
+    ? Number(searchParamsResolved.question)
     : undefined;
 
   const quizRes = await getQuizForEdit(paramsResolved.id, version);
@@ -41,6 +44,7 @@ export default async function EditQuizPage({
         versions={versions}
         currentVersion={currentVersion}
         typeColorHex={typeColors.rapid}
+        initialQuestionIndex={questionIndex}
       />
     );
   }
@@ -55,6 +59,7 @@ export default async function EditQuizPage({
         versions={versions}
         currentVersion={currentVersion}
         typeColorHex={typeColors.crossword}
+        initialQuestionIndex={questionIndex}
       />
     );
   }
@@ -69,6 +74,7 @@ export default async function EditQuizPage({
         versions={versions}
         currentVersion={currentVersion}
         typeColorHex={typeColors.basic}
+        initialQuestionIndex={questionIndex}
       />
     );
   }
@@ -78,8 +84,8 @@ export default async function EditQuizPage({
   }
 
   return (
-    <div className="px-10 pt-6">
-      <h1 className="mb-4 text-xl font-semibold text-[var(--color-text-primary)]">
+    <div className="pt-6">
+      <h1 className="mb-4 px-4 text-xl font-semibold text-[var(--color-text-primary)]">
         Edit Quiz
       </h1>
       {form}

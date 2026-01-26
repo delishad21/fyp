@@ -19,6 +19,11 @@ import {
   updateQuiz,
 } from "../controller/quiz-controller";
 import { generateCrosswordHandler } from "../controller/crossword-generator-controller";
+import { getQuizStructureAndRules } from "../controller/quiz-structure-controller";
+import {
+  createQuizzesBatch,
+  createQuizzesBatchInternal,
+} from "../controller/quiz-batch-controller";
 
 const router = Router();
 
@@ -34,6 +39,12 @@ router.get("/admin/all", verifyAccessToken, verifyIsAdmin, listAllQuizzes);
 
 /** GET /quiz/type-colors — Static quiz-type colors */
 router.get("/type-colors", verifyAccessToken, getQuizTypeColors);
+
+/** GET /quiz/structure-and-rules — Get quiz schemas + AI rules (public for service-to-service) */
+router.get("/structure-and-rules", getQuizStructureAndRules);
+
+/** POST /quiz/batch — Batch create quizzes (for AI service) */
+router.post("/batch", verifyAccessToken, createQuizzesBatch);
 
 /** GET /quiz — List my quizzes (owner=auth user) with filters/pagination */
 router.get("/", verifyAccessToken, listMyQuizzes);
@@ -53,7 +64,7 @@ router.post("/upload", verifyAccessToken, uploadQuizImages, (req, res) => {
 
   /** Step 2: build public URL from disk path (behind IMAGE_UPLOAD_URL) */
   const url = `${process.env.IMAGE_UPLOAD_URL}/${require("path").basename(
-    (f as any).path
+    (f as any).path,
   )}`;
 
   /** Step 3: respond with minimal file metadata */
@@ -83,7 +94,9 @@ router.post("/:id/clone", verifyAccessToken, verifyQuizOwnerOrAdmin, cloneQuiz);
 
 // internal routes guarded by shared secret
 router.post("/internal/batch", batchGetQuizzesInternal);
+router.post("/internal/batch-create", createQuizzesBatchInternal); // For AI service batch creation
 router.post("/internal/versions", getQuizVersionsInternal);
-router.post("/internal/canonical-batch", batchGetCanonicalQuizzesInternal); // ⬅️ new
+router.post("/internal/canonical-batch", batchGetCanonicalQuizzesInternal);
+router.post("/internal/generate-crossword", generateCrosswordHandler); // For AI service
 
 export default router;

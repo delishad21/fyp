@@ -107,7 +107,7 @@ export default function MCOptionsEditor({
       : String(options.length);
 
   return (
-    <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,360px)] lg:items-start lg:gap-6 lg:space-y-0">
+    <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0">
       {/* Shared: Question text + timer + image */}
       <div>
         <div className="mb-5 flex items-end justify-between">
@@ -154,7 +154,7 @@ export default function MCOptionsEditor({
       </div>
 
       {/* Options */}
-      <div className="space-y-2 lg:max-w-[360px]">
+      <div className="space-y-2 lg:max-w-[500px]">
         <div className="px-2 flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <p className="text-sm text-[var(--color-text-primary)]">Options</p>
@@ -163,7 +163,7 @@ export default function MCOptionsEditor({
                 icon="mdi:help-circle-outline"
                 className="text-[var(--color-text-tertiary)] text-lg"
               />
-              <span className="pointer-events-none absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg1)] px-3 py-2 text-sm text-[var(--color-text-primary)] shadow-sm opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="pointer-events-none absolute left-0 top-full z-10 mt-2 w-72 rounded-md border border-[var(--color-bg4)] bg-[var(--color-bg1)] px-3 py-2 text-xs text-[var(--color-text-secondary)] shadow-sm opacity-0 transition-opacity group-hover:opacity-100">
                 {optionsGuide ?? (
                   <>
                     Add 2–6 options.

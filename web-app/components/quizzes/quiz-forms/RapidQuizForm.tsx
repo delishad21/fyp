@@ -57,13 +57,17 @@ import { Icon } from "@iconify/react";
 
 type Props = {
   meta: FilterMeta;
-  mode: "create" | "edit";
+  mode: "create" | "edit" | "draft";
+  onSubmit?: (data: Record<string, unknown>) => Promise<void>;
+  saving?: boolean;
   initialData?: RapidInitial;
   versions?: number[];
   currentVersion?: number;
   /** When true, this is a "duplicate" flow (prefilled create). */
   isClone?: boolean;
   typeColorHex?: string;
+  /** Optional initial question index to select (for edit navigation from preview) */
+  initialQuestionIndex?: number;
 };
 
 const MAX_QUESTIONS = 20;
@@ -111,11 +115,14 @@ const tutorialSteps: TutorialStep[] = [
 export default function RapidQuizForm({
   meta,
   mode,
+  onSubmit: customOnSubmit,
+  saving: customSaving,
   initialData,
   versions,
   currentVersion,
   isClone = false,
   typeColorHex,
+  initialQuestionIndex,
 }: Props) {
   // server action state
   const initial: CreateQuizState = {
@@ -173,7 +180,7 @@ export default function RapidQuizForm({
 
   const initialItemsDraft: BaseFormItemDraft[] = React.useMemo(
     () => (initialData?.items ?? []).map(toRapidDraft),
-    [initialData?.items]
+    [initialData?.items],
   );
 
   const {
@@ -195,6 +202,17 @@ export default function RapidQuizForm({
     maxQuestions: MAX_QUESTIONS,
     initialNumMCOptions: REQUIRED_OPTIONS,
   });
+
+  // Select the initial question index if provided (from edit navigation)
+  useEffect(() => {
+    if (
+      typeof initialQuestionIndex === "number" &&
+      initialQuestionIndex >= 0 &&
+      initialQuestionIndex < items.length
+    ) {
+      selectQuestion(initialQuestionIndex);
+    }
+  }, [initialQuestionIndex, items.length, selectQuestion]);
 
   // Per-question errors
   const {
@@ -218,7 +236,7 @@ export default function RapidQuizForm({
 
   const canDeleteItem = items.length > 1;
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(
-    null
+    null,
   );
 
   const handleDeleteRequest = (idx: number) => {
@@ -265,7 +283,7 @@ export default function RapidQuizForm({
 
   const currentItemsNormJson = useMemo(
     () => JSON.stringify(normalizeRapidItems(items)),
-    [items]
+    [items],
   );
 
   const contentChanged =
@@ -274,7 +292,18 @@ export default function RapidQuizForm({
       : false;
 
   const handleSubmitGuard = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      // Draft mode: use custom handler if provided
+      if (mode === "draft" && customOnSubmit) {
+        e.preventDefault();
+        if (!formRef.current) return;
+
+        const fd = new FormData(formRef.current);
+        const data = Object.fromEntries(fd.entries());
+        await customOnSubmit(data);
+        return;
+      }
+
       if (mode !== "edit") return; // only prompt on edit
       if (confirmedRef.current) return; // already confirmed
 
@@ -307,7 +336,7 @@ export default function RapidQuizForm({
 
       setConfirmOpen(true);
     },
-    [mode, initialData, contentChanged, showToast]
+    [mode, customOnSubmit, initialData, contentChanged, showToast],
   );
 
   const handleModalCancel = useCallback(() => {
@@ -332,24 +361,32 @@ export default function RapidQuizForm({
     () => ({
       name:
         state.values.name ||
-        (mode === "edit" || isClone ? initialData?.name ?? "" : ""),
+        (mode === "edit" || mode === "draft" || isClone
+          ? (initialData?.name ?? "")
+          : ""),
       subject:
         state.values.subject ||
-        (mode === "edit" || isClone ? initialData?.subject ?? "" : ""),
+        (mode === "edit" || mode === "draft" || isClone
+          ? (initialData?.subject ?? "")
+          : ""),
       topic:
         state.values.topic ||
-        (mode === "edit" || isClone ? initialData?.topic ?? "" : ""),
+        (mode === "edit" || mode === "draft" || isClone
+          ? (initialData?.topic ?? "")
+          : ""),
     }),
-    [state.values, mode, initialData, isClone]
+    [state.values, mode, initialData, isClone],
   );
 
   const headerLabel = "Rapid Quiz";
   const submitLabel =
     mode === "edit"
       ? "Save Changes"
-      : isClone
-      ? "Create Copy"
-      : "Finalize Quiz";
+      : mode === "draft"
+        ? "Save Draft"
+        : isClone
+          ? "Create Copy"
+          : "Finalize Quiz";
   const hasNextQuestion = currentIndex < items.length - 1;
   const hasPrevQuestion = currentIndex > 0;
   const headerStyle =
@@ -367,308 +404,314 @@ export default function RapidQuizForm({
   }, []);
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmitGuard}
-      onKeyDown={onFormKeyDown}
-      noValidate
-      action={formAction}
-      className="grid grid-cols-1 gap-6 pb-40 lg:grid-cols-12 min-w-[600px]"
-    >
-      <div className="space-y-4 lg:col-span-9">
-        {/* Header + version selector */}
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className="bg-[var(--color-primary)]/20 px-2 rounded-sm py-1 text-sm font-medium text-[var(--color-primary)]"
-            style={headerStyle}
-          >
-            {headerLabel}
-          </span>
+    <div className="w-full max-w-[1400px] px-4">
+      <form
+        ref={formRef}
+        onSubmit={handleSubmitGuard}
+        onKeyDown={onFormKeyDown}
+        noValidate
+        action={mode === "draft" ? undefined : formAction}
+        className="grid grid-cols-1 gap-6 pb-40 lg:grid-cols-12"
+      >
+        <div className="space-y-4 lg:col-span-12">
+          {/* Header + version selector */}
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="bg-[var(--color-primary)]/20 px-2 rounded-sm py-1 text-sm font-medium text-[var(--color-primary)]"
+              style={headerStyle}
+            >
+              {headerLabel}
+            </span>
 
-          <div className="flex items-center gap-2">
-            <TutorialModal
-              steps={tutorialSteps}
-              triggerLabel="How to Use"
-              triggerIcon="mdi:help-circle-outline"
-              triggerVariant="ghost"
-              triggerClassName="gap-2 rounded-full px-3 py-1.5"
-              triggerTitle="How to use the rapid quiz form"
-            />
-          </div>
-        </div>
-
-        {/* Top meta */}
-        <MetaFields
-          meta={meta}
-          defaults={topDefaults}
-          errorFor={getVisibleFieldError}
-          clearError={clearFieldError}
-          onAddSubject={addSubject}
-          onAddTopic={addTopic}
-        />
-
-        {/* Quick tips + timer info */}
-        <div className="grid w-full gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-stretch">
-          <div className="flex h-full items-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-1">
-            {mode === "edit" ? (
-              <VersionSelector
-                mode={mode}
-                versions={versions}
-                currentVersion={currentVersion ?? initialData?.version}
+            <div className="flex items-center gap-2">
+              <TutorialModal
+                steps={tutorialSteps}
+                triggerLabel="How to Use"
+                triggerIcon="mdi:help-circle-outline"
+                triggerVariant="ghost"
+                triggerClassName="gap-2 rounded-full px-3 py-1.5"
+                triggerTitle="How to use the rapid quiz form"
               />
-            ) : (
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
-                  Quick Tips
-                </span>
-                <p
-                  className="text-xs leading-4 text-[var(--color-text-secondary)] h-8 overflow-hidden"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                  }}
-                >
-                  Drag items in the selector to reorder. Add up to 20 Multiple
-                  Choice questions, keep options concise, and set a timer per
-                  question as needed.
+            </div>
+          </div>
+
+          {/* Top meta */}
+          <MetaFields
+            meta={meta}
+            defaults={topDefaults}
+            errorFor={getVisibleFieldError}
+            clearError={clearFieldError}
+            onAddSubject={addSubject}
+            onAddTopic={addTopic}
+          />
+
+          {/* Quick tips + timer info */}
+          <div className="grid w-full gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-stretch">
+            <div className="flex h-full items-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-1">
+              {mode === "edit" ? (
+                <VersionSelector
+                  mode={mode}
+                  versions={versions}
+                  currentVersion={currentVersion ?? initialData?.version}
+                />
+              ) : (
+                <div className="space-y-0.5">
+                  <span className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">
+                    Quick Tips
+                  </span>
+                  <p
+                    className="text-xs leading-4 text-[var(--color-text-secondary)] h-8 overflow-hidden"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
+                    Drag items in the selector to reorder. Add up to 20 Multiple
+                    Choice questions, keep options concise, and set a timer per
+                    question as needed.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="flex h-full w-full items-center gap-3 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3 xl:w-fit xl:justify-self-end">
+              <Icon
+                icon="mingcute:time-line"
+                className="h-6 w-6 text-[var(--color-icon)]"
+              />
+              <div className="space-y-1">
+                <label className="text-sm text-[var(--color-text-primary)]">
+                  Per Question Timer
+                </label>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  Set a timer for each item below.
                 </p>
               </div>
-            )}
+            </div>
           </div>
-          <div className="flex h-full w-full items-center gap-3 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3 xl:w-fit xl:justify-self-end">
-            <Icon
-              icon="mingcute:time-line"
-              className="h-6 w-6 text-[var(--color-icon)]"
-            />
-            <div className="space-y-1">
-              <label className="text-sm text-[var(--color-text-primary)]">
-                Per Question Timer
+
+          {/* Items + editor */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[max-content_minmax(0,1fr)]">
+            <div className="space-y-2">
+              <label className="block text-center text-sm text-[var(--color-text-primary)] leading-4">
+                Select
+                <br />
+                Items
               </label>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                Set a timer for each item below.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Items + editor */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[max-content_minmax(0,1fr)]">
-          <div className="space-y-2">
-            <label className="block text-center text-sm text-[var(--color-text-primary)] leading-4">
-              Select
-              <br />
-              Items
-            </label>
-            <div className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/60 p-3">
-              <QuestionSelector
-                count={items.length}
-                labels={selectorLabels}
-                ids={items.map((item) => item.id)}
-                currentIndex={currentIndex}
-                onAdd={addQuestion}
-                onSelect={selectQuestion}
-                onReorder={handleReorderQuestion}
-                max={MAX_QUESTIONS}
-                errorIndexes={erroredIndexes}
-                layout="grid"
-                gridRows={10}
-                direction={selectorVertical ? "vertical" : "horizontal"}
-                controlsPosition="none"
-                addInline
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Icon
-                  icon="mingcute:time-line"
-                  className="h-6 w-6 text-[var(--color-icon)]"
-                />
-                <span className="text-sm text-[var(--color-text-primary)]">
-                  Question Time Limit
-                </span>
-                <TimerField
-                  id="rapid-item-time"
-                  name="rapid-item-time"
-                  value={current.timeLimit}
-                  onChange={(v) => {
-                    clearErrorAtIndex(currentIndex);
-                    setTime(v);
-                  }}
-                  min={5}
-                  max={600}
-                  showIcon={false}
-                  layout="inputs-toggle-status"
-                  showStatusText
-                  statusTextOn="On"
-                  statusTextOff="No limit"
-                  blockDisable
+              <div className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/60 p-3">
+                <QuestionSelector
+                  count={items.length}
+                  labels={selectorLabels}
+                  ids={items.map((item) => item.id)}
+                  currentIndex={currentIndex}
+                  onAdd={addQuestion}
+                  onSelect={selectQuestion}
+                  onReorder={handleReorderQuestion}
+                  max={MAX_QUESTIONS}
+                  errorIndexes={erroredIndexes}
+                  layout="grid"
+                  gridRows={10}
+                  direction={selectorVertical ? "vertical" : "horizontal"}
+                  controlsPosition="none"
+                  addInline
                 />
               </div>
-              <Button
-                type="button"
-                variant="error"
-                onClick={() => handleDeleteRequest(currentIndex)}
-                disabled={!canDeleteItem}
-                className="min-w-[140px]"
-              >
-                Delete Question
-              </Button>
-            </div>
-            <div className="px-2">
-              <div className="h-px w-full bg-[var(--color-bg4)]" />
             </div>
 
-            {/* Editor (MC only) */}
-            <MCOptionsEditor
-              text={current.text}
-              image={current.image ?? null}
-              onChangeText={(v) => {
-                clearErrorAtIndex(currentIndex);
-                setText(v);
-              }}
-              onSetImage={(meta) => {
-                clearErrorAtIndex(currentIndex);
-                setImageMeta(meta);
-              }}
-              onDeleteImage={() => {
-                clearErrorAtIndex(currentIndex);
-                setImageMeta(null);
-              }}
-              options={current.options ?? []}
-              onAdd={() => {
-                /* locked to 4 elsewhere */
-              }}
-              onRemove={() => {
-                /* locked to 4 elsewhere */
-              }}
-              onSetText={(id, text) => {
-                clearErrorAtIndex(currentIndex);
-                setMCOptionText(id, text);
-              }}
-              onToggleCorrect={(id) => {
-                clearErrorAtIndex(currentIndex);
-                toggleCorrect(id);
-              }}
-              lockCount
-              maxOptions={REQUIRED_OPTIONS}
-              optionsGuide={
-                <>
-                  Rapid quizzes use exactly 4 options.
-                  <br />
-                  1 correct = multiple choice (students pick one).
-                  <br />
-                  2+ correct = multiple response.
-                  <br />
-                  Full credit needs all correct and no wrong picks.
-                </>
-              }
-            />
+            <div className="space-y-4 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Icon
+                    icon="mingcute:time-line"
+                    className="h-6 w-6 text-[var(--color-icon)]"
+                  />
+                  <span className="text-sm text-[var(--color-text-primary)]">
+                    Question Time Limit
+                  </span>
+                  <TimerField
+                    id="rapid-item-time"
+                    name="rapid-item-time"
+                    value={current.timeLimit}
+                    onChange={(v) => {
+                      clearErrorAtIndex(currentIndex);
+                      setTime(v);
+                    }}
+                    min={5}
+                    max={600}
+                    showIcon={false}
+                    layout="inputs-toggle-status"
+                    showStatusText
+                    statusTextOn="On"
+                    statusTextOff="No limit"
+                    blockDisable
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="error"
+                  onClick={() => handleDeleteRequest(currentIndex)}
+                  disabled={!canDeleteItem}
+                  className="min-w-[140px]"
+                >
+                  Delete Question
+                </Button>
+              </div>
+              <div className="px-2">
+                <div className="h-px w-full bg-[var(--color-bg4)]" />
+              </div>
 
-            {/* Per-question errors */}
-            {(() => {
-              const err = currentQuestionErrors;
-              if (!err) return null;
-              return Array.isArray(err) ? (
-                <ul className="list-disc px-3 text-sm text-[var(--color-error)] space-y-0.5">
-                  {err.map((m, i) => (
-                    <li key={i}>{m}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="px-3 text-xs text-[var(--color-error)]">{err}</p>
-              );
-            })()}
+              {/* Editor (MC only) */}
+              <MCOptionsEditor
+                text={current.text}
+                image={current.image ?? null}
+                onChangeText={(v) => {
+                  clearErrorAtIndex(currentIndex);
+                  setText(v);
+                }}
+                onSetImage={(meta) => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(meta);
+                }}
+                onDeleteImage={() => {
+                  clearErrorAtIndex(currentIndex);
+                  setImageMeta(null);
+                }}
+                options={current.options ?? []}
+                onAdd={() => {
+                  /* locked to 4 elsewhere */
+                }}
+                onRemove={() => {
+                  /* locked to 4 elsewhere */
+                }}
+                onSetText={(id, text) => {
+                  clearErrorAtIndex(currentIndex);
+                  setMCOptionText(id, text);
+                }}
+                onToggleCorrect={(id) => {
+                  clearErrorAtIndex(currentIndex);
+                  toggleCorrect(id);
+                }}
+                lockCount
+                maxOptions={REQUIRED_OPTIONS}
+                optionsGuide={
+                  <>
+                    Rapid quizzes use exactly 4 options.
+                    <br />
+                    1 correct = multiple choice (students pick one).
+                    <br />
+                    2+ correct = multiple response.
+                    <br />
+                    Full credit needs all correct and no wrong picks.
+                  </>
+                }
+              />
+
+              {/* Per-question errors */}
+              {(() => {
+                const err = currentQuestionErrors;
+                if (!err) return null;
+                return Array.isArray(err) ? (
+                  <ul className="list-disc px-3 text-sm text-[var(--color-error)] space-y-0.5">
+                    {err.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-3 text-xs text-[var(--color-error)]">
+                    {err}
+                  </p>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Hidden payload */}
+          <input type="hidden" name="quizType" value="rapid" />
+          <input type="hidden" name="itemsJson" value={itemsJson} />
+          <input type="hidden" name="mode" value={mode} />
+          {mode === "edit" && initialData?.id && (
+            <>
+              <input type="hidden" name="quizId" value={initialData.id} />
+              {typeof initialData?.version === "number" && (
+                <input
+                  type="hidden"
+                  name="baseVersion"
+                  value={initialData.version}
+                />
+              )}
+              <input
+                ref={updateActiveSchedulesInputRef}
+                type="hidden"
+                name="updateActiveSchedules"
+                defaultValue="false"
+              />
+            </>
+          )}
+
+          {/* Previous/Next question + submit */}
+          <div className="flex mt-4 mb-10 justify-end gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={!hasPrevQuestion}
+              onClick={() => {
+                if (!hasPrevQuestion) return;
+                selectQuestion(currentIndex - 1);
+              }}
+              className="min-w-[180px] min-h-[45px]"
+            >
+              Previous Question
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={!hasNextQuestion && items.length >= MAX_QUESTIONS}
+              onClick={() => {
+                if (hasNextQuestion) {
+                  selectQuestion(currentIndex + 1);
+                } else {
+                  addQuestion();
+                  selectQuestion(items.length); // Navigate to the newly added question
+                }
+              }}
+              className="min-w-[180px] min-h-[45px]"
+            >
+              {hasNextQuestion ? "Next Question" : "Add Question"}
+            </Button>
+            <Button
+              type="submit"
+              loading={mode === "draft" ? customSaving : pending || state.ok}
+              className="min-w-[180px] min-h-[45px]"
+            >
+              {submitLabel}
+            </Button>
           </div>
         </div>
 
-        {/* Hidden payload */}
-        <input type="hidden" name="quizType" value="rapid" />
-        <input type="hidden" name="itemsJson" value={itemsJson} />
-        <input type="hidden" name="mode" value={mode} />
-        {mode === "edit" && initialData?.id && (
-          <>
-            <input type="hidden" name="quizId" value={initialData.id} />
-            {typeof initialData?.version === "number" && (
-              <input
-                type="hidden"
-                name="baseVersion"
-                value={initialData.version}
-              />
-            )}
-            <input
-              ref={updateActiveSchedulesInputRef}
-              type="hidden"
-              name="updateActiveSchedules"
-              defaultValue="false"
-            />
-          </>
+        {mode === "edit" && (
+          <QuizVersionModal
+            open={confirmOpen}
+            onCancel={handleModalCancel}
+            onConfirm={handleModalConfirm}
+            contentChanged={contentChanged}
+          />
         )}
-
-        {/* Previous/Next question + submit */}
-        <div className="flex mt-4 mb-10 justify-end gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={!hasPrevQuestion}
-            onClick={() => {
-              if (!hasPrevQuestion) return;
-              selectQuestion(currentIndex - 1);
-            }}
-            className="min-w-[180px] min-h-[45px]"
-          >
-            Previous Question
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={!hasNextQuestion}
-            onClick={() => {
-              if (!hasNextQuestion) return;
-              selectQuestion(currentIndex + 1);
-            }}
-            className="min-w-[180px] min-h-[45px]"
-          >
-            Next Question
-          </Button>
-          <Button
-            type="submit"
-            loading={pending || state.ok}
-            className="min-w-[180px] min-h-[45px]"
-          >
-            {submitLabel}
-          </Button>
-        </div>
-      </div>
-
-      <div className="hidden lg:block lg:col-span-3" />
-
-      {mode === "edit" && (
-        <QuizVersionModal
-          open={confirmOpen}
-          onCancel={handleModalCancel}
-          onConfirm={handleModalConfirm}
-          contentChanged={contentChanged}
+        <WarningModal
+          open={pendingDeleteIndex !== null}
+          title="Delete item?"
+          message={
+            pendingDeleteIndex !== null
+              ? `Are you sure you want to delete ${
+                  selectorLabels[pendingDeleteIndex] ?? "this item"
+                }?`
+              : undefined
+          }
+          cancelLabel="Cancel"
+          continueLabel="Delete"
+          onCancel={handleDeleteCancel}
+          onContinue={handleDeleteConfirm}
         />
-      )}
-      <WarningModal
-        open={pendingDeleteIndex !== null}
-        title="Delete item?"
-        message={
-          pendingDeleteIndex !== null
-            ? `Are you sure you want to delete ${
-                selectorLabels[pendingDeleteIndex] ?? "this item"
-              }?`
-            : undefined
-        }
-        cancelLabel="Cancel"
-        continueLabel="Delete"
-        onCancel={handleDeleteCancel}
-        onContinue={handleDeleteConfirm}
-      />
-    </form>
+      </form>
+    </div>
   );
 }

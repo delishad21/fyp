@@ -11,14 +11,14 @@ function buildStudentGrid(
     positions: { row: number; col: number }[];
     direction: "across" | "down" | null;
   }>,
-  answersMap: Record<string, string>
+  answersMap: Record<string, string>,
 ) {
   // Deep clone
   const grid = baseGrid.map((row) =>
     row.map((cell) => ({
       letter: cell.letter ?? "",
       isBlocked: !!cell.isBlocked,
-    }))
+    })),
   );
 
   for (const e of entries) {
@@ -41,11 +41,12 @@ function buildStatusByCellFromBreakdown(
     positions: { row: number; col: number }[];
   }[],
   givenById: Record<string, string>,
-  expectedById: Record<string, string | undefined>
+  expectedById: Record<string, string | undefined>,
 ) {
   const status: ("correct" | "wrong" | null)[][] = Array.from(
     { length: rows },
-    () => Array.from({ length: cols }, () => null as "correct" | "wrong" | null)
+    () =>
+      Array.from({ length: cols }, () => null as "correct" | "wrong" | null),
   );
 
   for (const e of entries) {
@@ -104,18 +105,18 @@ export default function CrosswordAttempt({
           const maxRow =
             Math.max(
               0,
-              ...item.entries.flatMap((e) => e.positions.map((p) => p.row))
+              ...item.entries.flatMap((e) => e.positions.map((p) => p.row)),
             ) + 1;
           const maxCol =
             Math.max(
               0,
-              ...item.entries.flatMap((e) => e.positions.map((p) => p.col))
+              ...item.entries.flatMap((e) => e.positions.map((p) => p.col)),
             ) + 1;
           return Array.from({ length: maxRow }, () =>
             Array.from({ length: maxCol }, () => ({
               letter: "",
               isBlocked: false,
-            }))
+            })),
           );
         })();
 
@@ -135,20 +136,28 @@ export default function CrosswordAttempt({
     cols,
     item.entries.map((e) => ({ id: e.id, positions: e.positions })),
     answersMap,
-    expectedById
+    expectedById,
   );
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-6">
+    <div className="space-y-5 max-w-6xl mx-auto pb-6">
       {/* Student grid with correctness highlights (driven by breakdown) */}
-      <div className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg3)] p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-semibold text-[var(--color-text-secondary)]">
-            Student Grid
+      <div
+        className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg2)] p-6"
+        style={{ boxShadow: "var(--drop-shadow-sm)" }}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+            <span className="px-2.5 py-1 bg-[var(--color-bg3)] rounded-md">
+              Crossword
+            </span>
+            <span>Student Grid</span>
           </div>
-          <div className="text-sm text-[var(--color-text-secondary)]">
-            Score: <span className="font-semibold">{attempt.score}</span> /{" "}
-            <span className="font-semibold">{attempt.maxScore}</span>
+          <div className="text-sm font-semibold">
+            <span className="text-[var(--color-text-secondary)]">Score:</span>{" "}
+            <span className="px-3 py-1 rounded-lg bg-[var(--color-primary)]/15 text-[var(--color-primary)] border border-[var(--color-primary)]">
+              {attempt.score} / {attempt.maxScore}
+            </span>
           </div>
         </div>
         <div className="overflow-auto">
@@ -172,39 +181,66 @@ export default function CrosswordAttempt({
           const correct = awarded >= max;
 
           return (
-            <div key={e.id} className="rounded-md bg-[var(--color-bg3)] p-4">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-[var(--color-text-secondary)]">
-                  WORD {i + 1} • {e.direction ?? "—"}
+            <div
+              key={e.id}
+              className="rounded-xl bg-[var(--color-bg2)] p-5 border border-[var(--color-bg4)]"
+              style={{ boxShadow: "var(--drop-shadow-sm)" }}
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  <span className="px-2.5 py-1 bg-[var(--color-bg3)] rounded-md">
+                    Word {i + 1}
+                  </span>
+                  <span>{e.direction ?? "—"}</span>
                 </div>
                 <div
                   className={[
-                    "rounded-md px-2 py-1 text-md",
+                    "rounded-lg px-3 py-1.5 text-sm font-bold border-2 shadow-sm",
                     correct
-                      ? "font-semibold bg-[var(--color-success)] text-[var(--color-text-primary)]"
-                      : "font-semibold bg-[var(--color-error)] text-[var(--color-text-primary)]",
+                      ? "bg-[var(--color-success)]/15 text-[var(--color-success)] border-[var(--color-success)]"
+                      : "bg-[var(--color-error)]/15 text-[var(--color-error)] border-[var(--color-error)]",
                   ].join(" ")}
                 >
                   {awarded}/{max}
                 </div>
               </div>
 
-              <div className="text-[var(--color-text-primary)]">
-                <div className="text-md font-bold">Clue:</div>
-                <p className="mt-1 whitespace-pre-wrap">{e.clue}</p>
+              <div className="text-[var(--color-text-primary)] mb-4">
+                <div className="text-sm font-semibold mb-2">Clue:</div>
+                <p className="whitespace-pre-wrap leading-relaxed text-[var(--color-text-secondary)]">
+                  {e.clue}
+                </p>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <div className="text-md font-bold">Your answer:</div>
-                  <div className="mt-1 rounded-md bg-[var(--color-bg2)] px-3 py-2 text-sm">
-                    {given || "—"}
+                  <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                    Your answer:
+                  </div>
+                  <div
+                    className={`rounded-lg px-4 py-3 text-sm font-medium border-2 ${
+                      correct
+                        ? "bg-[var(--color-success)]/15 border-[var(--color-success)] text-[var(--color-success)]"
+                        : "bg-[var(--color-error)]/15 border-[var(--color-error)] text-[var(--color-error)]"
+                    }`}
+                  >
+                    {given || (
+                      <span className="italic text-[var(--color-text-secondary)]">
+                        No answer
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div>
-                  <div className="text-md font-bold">Expected:</div>
-                  <div className="mt-1 rounded-sm bg-[var(--color-bg2)] px-3 py-2 text-sm">
-                    {bd?.meta?.expected ?? "Hidden"}
+                  <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                    Expected:
+                  </div>
+                  <div className="rounded-lg bg-[var(--color-bg3)] border border-[var(--color-bg4)] px-4 py-3 text-sm font-medium">
+                    {bd?.meta?.expected ?? (
+                      <span className="italic text-[var(--color-text-secondary)]">
+                        Hidden
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import { ImageMeta } from "@/services/images/types";
 
-export type QuizType = "basic" | "rapid" | "crossword";
+export type QuizType = "basic" | "rapid" | "crossword" | "ai-generated";
 
 export type QuizTypeDef = {
   title: string;
@@ -31,6 +31,21 @@ export type OpenAnswer = {
   id: string;
   text: string;
   caseSensitive: boolean;
+
+  // Answer validation type
+  answerType?: "exact" | "fuzzy" | "keywords" | "list";
+
+  // For keyword mode
+  keywords?: string[];
+  minKeywords?: number;
+
+  // For list mode
+  listItems?: string[];
+  requireOrder?: boolean;
+  minCorrectItems?: number;
+
+  // For fuzzy mode
+  similarityThreshold?: number; // 0.5 to 1.0
 };
 
 /** ---------------- Shared Form Items---------------- */

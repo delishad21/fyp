@@ -59,11 +59,11 @@ export default function AttemptHeader({
   const gradePct = pct(attempt.score, attempt.maxScore);
 
   const subjectColor = normalizeHex(
-    quizMeta?.subjectColorHex ?? spec?.meta?.subjectColorHex ?? undefined
+    quizMeta?.subjectColorHex ?? spec?.meta?.subjectColorHex ?? undefined,
   );
 
   const typeColor = normalizeHex(
-    quizMeta?.typeColorHex ?? spec?.meta?.typeColorHex ?? undefined
+    quizMeta?.typeColorHex ?? spec?.meta?.typeColorHex ?? undefined,
   );
 
   const quizType = quizMeta?.quizType ?? spec?.quizType;
@@ -74,8 +74,8 @@ export default function AttemptHeader({
     attempt.state === "finalized"
       ? "var(--color-success)"
       : attempt.state === "invalidated"
-      ? "var(--color-error)"
-      : "var(--color-warning)"; // in_progress
+        ? "var(--color-error)"
+        : "var(--color-warning)"; // in_progress
 
   return (
     <div className="flex gap-4 rounded-lg bg-[var(--color-bg3)] px-7 py-5 text-[var(--color-text-primary)]">
@@ -102,7 +102,7 @@ export default function AttemptHeader({
         <span
           className="inline-flex w-fit items-center rounded-full px-2.5 py-1.5 text-xs font-semibold"
           style={{
-            color: "var(--color-text-primary)",
+            color: "#ffffff",
             background: typeColor ?? "var(--color-bg4)",
           }}
           title={quizType ?? undefined}
@@ -127,10 +127,10 @@ export default function AttemptHeader({
               onChange={(val) => {
                 router.push(
                   `/classes/${encodeURIComponent(
-                    classId
+                    classId,
                   )}/students/${encodeURIComponent(
-                    studentId
-                  )}/attempt/${encodeURIComponent(val)}`
+                    studentId,
+                  )}/attempt/${encodeURIComponent(val)}`,
                 );
               }}
               options={options}
@@ -152,7 +152,7 @@ export default function AttemptHeader({
             className="inline-flex items-center rounded-full px-2.5 py-1.5 text-xs font-semibold"
             style={{
               background: stateColor,
-              color: "var(--color-text-primary)",
+              color: "#ffffff",
             }}
             title="Attempt status"
           >
@@ -165,7 +165,7 @@ export default function AttemptHeader({
               className="inline-flex items-center rounded-full px-2.5 py-1.5 text-xs font-semibold"
               style={{
                 background: "var(--color-primary)",
-                color: "var(--color-text-primary)",
+                color: "#ffffff",
               }}
               title="This is the canonical (best) attempt"
             >

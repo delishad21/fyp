@@ -7,7 +7,7 @@ import { normalizeHex } from "./quiz-action-helpers";
 
 export async function getQuizTypeColors(): Promise<Record<QuizType, string>> {
   const auth = await getAuthHeader();
-  if (!auth) return { basic: "", crossword: "", rapid: "" };
+  if (!auth) return { basic: "", crossword: "", rapid: "", "ai-generated": "" };
 
   try {
     const res = await fetch(quizSvcUrl("/quiz/type-colors"), {
@@ -15,9 +15,10 @@ export async function getQuizTypeColors(): Promise<Record<QuizType, string>> {
       headers: { Authorization: auth },
       cache: "no-store",
     });
-    if (!res.ok) return { basic: "", crossword: "", rapid: "" };
+    if (!res.ok)
+      return { basic: "", crossword: "", rapid: "", "ai-generated": "" };
 
-    const json = await res.json().catch(() => ({} as any));
+    const json = await res.json().catch(() => ({}) as any);
     const colors = (json?.colors || {}) as Partial<Record<QuizType, string>>;
 
     console.log("Fetched quiz type colors:", colors);
@@ -25,8 +26,9 @@ export async function getQuizTypeColors(): Promise<Record<QuizType, string>> {
       basic: normalizeHex(colors.basic) ?? "",
       crossword: normalizeHex(colors.crossword) ?? "",
       rapid: normalizeHex(colors.rapid) ?? "",
+      "ai-generated": normalizeHex(colors["ai-generated"]) ?? "",
     };
   } catch {
-    return { basic: "", crossword: "", rapid: "" };
+    return { basic: "", crossword: "", rapid: "", "ai-generated": "" };
   }
 }

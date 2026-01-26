@@ -1,4 +1,3 @@
-// components/quizzes/quiz-view/QuizViewHeader.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";

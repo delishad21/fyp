@@ -3,6 +3,7 @@ import type {
   RapidInitial,
 } from "@/services/quiz/types/quizTypes";
 import Image from "next/image";
+import { Icon } from "@iconify/react";
 
 type BasicLikeItem =
   | {
@@ -19,7 +20,18 @@ type BasicLikeItem =
       text: string;
       image?: { url: string } | null;
       timeLimit?: number | null;
-      answers: { id: string; text: string; caseSensitive: boolean }[];
+      answers: {
+        id: string;
+        text: string;
+        caseSensitive: boolean;
+        answerType?: "exact" | "fuzzy" | "keywords" | "list";
+        keywords?: string[];
+        minKeywords?: number;
+        listItems?: string[];
+        requireOrder?: boolean;
+        minCorrectItems?: number;
+        similarityThreshold?: number;
+      }[];
     }
   | {
       id: string;
@@ -30,9 +42,15 @@ type BasicLikeItem =
 
 type Props = {
   data: BasicInitial | RapidInitial;
+  showEditButtons?: boolean;
+  onEditQuestion?: (questionIndex: number) => void;
 };
 
-export default function BasicOrRapidQuizPreview({ data }: Props) {
+export default function BasicOrRapidQuizPreview({
+  data,
+  showEditButtons = false,
+  onEditQuestion,
+}: Props) {
   // Normalize Rapid items to "mc" type with same shape as Basic.
   const items: BasicLikeItem[] =
     data.quizType === "rapid"
@@ -47,32 +65,53 @@ export default function BasicOrRapidQuizPreview({ data }: Props) {
       : ((data as BasicInitial).items as BasicLikeItem[]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 pb-6">
+    <div className="mx-auto max-w-6xl space-y-5 pb-6">
       {items.map((it, idx) => (
         <div
           key={it.id}
-          className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg3)] p-5 shadow-sm"
+          className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg2)] p-6 relative transition-all hover:shadow-md"
+          style={{ boxShadow: "var(--drop-shadow-sm)" }}
         >
-          {/* Header (type + index + per-question timer) */}
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
-              <span>{it.type}</span>
-              <span>• Q{idx + 1}</span>
+          {/* Header (type + index + per-question timer + edit button) */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+              <span className="px-2.5 py-1 bg-[var(--color-bg3)] rounded-md">
+                {it.type}
+              </span>
+              <span>Question {idx + 1}</span>
             </div>
 
-            {"timeLimit" in it && it.timeLimit ? (
-              <div className="rounded-md bg-[var(--color-bg2)] px-2 py-1 text-xs font-medium text-[var(--color-text-secondary)]">
-                Timer:{" "}
-                <span className="font-semibold text-[var(--color-text-primary)]">
-                  {Math.round(it.timeLimit / 60)} min
-                </span>
-              </div>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {"timeLimit" in it && it.timeLimit ? (
+                <div className="rounded-lg bg-[var(--color-bg3)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-secondary)] border border-[var(--color-bg4)]">
+                  <Icon
+                    icon="mdi:timer-outline"
+                    className="inline w-3.5 h-3.5 mr-1 -mt-0.5"
+                  />
+                  <span className="text-[var(--color-text-primary)]">
+                    {Math.floor(it.timeLimit / 60)}m {it.timeLimit % 60}s
+                  </span>
+                </div>
+              ) : null}
+
+              {/* Edit Button */}
+              {showEditButtons && onEditQuestion && (
+                <button
+                  onClick={() => onEditQuestion(idx)}
+                  className="p-2.5 rounded-lg bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] transition-all shadow-md"
+                  title="Edit this question"
+                >
+                  <Icon icon="mdi:pencil" className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Prompt */}
-          <div className="text-[var(--color-text-primary)]">
-            <p className="whitespace-pre-wrap leading-relaxed">{it.text}</p>
+          <div className="text-[var(--color-text-primary)] mb-4">
+            <p className="whitespace-pre-wrap leading-relaxed text-base">
+              {it.text}
+            </p>
           </div>
 
           {/* Optional image */}
@@ -121,23 +160,28 @@ function MCOptionsPreview({
   if (!options?.length) return null;
 
   return (
-    <div className="mt-4">
-      <div className="text-sm font-medium text-[var(--color-text-primary)]">
-        Options {quizType === "rapid" ? "(single correct)" : ""}:
+    <div className="mt-5">
+      <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
+        Options{" "}
+        {quizType === "rapid" ? "(single correct answer)" : "(multiple choice)"}
+        :
       </div>
-      <ul className="mt-2 space-y-2">
+      <ul className="space-y-2.5">
         {options.map((opt, idx) => {
           const base =
-            "rounded-md border px-3 py-2 text-sm transition flex items-center justify-between gap-3";
+            "rounded-lg border-2 px-4 py-3 text-sm transition-all flex items-center justify-between gap-3";
           const cls = opt.correct
-            ? "bg-[var(--color-success)]/10 border-[var(--color-success)] font-semibold"
-            : "border-[var(--color-bg4)]";
+            ? "bg-[var(--color-success)]/10 border-[var(--color-success)] font-semibold shadow-sm"
+            : "border-[var(--color-bg4)] bg-[var(--color-bg3)] hover:border-[var(--color-primary)]/30";
 
           return (
             <li key={opt.id} className={`${base} ${cls}`}>
-              <span className="flex-1">{opt.text || `Option ${idx + 1}`}</span>
+              <span className="flex-1 leading-relaxed">
+                {opt.text || `Option ${idx + 1}`}
+              </span>
               {opt.correct && (
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-success)]">
+                <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[var(--color-success)]">
+                  <Icon icon="mdi:check-circle" className="w-4 h-4" />
                   Correct
                 </span>
               )}
@@ -152,24 +196,104 @@ function MCOptionsPreview({
 function OpenAnswersPreview({
   answers,
 }: {
-  answers: { id: string; text: string; caseSensitive: boolean }[];
+  answers: {
+    id: string;
+    text: string;
+    caseSensitive: boolean;
+    answerType?: "exact" | "fuzzy" | "keywords" | "list";
+    keywords?: string[];
+    minKeywords?: number;
+    listItems?: string[];
+    requireOrder?: boolean;
+    minCorrectItems?: number;
+    similarityThreshold?: number;
+  }[];
 }) {
   if (!answers?.length) return null;
 
+  const firstAnswer = answers[0];
+  const answerType = firstAnswer?.answerType || "exact";
+
+  // For keyword and list modes, show the keywords/items instead of text
+  if (answerType === "keywords" && firstAnswer?.keywords?.length) {
+    return (
+      <div className="mt-5">
+        <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
+          Required keywords:
+        </div>
+        <div className="text-xs text-[var(--color-text-secondary)] mb-3">
+          Student must include at least {firstAnswer.minKeywords || 0} of these
+          keywords
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {firstAnswer.keywords.map((kw, idx) => (
+            <span
+              key={idx}
+              className="rounded-lg bg-[var(--color-bg3)] px-3 py-1.5 text-sm border border-[var(--color-bg4)] font-medium text-[var(--color-text-primary)]"
+            >
+              {kw}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (answerType === "list" && firstAnswer?.listItems?.length) {
+    return (
+      <div className="mt-5">
+        <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
+          Expected list items:
+        </div>
+        <div className="text-xs text-[var(--color-text-secondary)] mb-3">
+          {firstAnswer.requireOrder ? "Order matters" : "Any order accepted"} •
+          At least {firstAnswer.minCorrectItems || 1} correct items required
+        </div>
+        <ul className="space-y-2">
+          {firstAnswer.listItems.map((item, idx) => (
+            <li
+              key={idx}
+              className="flex items-center gap-3 rounded-lg bg-[var(--color-bg3)] px-4 py-2.5 border border-[var(--color-bg4)]"
+            >
+              {firstAnswer.requireOrder && (
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-xs font-bold text-[var(--color-primary)]">
+                  {idx + 1}
+                </span>
+              )}
+              <span className="font-medium text-[var(--color-text-primary)]">
+                {item}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  // For exact and fuzzy modes, show accepted text answers
   return (
-    <div className="mt-4">
-      <div className="text-sm font-medium text-[var(--color-text-primary)]">
+    <div className="mt-5">
+      <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
         Accepted answers:
       </div>
-      <ul className="mt-2 space-y-1 text-sm text-[var(--color-text-primary)]">
+      {answerType === "fuzzy" && (
+        <div className="text-xs text-[var(--color-text-secondary)] mb-3">
+          Fuzzy matching enabled (
+          {Math.round((firstAnswer?.similarityThreshold || 0.85) * 100)}%
+          similarity threshold)
+        </div>
+      )}
+      <ul className="space-y-2 text-sm text-[var(--color-text-primary)]">
         {answers.map((ans, idx) => (
           <li
             key={ans.id}
-            className="flex items-center justify-between rounded-md bg-[var(--color-bg2)] px-3 py-1.5"
+            className="flex items-center justify-between rounded-lg bg-[var(--color-bg3)] px-4 py-2.5 border border-[var(--color-bg4)] hover:border-[var(--color-primary)]/30 transition-all"
           >
-            <span>{ans.text || `Answer ${idx + 1}`}</span>
-            {ans.caseSensitive && (
-              <span className="ml-3 text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+            <span className="font-medium">
+              {ans.text || `Answer ${idx + 1}`}
+            </span>
+            {ans.caseSensitive && answerType === "exact" && (
+              <span className="ml-3 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)] bg-[var(--color-bg4)] px-2 py-1 rounded">
                 Case sensitive
               </span>
             )}

@@ -29,13 +29,20 @@ export default async function Page() {
 
   return (
     <div className="px-10 pt-5">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex gap-4 items-center">
         <Button
           href="/quizzes/create"
           variant="primary"
           className="px-8 py-4 text-lg font-semibold"
         >
           Create New Quiz
+        </Button>
+        <Button
+          href="/quizzes/ai-generate"
+          variant="ghost"
+          className="px-8 py-4 text-lg font-semibold"
+        >
+          Generate Quizzes with AI
         </Button>
       </div>
       <div className="flex items-center justify-between">

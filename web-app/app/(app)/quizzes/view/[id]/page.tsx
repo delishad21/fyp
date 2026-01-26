@@ -1,13 +1,7 @@
-import BasicOrRapidQuizPreview from "@/components/quizzes/quiz-view/BasicOrRapidQuizPreview";
-import CrosswordQuizPreview from "@/components/quizzes/quiz-view/CrosswordQuizPreview";
 import QuizViewHeader from "@/components/quizzes/quiz-view/QuizViewHeader";
 import { getQuizForEdit } from "@/services/quiz/actions/get-quiz-action";
-import {
-  BasicInitial,
-  RapidInitial,
-  CrosswordInitial,
-} from "@/services/quiz/types/quizTypes";
 import { notFound } from "next/navigation";
+import QuizViewClient from "@/components/quizzes/quiz-view/QuizViewClient";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -55,18 +49,16 @@ export default async function Page({ params, searchParams }: PageProps) {
         subjectColorHex={data.subjectColorHex}
         typeColorHex={data.typeColorHex}
         totalTimeLimit={
-          "totalTimeLimit" in data ? data.totalTimeLimit ?? null : null
+          "totalTimeLimit" in data ? (data.totalTimeLimit ?? null) : null
         }
       />
 
-      <div className="space-y-4">
-        {/* Quiz content */}
-        {quizType === "basic" || quizType === "rapid" ? (
-          <BasicOrRapidQuizPreview data={data as BasicInitial | RapidInitial} />
-        ) : (
-          <CrosswordQuizPreview data={data as CrosswordInitial} />
-        )}
-      </div>
+      <QuizViewClient
+        quizId={quizId}
+        quizType={quizType}
+        data={data}
+        currentVersion={currentVersion}
+      />
     </div>
   );
 }

@@ -34,6 +34,14 @@ export type ItemMCBasic = ItemBase & {
 
 export type ItemOpenBasic = ItemBase & {
   kind: "open";
+  answerType?: "exact" | "fuzzy" | "keywords" | "list";
+  keywords?: string[];
+  minKeywords?: number;
+  listItems?: string[];
+  requireOrder?: boolean;
+  minCorrectItems?: number;
+  similarityThreshold?: number;
+  caseSensitive?: boolean;
 };
 
 export type ItemContext = {
@@ -258,13 +266,13 @@ async function authedJson<T>(
   url: string,
   token: string,
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
-  body?: unknown
+  body?: unknown,
 ): Promise<T> {
   if (DEBUG_QUIZ_FETCH) {
     // eslint-disable-next-line no-console
     console.log(
       `[quiz:fetch] -> ${method} ${url}`,
-      body ? { body } : "(no body)"
+      body ? { body } : "(no body)",
     );
   }
 
@@ -286,7 +294,7 @@ async function authedJson<T>(
     console.log(
       `[quiz:fetch] <- ${res.status} ${res.statusText} @ ${url}`,
       contentType ? { contentType } : {},
-      rawText ? { body } : "(no body)"
+      rawText ? { body } : "(no body)",
     );
   }
 
@@ -324,14 +332,14 @@ const authedGet = <T>(url: string, token: string) =>
  */
 export async function getAttemptSpec(
   token: string,
-  params: { scheduleId: string }
+  params: { scheduleId: string },
 ): Promise<AttemptSpecClientResult> {
   const { scheduleId } = params;
 
   const resp = await authedPost<AttemptSpecServerResponse>(
     `${QUIZ_BASE_URL}/attempt/spec`,
     token,
-    { scheduleId }
+    { scheduleId },
   );
 
   const { inProgressAttemptId, ...rest } = resp.data as AttemptSpec & {
@@ -350,7 +358,7 @@ export async function getAttemptSpec(
  */
 export async function startAttempt(
   token: string,
-  scheduleId: string
+  scheduleId: string,
 ): Promise<StartAttemptResult> {
   const resp = await authedPost<
     StartAttemptCreatedResponse | StartAttemptResumedResponse
@@ -376,14 +384,14 @@ export async function saveAnswers(
   token: string,
   attemptId: string,
   answers: AnswersPayload,
-  attemptVersion?: number
+  attemptVersion?: number,
 ): Promise<SaveAnswersResponse["data"]> {
   try {
     const resp = await authedJson<SaveAnswersResponse>(
       `${QUIZ_BASE_URL}/attempt/${encodeURIComponent(attemptId)}/answers`,
       token,
       "PATCH",
-      attemptVersion != null ? { answers, attemptVersion } : { answers }
+      attemptVersion != null ? { answers, attemptVersion } : { answers },
     );
     if (!resp || typeof resp !== "object" || !("data" in resp)) {
       throw new Error("Unexpected saveAnswers response shape");
@@ -396,7 +404,7 @@ export async function saveAnswers(
         `${QUIZ_BASE_URL}/attempt/${encodeURIComponent(attemptId)}/answers`,
         token,
         "PATCH",
-        { answers }
+        { answers },
       );
       return retry.data;
     }
@@ -406,12 +414,12 @@ export async function saveAnswers(
 
 export async function finishAttempt(
   token: string,
-  attemptId: string
+  attemptId: string,
 ): Promise<FinalizeAttemptResponse["data"]> {
   const resp = await authedPost<FinalizeAttemptResponse>(
     `${QUIZ_BASE_URL}/attempt/${encodeURIComponent(attemptId)}/finish`,
     token,
-    {}
+    {},
   );
   return resp.data;
 }
@@ -419,11 +427,11 @@ export async function finishAttempt(
 /** GET /attempt/:attemptId — returns full AttemptDoc (student token allowed for own attempt) */
 export async function getAttemptById(
   token: string,
-  attemptId: string
+  attemptId: string,
 ): Promise<AttemptDoc> {
   const resp = await authedGet<{ ok: boolean; data: AttemptDoc }>(
     `${QUIZ_BASE_URL}/attempt/${encodeURIComponent(attemptId)}`,
-    token
+    token,
   );
   return resp.data;
 }
@@ -436,7 +444,7 @@ export async function getAttemptById(
  */
 export async function fetchAttemptForPlay(
   token: string,
-  scheduleId: string
+  scheduleId: string,
 ): Promise<{ spec: AttemptSpec; attemptId: string; attempt?: AttemptDoc }> {
   const { spec, inProgressAttemptId } = await getAttemptSpec(token, {
     scheduleId,
@@ -499,13 +507,13 @@ type AttemptListResponse = { ok: boolean; rows: AttemptRow[] };
  */
 export async function listMyAttemptsForSchedule(
   token: string,
-  scheduleId: string
+  scheduleId: string,
 ): Promise<AttemptRow[]> {
   const resp = await authedGet<AttemptListResponse>(
     `${QUIZ_BASE_URL}/attempt/schedule/${encodeURIComponent(
-      scheduleId
+      scheduleId,
     )}/student/me`,
-    token
+    token,
   );
   return resp.rows || [];
 }

@@ -153,6 +153,32 @@ export type BasicOrRapidAttemptType = {
           }
       >;
     };
+    gradingKey?: {
+      items: Array<
+        | {
+            kind: "mc";
+            id: string;
+            correctOptionIds: string[];
+            maxScore?: number;
+          }
+        | {
+            kind: "open";
+            id: string;
+            accepted: Array<{
+              text: string;
+              caseSensitive?: boolean;
+              answerType?: "exact" | "fuzzy" | "keywords" | "list";
+              keywords?: string[];
+              minKeywords?: number;
+              listItems?: string[];
+              requireOrder?: boolean;
+              minCorrectItems?: number;
+              similarityThreshold?: number;
+            }>;
+            maxScore?: number;
+          }
+      >;
+    };
   };
 };
 

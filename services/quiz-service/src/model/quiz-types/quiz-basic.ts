@@ -42,6 +42,9 @@ import {
 import {
   scoreMC_StrictPartial,
   scoreOpen_Exact,
+  scoreOpen_Fuzzy,
+  scoreOpen_Keywords,
+  scoreOpen_List,
 } from "../../utils/scoring-helpers";
 
 /* ───────────────────────────── 2) SCHEMAS ──────────────────────────────── */
@@ -56,7 +59,7 @@ const BasicItemSchema = new Schema(
     options: { type: [MCOptionSchema], default: undefined }, // mc only
     answers: { type: [OpenAnswerSchema], default: undefined }, // open only
   },
-  { _id: false }
+  { _id: false },
 );
 
 /** Basic quiz has a single global timer (seconds | null). */
@@ -65,7 +68,7 @@ const BasicSchema = new Schema(
     totalTimeLimit: { type: Number, default: null }, // seconds; null = no limit
     items: { type: [BasicItemSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 export const BasicQuizModel = QuizBaseModel.discriminator("basic", BasicSchema);
@@ -81,11 +84,45 @@ function coerceMCOption(raw: any) {
 }
 
 function coerceOpenAnswer(raw: any) {
-  return {
+  const base = {
     id: isString(raw?.id) ? raw.id : crypto.randomUUID(),
     text: isString(raw?.text) ? raw.text : "",
     caseSensitive: !!raw?.caseSensitive,
+    answerType: ["exact", "fuzzy", "keywords", "list"].includes(raw?.answerType)
+      ? raw.answerType
+      : "exact",
   };
+
+  // Add type-specific fields
+  if (base.answerType === "keywords") {
+    return {
+      ...base,
+      keywords: Array.isArray(raw?.keywords) ? raw.keywords : [],
+      minKeywords: typeof raw?.minKeywords === "number" ? raw.minKeywords : 1,
+    };
+  }
+
+  if (base.answerType === "list") {
+    return {
+      ...base,
+      listItems: Array.isArray(raw?.listItems) ? raw.listItems : [],
+      requireOrder: !!raw?.requireOrder,
+      minCorrectItems:
+        typeof raw?.minCorrectItems === "number" ? raw.minCorrectItems : 1,
+    };
+  }
+
+  if (base.answerType === "fuzzy") {
+    return {
+      ...base,
+      similarityThreshold:
+        typeof raw?.similarityThreshold === "number"
+          ? Math.max(0.5, Math.min(1.0, raw.similarityThreshold))
+          : 0.85,
+    };
+  }
+
+  return base;
 }
 
 /** Coerce an incoming raw item to a strictly-shaped item or null if invalid. */
@@ -175,8 +212,56 @@ function validateBasic(body: any, items: any[]) {
       if (!it.text?.trim()) errs.push("Question text is required");
       if (!Array.isArray(it.answers) || it.answers.length < 1)
         errs.push("Add at least one accepted answer");
+
       it.answers?.forEach((a: any, i: number) => {
         if (!a.text?.trim()) errs.push(`Answer ${i + 1} text is required`);
+
+        // Validate answer type specific fields
+        const answerType = a.answerType || "exact";
+
+        if (answerType === "keywords") {
+          if (
+            !a.keywords ||
+            !Array.isArray(a.keywords) ||
+            a.keywords.length === 0
+          ) {
+            errs.push(
+              `Answer ${i + 1}: Keyword mode requires at least one keyword`,
+            );
+          }
+          if (typeof a.minKeywords !== "number" || a.minKeywords < 1) {
+            errs.push(`Answer ${i + 1}: Minimum keywords must be at least 1`);
+          }
+        }
+
+        if (answerType === "list") {
+          if (
+            !a.listItems ||
+            !Array.isArray(a.listItems) ||
+            a.listItems.length === 0
+          ) {
+            errs.push(`Answer ${i + 1}: List mode requires list items`);
+          }
+          if (typeof a.minCorrectItems !== "number" || a.minCorrectItems < 1) {
+            errs.push(
+              `Answer ${i + 1}: Minimum correct items must be at least 1`,
+            );
+          }
+        }
+
+        if (answerType === "fuzzy") {
+          const threshold = a.similarityThreshold;
+          if (
+            threshold !== undefined &&
+            (typeof threshold !== "number" ||
+              threshold < 0.5 ||
+              threshold > 1.0)
+          ) {
+            errs.push(
+              `Answer ${i + 1}: Similarity threshold must be between 0.5 and 1.0`,
+            );
+          }
+        }
       });
     } else if (it.type === "context") {
       if (!it.text?.trim()) errs.push("Context text is required");
@@ -239,11 +324,21 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
         maxScore: 1,
       });
     } else if (it.type === "open") {
+      const firstAnswer = it.answers?.[0];
+      const answerType = firstAnswer?.answerType || "exact";
+
       renderItems.push({
         kind: "open",
         id: it.id,
         text: it.text ?? "",
         image: it.image ?? null,
+        answerType: answerType,
+        minCorrectItems:
+          answerType === "list" ? firstAnswer?.minCorrectItems : undefined,
+        requireOrder:
+          answerType === "list" ? firstAnswer?.requireOrder : undefined,
+        minKeywords:
+          answerType === "keywords" ? firstAnswer?.minKeywords : undefined,
       });
       gradingItems.push({
         kind: "open",
@@ -251,6 +346,13 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
         accepted: (it.answers ?? []).map((a: any) => ({
           text: a.text ?? "",
           caseSensitive: !!a.caseSensitive,
+          answerType: a.answerType || "exact",
+          keywords: a.keywords,
+          minKeywords: a.minKeywords,
+          listItems: a.listItems,
+          requireOrder: a.requireOrder,
+          minCorrectItems: a.minCorrectItems,
+          similarityThreshold: a.similarityThreshold || 0.85,
         })),
         maxScore: 1,
       });
@@ -289,7 +391,7 @@ function buildAttemptSpecBasic(quizDoc: any): AttemptSpecEnvelope {
 
 function gradeAttemptBasic(
   spec: AttemptSpecEnvelope,
-  answers: Answer[]
+  answers: Answer[],
 ): AutoscoreResult {
   const ansById = new Map(answers.map((a) => [(a.id ?? a.itemId)!, a]));
   const itemScores: ItemScore[] = [];
@@ -304,13 +406,13 @@ function gradeAttemptBasic(
         const selected = Array.isArray(ans?.value)
           ? (ans!.value as string[])
           : typeof ans?.value === "string"
-          ? [String(ans!.value)]
-          : [];
+            ? [String(ans!.value)]
+            : [];
 
         const out = scoreMC_StrictPartial(
           selected,
           k.correctOptionIds ?? [],
-          itemMax
+          itemMax,
         );
         const final = out.score;
 
@@ -334,7 +436,45 @@ function gradeAttemptBasic(
         const ans = ansById.get(k.id);
         const value = String(ans?.value ?? "");
 
-        const out = scoreOpen_Exact(value, k.accepted ?? [], itemMax);
+        // Determine answer type from first accepted answer
+        const firstAccepted = k.accepted?.[0];
+        const answerType = firstAccepted?.answerType || "exact";
+
+        let out;
+        switch (answerType) {
+          case "fuzzy":
+            out = scoreOpen_Fuzzy(value, k.accepted ?? [], itemMax);
+            break;
+
+          case "keywords":
+            out = scoreOpen_Keywords(
+              value,
+              {
+                keywords: firstAccepted?.keywords || [],
+                minRequired: firstAccepted?.minKeywords || 1,
+              },
+              itemMax,
+            );
+            break;
+
+          case "list":
+            out = scoreOpen_List(
+              value,
+              {
+                items: firstAccepted?.listItems || [],
+                requireOrder: firstAccepted?.requireOrder || false,
+                minCorrect: firstAccepted?.minCorrectItems || 1,
+              },
+              itemMax,
+            );
+            break;
+
+          case "exact":
+          default:
+            out = scoreOpen_Exact(value, k.accepted ?? [], itemMax);
+            break;
+        }
+
         const final = out.score;
 
         itemScores.push({
@@ -383,7 +523,7 @@ function getCorrectOptionIdsFromItem(it: any): string[] {
         truthy(o?.correct) ||
         truthy(o?.isCorrect) ||
         truthy(o?.answer) ||
-        truthy(o?.isAnswer)
+        truthy(o?.isAnswer),
     )
     .map((o: any) => String(o.id));
 }
@@ -457,7 +597,7 @@ export function aggregateScheduledBasic({
     (a) =>
       typeof a.score === "number" &&
       typeof a.maxScore === "number" &&
-      Number(a.maxScore) > 0
+      Number(a.maxScore) > 0,
   );
   const sumScore = scored.reduce((s, a) => s + Number(a.score || 0), 0);
   const sumMax = scored.reduce((s, a) => s + Number(a.maxScore || 0), 0);
@@ -498,8 +638,8 @@ export function aggregateScheduledBasic({
         const selected: string[] = Array.isArray(value)
           ? (value as string[])
           : typeof value === "string"
-          ? [String(value)]
-          : [];
+            ? [String(value)]
+            : [];
         if (!mcCounts.has(itemId)) mcCounts.set(itemId, new Map());
         const m = mcCounts.get(itemId)!;
         mcTotals.set(itemId, (mcTotals.get(itemId) || 0) + 1);
@@ -617,7 +757,223 @@ export function aggregateScheduledBasic({
   };
 }
 
-/* ─────────────────────────── 9) REGISTER TYPE ───────────────────────────── */
+/* ─────────────────────── 9) AI GENERATION METADATA ──────────────────────── */
+
+/**
+ * AI Generation Metadata
+ * Schema structure, validation rules, and prompting guidelines for AI generation
+ * This is the source of truth for how AI should generate basic quizzes
+ */
+export const BASIC_QUIZ_AI_METADATA = {
+  description: "Basic quiz with mixed question types (MC, open-ended, context)",
+
+  schema: {
+    name: { type: "string", required: true, description: "Quiz title" },
+    subject: { type: "string", required: true, description: "Subject area" },
+    topic: { type: "string", required: true, description: "Specific topic" },
+    totalTimeLimit: {
+      type: "number | null",
+      required: false,
+      description: "Total time in seconds, or null for unlimited",
+    },
+    items: {
+      type: "array",
+      required: true,
+      description: "Array of question items (mc, open, or context)",
+      itemTypes: ["mc", "open", "context"],
+      schemas: {
+        mc: {
+          type: { type: "string", value: "mc", required: true },
+          id: {
+            type: "string",
+            required: true,
+            description: "Unique ID (UUID)",
+          },
+          text: {
+            type: "string",
+            required: true,
+            description: "Question text",
+          },
+          image: {
+            type: "object | null",
+            description: "Optional image metadata",
+          },
+          options: {
+            type: "array",
+            required: true,
+            minItems: 2,
+            maxItems: 6,
+            description: "Multiple choice options",
+            schema: {
+              id: { type: "string", required: true },
+              text: { type: "string", required: true },
+              correct: { type: "boolean", required: true },
+            },
+            validation: "At least one option must be correct",
+          },
+        },
+        open: {
+          type: { type: "string", value: "open", required: true },
+          id: { type: "string", required: true },
+          text: { type: "string", required: true },
+          image: { type: "object | null" },
+          answers: {
+            type: "array",
+            required: true,
+            minItems: 1,
+            description: "Acceptable answers with validation strategies",
+            schema: {
+              id: { type: "string", required: true },
+              text: {
+                type: "string",
+                required: true,
+                description: "The answer text",
+              },
+              caseSensitive: { type: "boolean", default: false },
+              answerType: {
+                type: "string",
+                enum: ["exact", "fuzzy", "keywords", "list"],
+                default: "exact",
+                description: "Answer validation strategy",
+              },
+              keywords: {
+                type: "array",
+                description: "For answerType=keywords: required keywords",
+              },
+              minKeywords: {
+                type: "number",
+                description: "For answerType=keywords: minimum required",
+              },
+              listItems: {
+                type: "array",
+                description: "For answerType=list: expected list items",
+              },
+              requireOrder: {
+                type: "boolean",
+                description: "For answerType=list: must match order",
+              },
+              minCorrectItems: {
+                type: "number",
+                description: "For answerType=list: minimum correct items",
+              },
+              similarityThreshold: {
+                type: "number",
+                min: 0.5,
+                max: 1.0,
+                default: 0.85,
+                description: "For answerType=fuzzy: similarity threshold",
+              },
+            },
+          },
+        },
+        context: {
+          type: { type: "string", value: "context", required: true },
+          id: { type: "string", required: true },
+          text: { type: "string", required: true },
+          image: { type: "object | null" },
+          description: "Context items provide information, not questions",
+        },
+      },
+    },
+  },
+
+  validation: {
+    maxItems: 20,
+    minItems: 1,
+    maxOptionsPerQuestion: 6,
+    minOptionsPerQuestion: 2,
+  },
+
+  aiPromptingRules: {
+    systemPrompt:
+      "You are an expert educational content creator specializing in creating diverse assessment questions for primary school students. Create engaging multiple choice, open-ended, and context-based questions that thoroughly assess understanding.",
+
+    formatInstructions: `Return a valid JSON object with this structure:
+{
+  "name": "Quiz Title",
+  "subject": "Subject Name",
+  "topic": "Topic Name",
+  "totalTimeLimit": 600,
+  "items": [
+    {
+      "type": "mc",
+      "id": "uuid",
+      "text": "Question text",
+      "image": null,
+      "options": [
+        { "id": "uuid", "text": "Option text", "correct": true }
+      ]
+    },
+    {
+      "type": "open",
+      "id": "uuid",
+      "text": "Question text",
+      "image": null,
+      "answers": [
+        {
+          "id": "uuid",
+          "text": "answer",
+          "caseSensitive": false,
+          "answerType": "exact"
+        }
+      ]
+    }
+  ]
+}
+
+CRITICAL RULES:
+- Include 2-6 options for MC questions, at least one must be correct
+- For open questions, use answerType: "exact" for simple answers, "fuzzy" for answers with possible typos, "keywords" for explanations, "list" for enumerated answers
+- Maximum 20 items total
+- Generate age-appropriate vocabulary and complexity
+
+CONTEXT ITEM USAGE - Use context items ONLY when pedagogically necessary:
+✓ APPROPRIATE USES:
+  - Reading comprehension passages (English/Language Arts) - passage REQUIRED for questions
+  - Extended scenarios for application questions - scenario provides necessary context
+  - Complex diagrams or data that multiple questions refer to
+  - Story problems where narrative setup is needed for multiple related questions
+
+✗ INAPPROPRIATE USES:
+  - DO NOT use context items for general knowledge questions (e.g., science facts, math concepts)
+  - DO NOT use as a substitute for teaching - students should already know the material
+  - DO NOT use for vocabulary, definitions, or factual recall questions
+  - DO NOT include context just to add length - only when truly necessary
+
+GUIDELINE: If questions can be answered with expected prior knowledge, DO NOT use context items. Context should only introduce NEW information needed specifically for those questions (like a reading passage or scenario).`,
+
+    examples: [
+      {
+        type: "mc",
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        text: "What is the capital of France?",
+        image: null,
+        options: [
+          { id: "opt1", text: "London", correct: false },
+          { id: "opt2", text: "Paris", correct: true },
+          { id: "opt3", text: "Berlin", correct: false },
+        ],
+      },
+      {
+        type: "open",
+        id: "550e8400-e29b-41d4-a716-446655440001",
+        text: "What is the square root of 144?",
+        image: null,
+        answers: [
+          { id: "ans1", text: "12", caseSensitive: false, answerType: "exact" },
+          {
+            id: "ans2",
+            text: "twelve",
+            caseSensitive: false,
+            answerType: "exact",
+          },
+        ],
+      },
+    ],
+  },
+};
+
+/* ─────────────────────────── 10) REGISTER TYPE ──────────────────────────── */
 
 /**
  * registerBasicQuiz

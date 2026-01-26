@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   BaseFormItemDraft,
   BaseQuizFormItemsConfig,
+  OpenAnswer,
 } from "../../types/quizTypes";
 import { makeMcDraft, makeSelectorLabels, draftToPayload } from "../draftUtils";
 
@@ -11,7 +12,7 @@ import { makeMcDraft, makeSelectorLabels, draftToPayload } from "../draftUtils";
 
 export function useBaseQuizFormItems(
   initial?: BaseFormItemDraft[],
-  cfg?: BaseQuizFormItemsConfig
+  cfg?: BaseQuizFormItemsConfig,
 ) {
   const config = React.useMemo<Required<BaseQuizFormItemsConfig>>(
     () => ({
@@ -27,18 +28,18 @@ export function useBaseQuizFormItems(
       cfg?.mcMinOptions,
       cfg?.mcRequireSingleCorrect,
       cfg?.initialNumMCOptions,
-    ]
+    ],
   );
 
   // Always create a fresh MC draft using the normalized config.
   const makeInitialMcDraft = React.useCallback(
     () => makeMcDraft(config.initialNumMCOptions),
-    [config.initialNumMCOptions]
+    [config.initialNumMCOptions],
   );
 
   // seed once: if initial provided & non-empty use it, else one default MC draft
   const [items, setItems] = React.useState<BaseFormItemDraft[]>(() =>
-    initial && initial.length > 0 ? initial : [makeInitialMcDraft()]
+    initial && initial.length > 0 ? initial : [makeInitialMcDraft()],
   );
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
@@ -50,9 +51,9 @@ export function useBaseQuizFormItems(
         0,
         Number.isFinite(config.maxQuestions)
           ? (config.maxQuestions as number)
-          : next.length
+          : next.length,
       ),
-    [config.maxQuestions]
+    [config.maxQuestions],
   );
 
   const addQuestion = () => {
@@ -104,7 +105,7 @@ export function useBaseQuizFormItems(
 
   const patchCurrent = (patch: Partial<BaseFormItemDraft>) =>
     setItems((prev) =>
-      prev.map((q, i) => (i === currentIndex ? { ...q, ...patch } : q))
+      prev.map((q, i) => (i === currentIndex ? { ...q, ...patch } : q)),
     );
 
   // shared
@@ -172,14 +173,14 @@ export function useBaseQuizFormItems(
   const setMCOptionText = (id: string, text: string) =>
     patchCurrent({
       options: (current?.options ?? []).map((x) =>
-        x.id === id ? { ...x, text } : x
+        x.id === id ? { ...x, text } : x,
       ),
     });
 
   const toggleCorrect = (id: string) =>
     patchCurrent({
       options: (current?.options ?? []).map((x) =>
-        x.id === id ? { ...x, correct: !x.correct } : x
+        x.id === id ? { ...x, correct: !x.correct } : x,
       ),
     });
 
@@ -200,14 +201,21 @@ export function useBaseQuizFormItems(
   const setOpenAnswerText = (id: string, text: string) =>
     patchCurrent({
       answers: (current?.answers ?? []).map((x) =>
-        x.id === id ? { ...x, text } : x
+        x.id === id ? { ...x, text } : x,
       ),
     });
 
   const toggleAnswerCaseSensitive = (id: string) =>
     patchCurrent({
       answers: (current?.answers ?? []).map((x) =>
-        x.id === id ? { ...x, caseSensitive: !x.caseSensitive } : x
+        x.id === id ? { ...x, caseSensitive: !x.caseSensitive } : x,
+      ),
+    });
+
+  const updateAnswer = (id: string, updates: Partial<OpenAnswer>) =>
+    patchCurrent({
+      answers: (current?.answers ?? []).map((x) =>
+        x.id === id ? { ...x, ...updates } : x,
       ),
     });
 
@@ -254,30 +262,30 @@ export function useBaseQuizFormItems(
   // selector labels and payload
   const selectorLabels = React.useMemo(
     () => makeSelectorLabels(items),
-    [items]
+    [items],
   );
 
   // keep for backward compatibility
   const itemsJson = React.useMemo(
     () => JSON.stringify(items.map(draftToPayload)),
-    [items]
+    [items],
   );
 
   // optional explicit serializer if you want to phase out itemsJson
   const serialize = React.useCallback(
     () => JSON.stringify(items.map(draftToPayload)),
-    [items]
+    [items],
   );
 
   // optional external reset (useful in edit flows)
   const replaceItems = React.useCallback(
     (next: BaseFormItemDraft[]) => {
       setItems(
-        clampQuestions(next && next.length ? next : [makeInitialMcDraft()])
+        clampQuestions(next && next.length ? next : [makeInitialMcDraft()]),
       );
       setCurrentIndex(0);
     },
-    [clampQuestions, makeInitialMcDraft]
+    [clampQuestions, makeInitialMcDraft],
   );
 
   return {
@@ -311,6 +319,7 @@ export function useBaseQuizFormItems(
     removeOpenAnswer,
     setOpenAnswerText,
     toggleAnswerCaseSensitive,
+    updateAnswer,
 
     ensureMcConstraints,
   };

@@ -51,14 +51,14 @@ const RapidItemSchema = new Schema(
     image: { type: ImageMetaSchema, default: null },
     options: { type: [MCOptionSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const RapidSchema = new Schema(
   {
     items: { type: [RapidItemSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 export const RapidQuizModel = QuizBaseModel.discriminator("rapid", RapidSchema);
@@ -124,7 +124,7 @@ function readItemsFromBody(body: any) {
 function buildTypePatch(
   _body: any,
   items: any[],
-  _fileMap?: Record<string, any>
+  _fileMap?: Record<string, any>,
 ) {
   return { items };
 }
@@ -172,7 +172,7 @@ function buildAttemptSpecRapid(quizDoc: any): AttemptSpecEnvelope {
 
 function gradeAttemptRapid(
   spec: AttemptSpecEnvelope,
-  answers: Answer[]
+  answers: Answer[],
 ): AutoscoreResult {
   const ansById = new Map(answers.map((a) => [(a.id ?? a.itemId)!, a]));
   const itemScores: ItemScore[] = [];
@@ -187,13 +187,13 @@ function gradeAttemptRapid(
     const selected = Array.isArray(ans?.value)
       ? (ans!.value as string[])
       : typeof ans?.value === "string"
-      ? [String(ans!.value)]
-      : [];
+        ? [String(ans!.value)]
+        : [];
 
     const out = scoreMC_StrictPartial(
       selected,
       k.correctOptionIds ?? [],
-      itemMax
+      itemMax,
     );
 
     const final = out.score;
@@ -225,7 +225,7 @@ function getCorrectOptionIdsFromItem(it: any): string[] {
         truthy(o?.correct) ||
         truthy(o?.isCorrect) ||
         truthy(o?.answer) ||
-        truthy(o?.isAnswer)
+        truthy(o?.isAnswer),
     )
     .map((o: any) => String(o.id));
 }
@@ -272,7 +272,7 @@ export function aggregateScheduledRapid({
     (a) =>
       typeof a.score === "number" &&
       typeof a.maxScore === "number" &&
-      Number(a.maxScore) > 0
+      Number(a.maxScore) > 0,
   );
   const sumScore = scored.reduce((s, a) => s + Number(a.score || 0), 0);
   const sumMax = scored.reduce((s, a) => s + Number(a.maxScore || 0), 0);
@@ -306,8 +306,8 @@ export function aggregateScheduledRapid({
       const selected: string[] = Array.isArray(value)
         ? (value as string[])
         : typeof value === "string"
-        ? [String(value)]
-        : [];
+          ? [String(value)]
+          : [];
 
       if (!mcCounts.has(itemId)) mcCounts.set(itemId, new Map());
       const m = mcCounts.get(itemId)!;
@@ -378,7 +378,109 @@ export function aggregateScheduledRapid({
   };
 }
 
-/* ─────────────────────────── 9) REGISTER TYPE ───────────────────────────── */
+/* ─────────────────────── 9) AI GENERATION METADATA ──────────────────────── */
+
+/**
+ * AI Generation Metadata for Rapid Quizzes
+ * Schema structure, validation rules, and prompting guidelines
+ */
+export const RAPID_QUIZ_AI_METADATA = {
+  description: "Fast-paced multiple choice quiz with per-question time limits",
+
+  schema: {
+    name: { type: "string", required: true },
+    subject: { type: "string", required: true },
+    topic: { type: "string", required: true },
+    items: {
+      type: "array",
+      required: true,
+      description: "Array of rapid MC items with individual time limits",
+      schema: {
+        type: { type: "string", value: "mc", required: true },
+        id: { type: "string", required: true },
+        text: { type: "string", required: true },
+        timeLimit: {
+          type: "number",
+          required: true,
+          min: 5,
+          max: 60,
+          description: "Time in seconds for this question",
+        },
+        image: { type: "object | null" },
+        options: {
+          type: "array",
+          required: true,
+          minItems: 2,
+          maxItems: 6,
+          schema: {
+            id: { type: "string", required: true },
+            text: { type: "string", required: true },
+            correct: { type: "boolean", required: true },
+          },
+        },
+      },
+    },
+  },
+
+  validation: {
+    maxItems: 20,
+    minItems: 1,
+    maxOptionsPerQuestion: 6,
+    minOptionsPerQuestion: 2,
+    minTimeLimit: 5,
+    maxTimeLimit: 60,
+  },
+
+  aiPromptingRules: {
+    systemPrompt:
+      "You are an expert educational content creator specializing in fast-paced multiple choice assessments for primary school students. Create quick-fire questions that test rapid recall and quick thinking.",
+
+    formatInstructions: `Return a valid JSON object with this structure:
+{
+  "name": "Quiz Title",
+  "subject": "Subject Name",
+  "topic": "Topic Name",
+  "items": [
+    {
+      "type": "mc",
+      "id": "uuid",
+      "text": "Quick question",
+      "timeLimit": 10,
+      "image": null,
+      "options": [
+        { "id": "uuid", "text": "Option text", "correct": true }
+      ]
+    }
+  ]
+}
+
+CRITICAL RULES:
+- ALL questions must have type: "mc" (multiple choice only)
+- Each question MUST have a timeLimit between 5-60 seconds
+- Shorter timeLimits (5-15s) for simple recall, longer (20-60s) for calculations
+- Include 2-6 options per question, at least one must be correct
+- Questions should be answerable quickly - avoid long text
+- Maximum 20 questions total
+- Generate age-appropriate vocabulary and complexity`,
+
+    examples: [
+      {
+        type: "mc",
+        id: "550e8400-e29b-41d4-a716-446655440002",
+        text: "Quick: 2 + 2 = ?",
+        timeLimit: 10,
+        image: null,
+        options: [
+          { id: "opt1", text: "3", correct: false },
+          { id: "opt2", text: "4", correct: true },
+          { id: "opt3", text: "5", correct: false },
+        ],
+      },
+    ],
+  },
+};
+
+/* ─────────────────────────── 10) REGISTER TYPE ──────────────────────────── */
 
 export function registerRapidQuiz() {
   registerQuizType({

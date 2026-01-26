@@ -15,7 +15,7 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
   const { colors } = useTheme();
   const spec = doc.quizVersionSnapshot.renderSpec as BasicRenderSpec;
   const items = (spec.items ?? []).filter(
-    (it) => it.kind === "mc" || it.kind === "open"
+    (it) => it.kind === "mc" || it.kind === "open",
   ) as Array<ItemMCBasic | ItemOpenBasic>;
 
   // Build lookup from breakdown
@@ -63,10 +63,10 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
         const selectedIds = Array.isArray(selectedIdsRaw)
           ? (selectedIdsRaw as string[])
           : typeof selectedIdsRaw === "string"
-          ? [selectedIdsRaw]
-          : Array.isArray(b.selected)
-          ? b.selected!
-          : [];
+            ? [selectedIdsRaw]
+            : Array.isArray(b.selected)
+              ? b.selected!
+              : [];
 
         // Correct IDs from breakdown when available
         const correctIds =
@@ -181,21 +181,54 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                     { borderColor: colors.bg3, backgroundColor: colors.bg1 },
                   ]}
                 >
-                  <Text
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {typeof selectedIdsRaw === "string"
-                      ? selectedIdsRaw
-                      : Array.isArray(selectedIdsRaw)
-                      ? selectedIdsRaw.join(", ")
-                      : typeof doc.answers?.[it.id] === "string"
-                      ? String(doc.answers?.[it.id])
-                      : "—"}
-                  </Text>
+                  {Array.isArray(selectedIdsRaw) ? (
+                    <View style={{ gap: 6 }}>
+                      {selectedIdsRaw.map((item: string, idx: number) => (
+                        <View
+                          key={idx}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: colors.textSecondary,
+                              fontSize: 12,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {idx + 1}.
+                          </Text>
+                          <Text
+                            style={{
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: "600",
+                              flex: 1,
+                            }}
+                          >
+                            {item || "—"}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {typeof selectedIdsRaw === "string"
+                        ? selectedIdsRaw
+                        : typeof doc.answers?.[it.id] === "string"
+                          ? String(doc.answers?.[it.id])
+                          : "—"}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Optional accepted examples from grading key */}
@@ -203,6 +236,9 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                   (() => {
                     const g = gradingKeyItems.find((g: any) => g?.id === it.id);
                     if (Array.isArray(g?.accepted) && g.accepted.length) {
+                      const firstAns = g.accepted[0];
+                      const answerType = firstAns?.answerType || "exact";
+
                       return (
                         <View style={{ gap: 6 }}>
                           <Text
@@ -211,25 +247,78 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                               { color: colors.textSecondary },
                             ]}
                           >
-                            Accepted examples:
+                            {answerType === "exact" &&
+                              "Accepted answers (exact match):"}
+                            {answerType === "fuzzy" &&
+                              `Accepted answers (fuzzy match, ${Math.round((firstAns?.similarityThreshold || 0.85) * 100)}% similarity):`}
+                            {answerType === "keywords" &&
+                              `Required keywords (at least ${firstAns?.minKeywords || 0}):`}
+                            {answerType === "list" &&
+                              `Expected list items (${firstAns?.requireOrder ? "order matters" : "any order"}, at least ${firstAns?.minCorrectItems || 1}):`}
                           </Text>
                           <View style={{ gap: 6 }}>
-                            {g.accepted.map((a: any, idx: number) => (
+                            {answerType === "keywords" &&
+                            firstAns?.keywords?.length ? (
                               <View
-                                key={idx}
                                 style={{
                                   flexDirection: "row",
-                                  gap: 8,
+                                  gap: 6,
                                   flexWrap: "wrap",
                                 }}
                               >
-                                <Chip
-                                  text={String(a.text)}
-                                  bg={colors.bg3}
-                                  fg={colors.textPrimary}
-                                />
+                                {firstAns.keywords.map(
+                                  (kw: string, idx: number) => (
+                                    <Chip
+                                      key={idx}
+                                      text={kw}
+                                      bg={colors.bg3}
+                                      fg={colors.textPrimary}
+                                    />
+                                  ),
+                                )}
                               </View>
-                            ))}
+                            ) : answerType === "list" &&
+                              firstAns?.listItems?.length ? (
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  gap: 6,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                {firstAns.listItems.map(
+                                  (item: string, idx: number) => (
+                                    <Chip
+                                      key={idx}
+                                      text={
+                                        firstAns.requireOrder
+                                          ? `${idx + 1}. ${item}`
+                                          : item
+                                      }
+                                      bg={colors.bg3}
+                                      fg={colors.textPrimary}
+                                    />
+                                  ),
+                                )}
+                              </View>
+                            ) : (
+                              g.accepted.map((a: any, idx: number) => (
+                                <View
+                                  key={idx}
+                                  style={{
+                                    flexDirection: "row",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <Chip
+                                    text={String(a.text)}
+                                    bg={colors.bg3}
+                                    fg={colors.textPrimary}
+                                  />
+                                </View>
+                              ))
+                            )}
                           </View>
                         </View>
                       );

@@ -18,7 +18,13 @@ import { getHalfScreenHeight } from "@/src/lib/ui-helpers";
 import { useTheme } from "@/src/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Image,
@@ -72,13 +78,13 @@ export default function QuizPlayBasicScreen({
     );
   }
 
-  // ✅ Include context in question count (no filtering)
+  // Include context in question count (no filtering)
   const items = useMemo(() => spec.renderSpec.items ?? [], [spec]);
   const [index, setIndex] = useState(0);
 
   // ANSWERS STATE
   const [answers, setAnswers] = useState<AnswersPayload>(() =>
-    normaliseInitialAnswers(attempt)
+    normaliseInitialAnswers(attempt),
   );
   const answersRef = useLatest(answers);
 
@@ -88,7 +94,7 @@ export default function QuizPlayBasicScreen({
   // TIMER - using extracted hook
   const { remaining, percent } = useQuizTimer(
     spec.renderSpec.totalTimeLimit,
-    attempt
+    attempt,
   );
 
   // SAVE - using extracted hook
@@ -96,7 +102,6 @@ export default function QuizPlayBasicScreen({
     useDebouncedSave(attemptId, token, () => answersRef.current, 500);
   const pendingSaveRef = useRef(false);
   const openInputRef = useRef<TextInput | null>(null);
-
 
   // FINISH - using extracted hook
   const saveNow = useCallback(async () => {
@@ -114,7 +119,7 @@ export default function QuizPlayBasicScreen({
     (finalizeRes) =>
       navigateToQuizResults(router, attemptId, spec, finalizeRes),
     saveNow,
-    remaining === 0
+    remaining === 0,
   );
 
   const ensureOpenInputCommitted = useCallback(async () => {
@@ -122,6 +127,26 @@ export default function QuizPlayBasicScreen({
     openInputRef.current?.blur();
     await new Promise((resolve) => setTimeout(resolve, 0));
   }, [current?.kind]);
+
+  // Initialize list answers when navigating to a list question
+  useEffect(() => {
+    if (current?.kind === "open" && current?.answerType === "list") {
+      const existing = answersRef.current[current.id];
+      if (!Array.isArray(existing)) {
+        // Initialize with the expected number of empty inputs
+        const expectedCount = current.minCorrectItems || 1;
+        const initialList = Array(expectedCount).fill("");
+        const next = { ...answersRef.current, [current.id]: initialList };
+        answersRef.current = next;
+        setAnswers(next);
+      }
+    }
+  }, [
+    current?.id,
+    current?.kind,
+    current?.answerType,
+    current?.minCorrectItems,
+  ]);
 
   const goTo = useCallback(
     async (nextIndex: number) => {
@@ -134,7 +159,7 @@ export default function QuizPlayBasicScreen({
       setPromptContentH(0);
       setPromptScrolledY(0);
     },
-    [ensureOpenInputCommitted, saveNow]
+    [ensureOpenInputCommitted, saveNow],
   );
 
   const goPrev = useCallback(() => {
@@ -167,7 +192,7 @@ export default function QuizPlayBasicScreen({
       setAnswers(next);
       void enqueueSave();
     },
-    [enqueueSave]
+    [enqueueSave],
   );
 
   const setOpen = useCallback(
@@ -178,7 +203,55 @@ export default function QuizPlayBasicScreen({
       scheduleDebouncedSave();
       pendingSaveRef.current = true;
     },
-    [scheduleDebouncedSave]
+    [scheduleDebouncedSave],
+  );
+
+  const setListItem = useCallback(
+    (itemId: string, index: number, text: string) => {
+      const currList = Array.isArray(answersRef.current[itemId])
+        ? (answersRef.current[itemId] as string[])
+        : [];
+      const newList = [...currList];
+      newList[index] = text;
+      const next = { ...answersRef.current, [itemId]: newList };
+      answersRef.current = next;
+      setAnswers(next);
+      scheduleDebouncedSave();
+      pendingSaveRef.current = true;
+    },
+    [scheduleDebouncedSave],
+  );
+
+  const addListItem = useCallback(
+    (itemId: string) => {
+      const currList = Array.isArray(answersRef.current[itemId])
+        ? (answersRef.current[itemId] as string[])
+        : [];
+      if (currList.length >= 10) return; // max 10 items
+      const newList = [...currList, ""];
+      const next = { ...answersRef.current, [itemId]: newList };
+      answersRef.current = next;
+      setAnswers(next);
+      scheduleDebouncedSave();
+      pendingSaveRef.current = true;
+    },
+    [scheduleDebouncedSave],
+  );
+
+  const removeListItem = useCallback(
+    (itemId: string, index: number) => {
+      const currList = Array.isArray(answersRef.current[itemId])
+        ? (answersRef.current[itemId] as string[])
+        : [];
+      if (currList.length <= 1) return; // keep at least 1
+      const newList = currList.filter((_, i) => i !== index);
+      const next = { ...answersRef.current, [itemId]: newList };
+      answersRef.current = next;
+      setAnswers(next);
+      scheduleDebouncedSave();
+      pendingSaveRef.current = true;
+    },
+    [scheduleDebouncedSave],
   );
 
   const saveOnBlur = useCallback(async () => {
@@ -469,41 +542,181 @@ export default function QuizPlayBasicScreen({
               </View>
             ) : current.kind === "open" ? (
               <View style={{ paddingHorizontal: 12, paddingTop: 6 }}>
-                <Text
-                  style={[styles.openTitle, { color: colors.textSecondary }]}
-                >
-                  Your Answer
-                </Text>
-                <TextInput
-                  ref={openInputRef}
-                  editable={canInteract}
-                  placeholder="Type Here..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={
-                    typeof answers[current.id] === "string"
-                      ? (answers[current.id] as string)
-                      : ""
+                {(() => {
+                  const answerType = current.answerType || "exact";
+                  const isList = answerType === "list";
+
+                  if (isList) {
+                    // List mode: multiple inputs
+                    // Initialize with expected number of inputs based on minCorrectItems
+                    const expectedCount = current.minCorrectItems || 1;
+                    const existingAnswers = Array.isArray(answers[current.id])
+                      ? (answers[current.id] as string[])
+                      : null;
+
+                    const listAnswers =
+                      existingAnswers || Array(expectedCount).fill("");
+
+                    return (
+                      <>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.openTitle,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Your Answers{" "}
+                            {current.requireOrder ? "(Order Matters)" : ""}
+                          </Text>
+                          {listAnswers.length < 10 && (
+                            <Pressable
+                              onPress={() => addListItem(current.id)}
+                              disabled={!canInteract}
+                              style={({ pressed }) => [
+                                {
+                                  backgroundColor: colors.primary,
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 6,
+                                  borderRadius: 5,
+                                  opacity: pressed ? 0.8 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 13,
+                                  fontWeight: "600",
+                                }}
+                              >
+                                + Add Item
+                              </Text>
+                            </Pressable>
+                          )}
+                        </View>
+
+                        <ScrollView style={{ maxHeight: HALF_SCREEN - 60 }}>
+                          {listAnswers.map((item, idx) => (
+                            <View key={idx} style={{ marginBottom: 10 }}>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <View style={{ flex: 1 }}>
+                                  <TextInput
+                                    editable={canInteract}
+                                    placeholder={`Item ${idx + 1}`}
+                                    placeholderTextColor={colors.textSecondary}
+                                    value={item}
+                                    onChangeText={(t) =>
+                                      setListItem(current.id, idx, t)
+                                    }
+                                    onBlur={saveOnBlur}
+                                    style={[
+                                      styles.input,
+                                      {
+                                        borderColor: colors.primary,
+                                        color: colors.textPrimary,
+                                        backgroundColor: colors.bg1,
+                                      },
+                                    ]}
+                                    returnKeyType="done"
+                                    blurOnSubmit
+                                  />
+                                </View>
+
+                                {listAnswers.length > 1 && (
+                                  <Pressable
+                                    onPress={() =>
+                                      removeListItem(current.id, idx)
+                                    }
+                                    disabled={!canInteract}
+                                    style={({ pressed }) => [
+                                      {
+                                        backgroundColor: colors.bg2,
+                                        padding: 10,
+                                        borderRadius: 5,
+                                        opacity: pressed ? 0.7 : 1,
+                                      },
+                                    ]}
+                                  >
+                                    <Iconify
+                                      icon="mingcute:delete-2-line"
+                                      size={20}
+                                      color={colors.textSecondary}
+                                    />
+                                  </Pressable>
+                                )}
+                              </View>
+                            </View>
+                          ))}
+                        </ScrollView>
+
+                        {Platform.OS === "android" ? (
+                          <View style={{ height: keyboardH }} />
+                        ) : null}
+                      </>
+                    );
+                  } else {
+                    // Normal single input for exact/fuzzy/keywords
+                    return (
+                      <>
+                        <Text
+                          style={[
+                            styles.openTitle,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Your Answer
+                          {answerType === "keywords" && current.minKeywords
+                            ? ` (At least ${current.minKeywords} keywords)`
+                            : ""}
+                        </Text>
+                        <TextInput
+                          ref={openInputRef}
+                          editable={canInteract}
+                          placeholder="Type Here..."
+                          placeholderTextColor={colors.textSecondary}
+                          value={
+                            typeof answers[current.id] === "string"
+                              ? (answers[current.id] as string)
+                              : ""
+                          }
+                          onChangeText={(t) => setOpen(current.id, t)}
+                          onBlur={saveOnBlur}
+                          onEndEditing={(e) => {
+                            setOpen(current.id, e.nativeEvent.text ?? "");
+                            void saveOnBlur();
+                          }}
+                          style={[
+                            styles.input,
+                            {
+                              borderColor: colors.primary,
+                              color: colors.textPrimary,
+                              backgroundColor: colors.bg1,
+                            },
+                          ]}
+                          returnKeyType="done"
+                          blurOnSubmit
+                        />
+                        {Platform.OS === "android" ? (
+                          <View style={{ height: keyboardH }} />
+                        ) : null}
+                      </>
+                    );
                   }
-                  onChangeText={(t) => setOpen(current.id, t)}
-                  onBlur={saveOnBlur}
-                  onEndEditing={(e) => {
-                    setOpen(current.id, e.nativeEvent.text ?? "");
-                    void saveOnBlur();
-                  }}
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: colors.primary,
-                      color: colors.textPrimary,
-                      backgroundColor: colors.bg1,
-                    },
-                  ]}
-                  returnKeyType="done"
-                  blurOnSubmit
-                />
-                {Platform.OS === "android" ? (
-                  <View style={{ height: keyboardH }} />
-                ) : null}
+                })()}
               </View>
             ) : null}
 

@@ -32,7 +32,7 @@ export const ImageMetaSchema = new Schema(
     url: String,
     key: String,
   },
-  { _id: false }
+  { _id: false },
 );
 
 export const MCOptionSchema = new Schema(
@@ -41,7 +41,7 @@ export const MCOptionSchema = new Schema(
     text: { type: String, default: "" },
     correct: { type: Boolean, default: false },
   },
-  { _id: false }
+  { _id: false },
 );
 
 export const OpenAnswerSchema = new Schema(
@@ -49,8 +49,26 @@ export const OpenAnswerSchema = new Schema(
     id: { type: String, required: true },
     text: { type: String, default: "" },
     caseSensitive: { type: Boolean, default: false },
+
+    answerType: {
+      type: String,
+      enum: ["exact", "fuzzy", "keywords", "list"],
+      default: "exact",
+    },
+
+    // For keyword mode
+    keywords: { type: [String], default: undefined },
+    minKeywords: { type: Number, default: undefined },
+
+    // For list mode
+    listItems: { type: [String], default: undefined },
+    requireOrder: { type: Boolean, default: false },
+    minCorrectItems: { type: Number, default: undefined },
+
+    // For fuzzy mode
+    similarityThreshold: { type: Number, default: 0.85, min: 0.5, max: 1.0 },
   },
-  { _id: false }
+  { _id: false },
 );
 
 /** ---------- Attempt spec (render & grading) ---------- */
@@ -70,6 +88,10 @@ export type RenderItem =
       text: string;
       image?: any;
       timeLimit?: number | null;
+      answerType?: "exact" | "fuzzy" | "keywords" | "list";
+      minCorrectItems?: number;
+      requireOrder?: boolean;
+      minKeywords?: number;
     }
   | { kind: "context"; id: string; text: string; image?: any }
   | {
@@ -90,7 +112,17 @@ export type GradingKeyItem =
   | {
       kind: "open";
       id: string;
-      accepted: { text: string; caseSensitive?: boolean }[];
+      accepted: {
+        text: string;
+        caseSensitive?: boolean;
+        answerType?: "exact" | "fuzzy" | "keywords" | "list";
+        keywords?: string[];
+        minKeywords?: number;
+        listItems?: string[];
+        requireOrder?: boolean;
+        minCorrectItems?: number;
+        similarityThreshold?: number;
+      }[];
       maxScore?: number;
     }
   | { kind: "crossword"; id: string; answer: string; maxScore?: number };
