@@ -52,7 +52,13 @@ export default async function Page() {
       </div>
 
       {/* Handlers live in the client wrapper */}
-      <QuizzesTable initial={initial} columns={columns} schedulable />
+      <QuizzesTable
+        initial={initial}
+        columns={columns}
+        schedulable
+        showViewClassScheduleButtons={false}
+        showGoToSchedulingButton
+      />
     </div>
   );
 }

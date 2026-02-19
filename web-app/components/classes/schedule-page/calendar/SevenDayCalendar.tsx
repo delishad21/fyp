@@ -48,6 +48,12 @@ export default function SevenDayCalendar({
   readOnly = false,
   titleComponent, // optional title JSX
   showGoToDate = true,
+  dragClassId,
+  dayDropIdForDate,
+  startKeyOverride,
+  onStartKeyChange,
+  onShiftWindowRequest,
+  enableAutoSlideMonitor = true,
 }: {
   schedule: ScheduleItem[];
   previewById?: Record<
@@ -65,17 +71,37 @@ export default function SevenDayCalendar({
   /** If true -> no drag/resize/right-click; no DnD provider required. */
   readOnly?: boolean;
   titleComponent?: React.ReactNode;
-
   showGoToDate?: boolean;
+  /** Optional class id to attach to pill drag payload. */
+  dragClassId?: string;
+  /** Optional droppable id builder per day cell. */
+  dayDropIdForDate?: (dayKey: string) => string;
+  /**
+   * Optional externally controlled start day key.
+   * When provided, local wheel/edge shift events should use `onShiftWindowRequest`.
+   */
+  startKeyOverride?: string;
+  /** Optional callback for direct "go to date" updates. */
+  onStartKeyChange?: (next: string) => void;
+  /** Optional callback for +1 / -1 day shifts (wheel, drag edge). */
+  onShiftWindowRequest?: (dir: 1 | -1) => void;
+  /** Disable internal drag edge auto-slide monitor when parent owns syncing. */
+  enableAutoSlideMonitor?: boolean;
 }) {
+  const externallyControlled = typeof startKeyOverride === "string";
+
   // Visible window start (class-local day key)
   const [startKey, setStartKey] = useState<string>(() =>
-    dayKeyFromDateInTZ(new Date(), classTimezone)
+    externallyControlled && startKeyOverride
+      ? startKeyOverride
+      : dayKeyFromDateInTZ(new Date(), classTimezone)
   );
 
+  // Reset local baseline when timezone changes in uncontrolled mode.
   useEffect(() => {
+    if (externallyControlled) return;
     setStartKey(dayKeyFromDateInTZ(new Date(), classTimezone));
-  }, [classTimezone]);
+  }, [classTimezone, externallyControlled]);
 
   // Derived bounds for this render
   const visibleEndKey = useMemo(
@@ -98,9 +124,23 @@ export default function SevenDayCalendar({
   const slideTargetRef = useRef(BUFFER);
   const [isSettling, setIsSettling] = useState(false); // brief cooldown after slide ends
 
+  const resetSlideTrack = useCallback(() => {
+    slideTargetRef.current = BUFFER;
+    controls.set({ "--slide": BUFFER } as Record<string, number>);
+  }, [controls]);
+
   const slideOnce = useCallback(
-    async (dir: 1 | -1) => {
-      if (isSlidingRef.current) return;
+    async (
+      dir: 1 | -1,
+      opts?: {
+        /**
+         * Skip mutating the local startKey at the end of the animation.
+         * Used when parent drives the key and we only want the visual slide.
+         */
+        skipCommit?: boolean;
+      }
+    ) => {
+      if (isSlidingRef.current) return false;
       isSlidingRef.current = true;
       setIsSliding(true);
 
@@ -120,10 +160,11 @@ export default function SevenDayCalendar({
       } as unknown as AnimationDefinition;
       await controls.start(slideAnim);
 
-      setStartKey((s) => addDaysToDayKey(s, dir));
+      if (!opts?.skipCommit) {
+        setStartKey((s) => addDaysToDayKey(s, dir));
+      }
 
-      slideTargetRef.current = BUFFER;
-      controls.set({ "--slide": BUFFER } as Record<string, number>);
+      resetSlideTrack();
 
       requestAnimationFrame(() => {
         isSlidingRef.current = false;
@@ -131,8 +172,53 @@ export default function SevenDayCalendar({
         setIsSettling(true);
         requestAnimationFrame(() => setIsSettling(false));
       });
+
+      return true;
     },
-    [controls]
+    [controls, resetSlideTrack]
+  );
+
+  // Sync local track to external key changes (used by multi-calendar scheduler).
+  useEffect(() => {
+    if (!externallyControlled || !startKeyOverride) return;
+    if (startKeyOverride === startKey) return;
+    if (isSlidingRef.current) return;
+
+    const delta = diffDayKeys(startKeyOverride, startKey);
+    if (Math.abs(delta) === 1) {
+      const dir: 1 | -1 = delta > 0 ? 1 : -1;
+      let cancelled = false;
+      (async () => {
+        const didSlide = await slideOnce(dir, { skipCommit: true });
+        if (cancelled || !didSlide) return;
+        setStartKey(startKeyOverride);
+        resetSlideTrack();
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // Large jumps should snap directly to the requested date.
+    setStartKey(startKeyOverride);
+    resetSlideTrack();
+  }, [
+    externallyControlled,
+    resetSlideTrack,
+    slideOnce,
+    startKey,
+    startKeyOverride,
+  ]);
+
+  const requestShift = useCallback(
+    (dir: 1 | -1) => {
+      if (onShiftWindowRequest) {
+        onShiftWindowRequest(dir);
+        return;
+      }
+      void slideOnce(dir);
+    },
+    [onShiftWindowRequest, slideOnce]
   );
 
   // Viewport & auto-slide via pointer/wheel
@@ -156,40 +242,43 @@ export default function SevenDayCalendar({
       if (delta === 0) return;
 
       e.preventDefault();
-      slideOnce(delta > 0 ? 1 : -1);
+      requestShift(delta > 0 ? 1 : -1);
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [slideOnce]);
+  }, [requestShift]);
 
   // Go to date control (keep animation path intact)
   const onGoToDate = useCallback(
     async (ymd?: string) => {
       const next = ymd ? ymd : dayKeyFromDateInTZ(new Date(), classTimezone);
-      const diff = diffDayKeys(next, startKey);
-      if (diff === 0) return;
+      const delta = diffDayKeys(next, startKey);
+      if (delta === 0) return;
+
+      if (onStartKeyChange) {
+        onStartKeyChange(next);
+        return;
+      }
 
       // Manual date pick should jump without slide animation.
       if (ymd) {
         setStartKey(next);
-        slideTargetRef.current = BUFFER;
-        controls.set({ "--slide": BUFFER } as Record<string, number>);
+        resetSlideTrack();
         return;
       }
 
-      const steps = Math.min(12, Math.abs(diff));
-      const dir: 1 | -1 = diff > 0 ? 1 : -1;
+      const steps = Math.min(12, Math.abs(delta));
+      const dir: 1 | -1 = delta > 0 ? 1 : -1;
       for (let i = 0; i < steps; i++) {
         await slideOnce(dir);
       }
-      if (Math.abs(diff) > steps) {
+      if (Math.abs(delta) > steps) {
         setStartKey(next);
-        slideTargetRef.current = BUFFER;
-        controls.set({ "--slide": BUFFER } as Record<string, number>);
+        resetSlideTrack();
       }
     },
-    [classTimezone, controls, slideOnce, startKey]
+    [classTimezone, onStartKeyChange, resetSlideTrack, slideOnce, startKey]
   );
 
   /** ======================
@@ -243,14 +332,14 @@ export default function SevenDayCalendar({
           : undefined
       ),
     [
-      itemsForTrack,
-      trackStartKey,
-      trackEndKey,
-      startKey,
-      visibleEndKey,
       classTimezone,
+      itemsForTrack,
       singleFreezeMap,
+      startKey,
+      trackEndKey,
+      trackStartKey,
       usingSticky,
+      visibleEndKey,
     ]
   );
 
@@ -296,7 +385,13 @@ export default function SevenDayCalendar({
     }
 
     return base;
-  }, [computedLanes, draggingQuizId, resizingQuizId, VISIBLE_END_COL, VISIBLE_START_COL]);
+  }, [
+    VISIBLE_END_COL,
+    VISIBLE_START_COL,
+    computedLanes,
+    draggingQuizId,
+    resizingQuizId,
+  ]);
 
   // Lane locking rules (unchanged)
   useEffect(() => {
@@ -468,6 +563,7 @@ export default function SevenDayCalendar({
                   <DayDroppable
                     key={dayKey}
                     dateISO={dayKey}
+                    droppableId={dayDropIdForDate?.(dayKey)}
                     isToday={isToday}
                     isPast={isPast}
                     minPx={dayMinHeightPx}
@@ -483,6 +579,7 @@ export default function SevenDayCalendar({
             >
               <PillsGrid
                 lanes={visibleWithLaneLock}
+                classId={dragClassId}
                 laneCountVisible={laneCountVisible}
                 draggingQuizId={readOnly ? undefined : draggingQuizId}
                 resizingQuizId={readOnly ? undefined : resizingQuizId}
@@ -497,7 +594,7 @@ export default function SevenDayCalendar({
             </div>
 
             {/* DnD auto-slide monitor: mount ONLY in editable mode */}
-            {!readOnly && (
+            {!readOnly && enableAutoSlideMonitor && (
               <DragAutoSlideMonitor
                 onStart={(cx, activeId) => {
                   dragStartClientRef.current = cx;
@@ -512,10 +609,10 @@ export default function SevenDayCalendar({
                   if (now - lastSlideTsRef.current < SLIDE_COOLDOWN_MS) return;
                   if (curX < vp.left - EDGE_HYSTERESIS_PX) {
                     lastSlideTsRef.current = now;
-                    void slideOnce(-1);
+                    requestShift(-1);
                   } else if (curX > vp.right + EDGE_HYSTERESIS_PX) {
                     lastSlideTsRef.current = now;
-                    void slideOnce(1);
+                    requestShift(1);
                   }
                 }}
                 onEnd={() => {

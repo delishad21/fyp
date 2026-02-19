@@ -254,6 +254,7 @@ services:
     build:
       context: ./web-app
       target: dev
+    command: npm run dev:docker
     env_file:
       - .env
     environment:
@@ -267,6 +268,7 @@ services:
     volumes:
       - ./web-app:/app
       - /app/node_modules
+      - web-app-next-data:/app/.next
     depends_on: [user-service]
     extra_hosts:
       - "api.local:host-gateway"
@@ -302,3 +304,4 @@ services:
 volumes:
   redis-data:
   redpanda-data:
+  web-app-next-data:

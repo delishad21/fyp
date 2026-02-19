@@ -29,7 +29,7 @@ import { AppTitle } from "@/components/navigation/AppTitle";
 import SignOutButton from "../auth/form-components/SignOutButton";
 
 type NavItem = {
-  label: "Home" | "Quizzes" | "Classes" | "Settings";
+  label: "Home" | "Scheduling" | "Quizzes" | "Classes" | "Settings";
   icon: string;
   href: string;
 };
@@ -38,6 +38,11 @@ const items: NavItem[] = [
   { label: "Home", icon: "mingcute:home-2-line", href: "/home" },
   { label: "Quizzes", icon: "mingcute:book-2-line", href: "/quizzes" },
   { label: "Classes", icon: "mingcute:group-2-line", href: "/classes" },
+  {
+    label: "Scheduling",
+    icon: "mingcute:calendar-line",
+    href: "/scheduling",
+  },
   { label: "Settings", icon: "mingcute:settings-2-line", href: "/settings" },
 ];
 

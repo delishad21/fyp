@@ -1,27 +1,32 @@
-import { useDroppable } from "@dnd-kit/core";
+"use client";
 
-export function DayDroppable({
-  dateISO,
-  droppableId,
-  isToday,
-  isPast,
+import { useDroppable } from "@dnd-kit/core";
+import { tzDayKey } from "@/services/class/helpers/scheduling/scheduling-helpers";
+import { makeCellDropId } from "../helpers/drop-target-ids";
+
+export default function ClassDayDroppable({
+  classId,
+  dayKey,
+  classTimezone,
   minPx,
 }: {
-  dateISO: string;
-  droppableId?: string;
-  isToday: boolean;
-  isPast: boolean;
+  classId: string;
+  dayKey: string;
+  classTimezone: string;
   minPx: number;
 }) {
+  const todayKey = tzDayKey(new Date(), classTimezone);
+  const isPast = dayKey < todayKey;
+
   const { setNodeRef, isOver } = useDroppable({
-    id: droppableId || dateISO,
+    id: makeCellDropId(classId, dayKey),
     disabled: isPast,
   });
 
   return (
     <div
       ref={setNodeRef}
-      data-day={dateISO}
+      data-day={dayKey}
       data-past={isPast ? "1" : undefined}
       className={[
         "rounded-lg border transition-colors",
@@ -30,7 +35,6 @@ export function DayDroppable({
           : isOver
           ? "border-[var(--color-primary)] bg-[var(--color-bg2)]/60"
           : "border-[var(--color-bg4)] bg-[var(--color-bg3)]",
-        isToday ? "outline-2 outline-[var(--color-primary)]" : "",
       ].join(" ")}
       style={{ minHeight: minPx - 6 }}
     />

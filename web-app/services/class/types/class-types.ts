@@ -85,6 +85,7 @@ export type DragData =
   | { kind: "quiz-row"; rowId: string; quiz?: QuizLite }
   | {
       kind: "pill";
+      classId?: string;
       clientId: string;
       _id?: string;
       quizId: string;
@@ -93,6 +94,7 @@ export type DragData =
     }
   | {
       kind: "pill-resize";
+      classId?: string;
       clientId: string;
       _id?: string;
       dir: "left" | "right";

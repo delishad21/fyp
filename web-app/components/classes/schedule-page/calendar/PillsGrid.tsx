@@ -10,6 +10,7 @@ import { SpanPillStatic } from "./SpanPillStatic";
 
 export const PillsGrid = memo(function PillsGrid({
   lanes,
+  classId,
   laneCountVisible,
   draggingQuizId,
   resizingQuizId,
@@ -22,6 +23,7 @@ export const PillsGrid = memo(function PillsGrid({
   classTimezone,
 }: {
   lanes: LaneItem[];
+  classId?: string;
   laneCountVisible: number;
   draggingQuizId?: string;
   resizingQuizId?: string;
@@ -58,6 +60,7 @@ export const PillsGrid = memo(function PillsGrid({
           <SpanPill
             key={it.clientId}
             item={it}
+            classId={classId}
             isDragging={
               draggingUid
                 ? draggingUid === it.clientId

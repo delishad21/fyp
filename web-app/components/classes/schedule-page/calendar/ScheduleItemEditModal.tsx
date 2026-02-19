@@ -25,6 +25,8 @@ export default function ScheduleItemEditModal({
   versionLoading,
   onClose,
   onSave,
+  onDelete,
+  deleteLoading = false,
   classTimezone,
 }: {
   open: boolean;
@@ -40,6 +42,8 @@ export default function ScheduleItemEditModal({
     showAnswersAfterAttempt?: boolean;
     quizVersion?: number;
   }) => Promise<SaveResult>;
+  onDelete?: () => void;
+  deleteLoading?: boolean;
   classTimezone: string;
 }) {
   const visible = open && !!item;
@@ -333,6 +337,18 @@ export default function ScheduleItemEditModal({
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
+          {onDelete && (
+            <Button
+              variant="error"
+              onClick={onDelete}
+              title="Delete"
+              disabled={saving || deleteLoading}
+              loading={deleteLoading}
+              className="mr-auto"
+            >
+              Delete
+            </Button>
+          )}
           <Button
             variant="small"
             onClick={onClose}

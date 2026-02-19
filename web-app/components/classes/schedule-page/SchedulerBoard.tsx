@@ -692,6 +692,7 @@ export default function SchedulerBoard({
           resizingQuizId={
             activeDrag?.kind === "pill-resize" ? activeDrag.clientId : undefined
           }
+          dragClassId={classId}
           classTimezone={classTimezone}
           // Right-click -> modal
           onEditRequest={(clientId) => {

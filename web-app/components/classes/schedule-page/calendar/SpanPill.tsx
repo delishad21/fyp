@@ -9,6 +9,7 @@ import ScheduleItemHoverCard from "./ScheduleItemHoverCard";
 
 export const SpanPill = memo(function SpanPill({
   item,
+  classId,
   isDragging,
   isResizing,
   isSliding,
@@ -18,6 +19,7 @@ export const SpanPill = memo(function SpanPill({
   classTimezone,
 }: {
   item: LaneItem;
+  classId?: string;
   isDragging?: boolean;
   isResizing?: boolean;
   isSliding?: boolean;
@@ -30,6 +32,7 @@ export const SpanPill = memo(function SpanPill({
     id: `pill-${item.clientId}`, // unique per instance
     disabled: false,
     data: {
+      classId,
       clientId: item.clientId,
       _id: item._id,
       kind: "pill",
@@ -43,6 +46,7 @@ export const SpanPill = memo(function SpanPill({
     id: `pill-left-${item.clientId}`,
     disabled: false,
     data: {
+      classId,
       clientId: item.clientId,
       _id: item._id,
       kind: "pill-resize",
@@ -57,6 +61,7 @@ export const SpanPill = memo(function SpanPill({
     id: `pill-right-${item.clientId}`,
     disabled: false,
     data: {
+      classId,
       clientId: item.clientId,
       _id: item._id,
       kind: "pill-resize",
@@ -147,7 +152,6 @@ export const SpanPill = memo(function SpanPill({
           if (!hoverOpen) return;
           setHoverPos({ top: e.clientY + 12, left: e.clientX + 12 });
         }}
-        title="Right-click to edit"
         style={{
           WebkitUserSelect: "none",
           userSelect: "none",

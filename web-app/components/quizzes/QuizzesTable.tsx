@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import DataTable from "@/components/table/DataTable";
 import type {
@@ -22,7 +23,9 @@ import type { DragConfig } from "@/components/table/CardTable";
 import { QuizLite } from "@/services/class/types/class-types";
 import EmptyStateBox from "../ui/EmptyStateBox";
 import Button from "../ui/buttons/Button";
-import ScheduleQuizModal from "./ScheduleQuizModal";
+import ScheduleQuizModal, {
+  type ScheduleQuizAttemptResult,
+} from "./ScheduleQuizModal";
 
 export default function QuizzesTable({
   initial,
@@ -30,12 +33,22 @@ export default function QuizzesTable({
   draggable = false,
   editable = true,
   schedulable = false,
+  scheduleOnRowClick = false,
+  onScheduleAttemptComplete,
+  schedulingHint,
+  showViewClassScheduleButtons,
+  showGoToSchedulingButton,
 }: {
   initial: InitialPayload;
   columns: ColumnDef[];
   draggable?: boolean;
   editable?: boolean;
   schedulable?: boolean;
+  scheduleOnRowClick?: boolean;
+  onScheduleAttemptComplete?: (result: ScheduleQuizAttemptResult) => void;
+  schedulingHint?: ReactNode;
+  showViewClassScheduleButtons?: boolean;
+  showGoToSchedulingButton?: boolean;
 }) {
   const router = useRouter();
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -128,15 +141,25 @@ export default function QuizzesTable({
       <DataTable
         columns={columns}
         initial={initial}
+        onRowClick={
+          schedulable && scheduleOnRowClick
+            ? (row) => {
+                onSchedule(row);
+              }
+            : undefined
+        }
         onQuery={onQuery}
         onEdit={editable ? onEdit : undefined}
         onView={editable ? onView : undefined}
         onDuplicate={editable ? onDuplicate : undefined}
-        onSchedule={schedulable && editable ? onSchedule : undefined}
+        onSchedule={
+          schedulable && !scheduleOnRowClick ? onSchedule : undefined
+        }
         onDelete={editable ? onDelete : undefined}
         draggable={draggable}
         editable={editable}
         dragConfig={dragConfig}
+        preTableContent={schedulingHint}
         renderEmpty={() => (
           <EmptyStateBox
             title="You don't have any quizzes yet"
@@ -154,6 +177,9 @@ export default function QuizzesTable({
         open={scheduleOpen}
         row={scheduleRow}
         onClose={closeSchedule}
+        onAttemptComplete={onScheduleAttemptComplete}
+        showViewClassScheduleButtons={showViewClassScheduleButtons}
+        showGoToSchedulingButton={showGoToSchedulingButton}
       />
     </>
   );

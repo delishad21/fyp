@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Button from "@/components/ui/buttons/Button";
 import TextInput from "@/components/ui/text-inputs/TextInput";
 import NumberToggleInput from "@/components/ui/text-inputs/NumberToggleInput";
@@ -9,7 +10,10 @@ import ToggleButton from "@/components/ui/buttons/ToggleButton";
 import MultiSelect from "@/components/ui/selectors/multi-select/MultiSelect";
 import { useToast } from "@/components/ui/toast/ToastProvider";
 import { getClasses, getClass } from "@/services/class/actions/class-actions";
-import { addClassQuizSchedule } from "@/services/class/actions/class-schedule-actions";
+import {
+  addClassQuizSchedule,
+  type ApiScheduleItem,
+} from "@/services/class/actions/class-schedule-actions";
 import { getQuizForEdit } from "@/services/quiz/actions/get-quiz-action";
 import {
   dayKeyFromDateInTZ,
@@ -19,7 +23,12 @@ import type { RowData } from "@/services/quiz/types/quiz-table-types";
 import type { ClassItem, QuizLite } from "@/services/class/types/class-types";
 import Select from "../ui/selectors/select/Select";
 
-const DEFAULT_TZ = "Asia/Singapore";
+const FALLBACK_TZ = "UTC";
+
+function resolveBrowserTimezone() {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return typeof tz === "string" && tz.trim() ? tz : FALLBACK_TZ;
+}
 
 type ClassOption = {
   id: string;
@@ -29,14 +38,29 @@ type ClassOption = {
   colorHex?: string;
 };
 
+export type ScheduleQuizAttemptResult = {
+  startYMD: string;
+  endYMD: string;
+  classIds: string[];
+  successClassIds: string[];
+  failedClassIds: string[];
+  createdItems: Array<{ classId: string; item: ApiScheduleItem }>;
+};
+
 export default function ScheduleQuizModal({
   open,
   row,
   onClose,
+  onAttemptComplete,
+  showViewClassScheduleButtons = true,
+  showGoToSchedulingButton = false,
 }: {
   open: boolean;
   row: RowData | null;
   onClose: () => void;
+  onAttemptComplete?: (result: ScheduleQuizAttemptResult) => void;
+  showViewClassScheduleButtons?: boolean;
+  showGoToSchedulingButton?: boolean;
 }) {
   const { showToast } = useToast();
   const quizPayload = row?.payload as QuizLite | undefined;
@@ -83,6 +107,22 @@ export default function ScheduleQuizModal({
   >({});
   const [localErr, setLocalErr] = useState<string | null>(null);
 
+  const browserTimezone = useMemo(() => resolveBrowserTimezone(), []);
+  const defaultTimezone = useMemo(() => {
+    const selected = classIds
+      .map((id) => classTimezones[id])
+      .filter((tz): tz is string => typeof tz === "string" && tz.trim() !== "");
+
+    const uniqueSelected = Array.from(new Set(selected));
+    if (uniqueSelected.length === 1) return uniqueSelected[0];
+
+    if (!classIds.length && classes.length === 1 && classes[0].timezone) {
+      return classes[0].timezone;
+    }
+
+    return browserTimezone;
+  }, [browserTimezone, classIds, classTimezones, classes]);
+
   const visible = open && !!row;
 
   useEffect(() => {
@@ -93,8 +133,8 @@ export default function ScheduleQuizModal({
     setClassIds([]);
     setClassTimezones({});
 
-    setStartYMD(dayKeyFromDateInTZ(new Date(), DEFAULT_TZ));
-    setEndYMD(dayKeyFromDateInTZ(new Date(), DEFAULT_TZ));
+    setStartYMD(dayKeyFromDateInTZ(new Date(), browserTimezone));
+    setEndYMD(dayKeyFromDateInTZ(new Date(), browserTimezone));
     setStartTime("00:00");
     setEndTime("23:59");
     setContribStr("100");
@@ -183,7 +223,7 @@ export default function ScheduleQuizModal({
     return () => {
       cancelled = true;
     };
-  }, [visible, quizId, quizVersionHint, showToast]);
+  }, [visible, quizId, quizVersionHint, showToast, browserTimezone]);
 
   useEffect(() => {
     if (!classIds.length) return;
@@ -197,10 +237,10 @@ export default function ScheduleQuizModal({
         missing.map(async (id) => {
           try {
             const cls = await getClass(id);
-            const tz = cls?.timezone ? String(cls.timezone) : DEFAULT_TZ;
+            const tz = cls?.timezone ? String(cls.timezone) : browserTimezone;
             updates[id] = tz;
           } catch {
-            updates[id] = DEFAULT_TZ;
+            updates[id] = browserTimezone;
           }
         })
       );
@@ -212,14 +252,14 @@ export default function ScheduleQuizModal({
     return () => {
       cancelled = true;
     };
-  }, [classIds, classTimezones]);
+  }, [browserTimezone, classIds, classTimezones]);
 
   useEffect(() => {
     if (!datesTouched) {
-      setStartYMD(dayKeyFromDateInTZ(new Date(), DEFAULT_TZ));
-      setEndYMD(dayKeyFromDateInTZ(new Date(), DEFAULT_TZ));
+      setStartYMD(dayKeyFromDateInTZ(new Date(), defaultTimezone));
+      setEndYMD(dayKeyFromDateInTZ(new Date(), defaultTimezone));
     }
-  }, [datesTouched]);
+  }, [datesTouched, defaultTimezone]);
 
   useEffect(() => {
     if (!classIds.length) {
@@ -290,13 +330,20 @@ export default function ScheduleQuizModal({
 
     const baseStart = makeDateInTZ(
       startYMD,
-      DEFAULT_TZ,
+      defaultTimezone,
       startHour,
       startMinute,
       0,
       0
     );
-    const baseEnd = makeDateInTZ(endYMD, DEFAULT_TZ, endHour, endMinute, 0, 0);
+    const baseEnd = makeDateInTZ(
+      endYMD,
+      defaultTimezone,
+      endHour,
+      endMinute,
+      0,
+      0
+    );
     if (baseEnd.getTime() < baseStart.getTime()) {
       setLocalErr("End date cannot be earlier than the start date.");
       return;
@@ -353,7 +400,7 @@ export default function ScheduleQuizModal({
     setSaving(true);
     const results = await Promise.allSettled(
       classIds.map(async (id) => {
-        const tz = classTimezones[id] || DEFAULT_TZ;
+        const tz = classTimezones[id] || defaultTimezone;
         const startDate = makeDateInTZ(
           startYMD,
           tz,
@@ -384,6 +431,28 @@ export default function ScheduleQuizModal({
           row.res.status === "rejected" ||
           (row.res.status === "fulfilled" && !row.res.value.ok)
       );
+    const successClassIds = results
+      .map((res, idx) => ({ res, idx }))
+      .filter(
+        (row) =>
+          row.res.status === "fulfilled" &&
+          row.res.value.ok &&
+          Boolean(row.res.value.data?._id)
+      )
+      .map((row) => classIds[row.idx]);
+    const failedClassIds = failures.map((row) => classIds[row.idx]);
+    const createdItems = results
+      .map((res, idx) => ({ res, idx }))
+      .flatMap((row) => {
+        if (
+          row.res.status === "fulfilled" &&
+          row.res.value.ok &&
+          row.res.value.data?._id
+        ) {
+          return [{ classId: classIds[row.idx], item: row.res.value.data }];
+        }
+        return [];
+      });
 
     if (failures.length) {
       setLocalErr(
@@ -413,6 +482,14 @@ export default function ScheduleQuizModal({
         description: "Some classes could not be scheduled.",
         variant: "error",
       });
+      onAttemptComplete?.({
+        startYMD,
+        endYMD,
+        classIds: [...classIds],
+        successClassIds,
+        failedClassIds,
+        createdItems,
+      });
       return;
     }
 
@@ -427,6 +504,14 @@ export default function ScheduleQuizModal({
       title: "Scheduled",
       description: "Quiz assigned to the selected classes.",
       variant: "success",
+    });
+    onAttemptComplete?.({
+      startYMD,
+      endYMD,
+      classIds: [...classIds],
+      successClassIds,
+      failedClassIds,
+      createdItems,
     });
   };
 
@@ -497,19 +582,21 @@ export default function ScheduleQuizModal({
                         End: {endYMD} {endTime}
                       </div>
                       <div>
-                        Timezone: {classTimezones[id] || DEFAULT_TZ}
+                        Timezone: {classTimezones[id] || defaultTimezone}
                       </div>
                     </div>
                   )}
                 </div>
-                <Button
-                  href={`/classes/${encodeURIComponent(id)}/scheduling`}
-                  variant="ghost"
-                  className="px-5 py-2.5 text-base whitespace-nowrap"
-                  title="View class schedule"
-                >
-                  View Class Schedule
-                </Button>
+                {showViewClassScheduleButtons ? (
+                  <Button
+                    href={`/classes/${encodeURIComponent(id)}/scheduling`}
+                    variant="ghost"
+                    className="px-5 py-2.5 text-base whitespace-nowrap"
+                    title="View class schedule"
+                  >
+                    View Class Schedule
+                  </Button>
+                ) : null}
               </div>
             </div>
           );
@@ -521,21 +608,7 @@ export default function ScheduleQuizModal({
     </div>
   );
 
-  const resetAttempt = () => {
-    setHasAttempted(false);
-    setSaving(false);
-    setLocalErr(null);
-    setFieldErrors({});
-    setClassResults((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((id) => {
-        next[id] = { status: "idle" };
-      });
-      return next;
-    });
-  };
-
-  return (
+  const modal = (
     <div
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40"
       role="dialog"
@@ -667,22 +740,23 @@ export default function ScheduleQuizModal({
           <div className="space-y-4">
             {statusPanel}
             <div className="flex justify-end gap-2">
+              {showGoToSchedulingButton && startYMD ? (
+                <Button
+                  href={`/scheduling?start=${encodeURIComponent(startYMD)}`}
+                  variant="primary"
+                  className="px-5 py-2.5 text-base"
+                  title="Go to scheduling page"
+                >
+                  Go to Scheduling
+                </Button>
+              ) : null}
               <Button
-                variant="small"
+                variant="ghost"
+                className="px-5 py-2.5 text-base whitespace-nowrap"
                 onClick={onClose}
                 title="Close"
-                disabled={saving}
               >
                 Close
-              </Button>
-              <Button
-                variant="primary"
-                className="bg-[var(--color-primary)] text-white"
-                onClick={resetAttempt}
-                title="Try scheduling again"
-                disabled={saving}
-              >
-                Try scheduling again
               </Button>
             </div>
           </div>
@@ -690,4 +764,7 @@ export default function ScheduleQuizModal({
       </div>
     </div>
   );
+
+  if (typeof window === "undefined") return modal;
+  return createPortal(modal, document.body);
 }

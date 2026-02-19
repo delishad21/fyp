@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useCallback, useState } from "react";
+import type { ReactNode } from "react";
 import CardTable, { DragConfig } from "./CardTable";
 import Filters, { FiltersValue } from "./Filters";
 import Pagination from "./Pagination";
@@ -18,6 +19,7 @@ import WarningModal from "../ui/WarningModal";
 export default function DataTable({
   columns,
   initial,
+  onRowClick,
   onQuery,
   onEdit,
   onView,
@@ -28,9 +30,11 @@ export default function DataTable({
   editable = true,
   dragConfig,
   renderEmpty,
+  preTableContent,
 }: {
   columns: ColumnDef[];
   initial: InitialPayload;
+  onRowClick?: (row: RowData) => Promise<void> | void;
   onQuery: (q: InitialPayload["query"]) => Promise<{
     rows: RowData[];
     page: number;
@@ -46,6 +50,7 @@ export default function DataTable({
   editable?: boolean;
   dragConfig?: DragConfig;
   renderEmpty?: () => React.ReactNode;
+  preTableContent?: ReactNode;
 }) {
   const filters = useTableFilters({
     name: initial.query.name,
@@ -204,6 +209,8 @@ export default function DataTable({
         />
       </div>
 
+      {preTableContent}
+
       <div className="relative">
         {data.rows.length === 0 && !isPending ? (
           renderEmpty?.()
@@ -211,10 +218,11 @@ export default function DataTable({
           <CardTable
             columns={columns}
             rows={data.rows}
+            onRowClick={onRowClick}
             onView={editable ? onView : undefined}
             onEdit={editable ? onEdit : undefined}
             onDuplicate={editable ? onDuplicate : undefined}
-            onSchedule={editable ? onSchedule : undefined}
+            onSchedule={onSchedule}
             onDelete={editable ? requestDelete : undefined}
             draggable={draggable}
             dragConfig={dragConfig}
