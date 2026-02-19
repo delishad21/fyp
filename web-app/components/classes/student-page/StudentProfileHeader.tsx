@@ -2,6 +2,7 @@
 
 import { KpiStat } from "@/components/ui/StatDisplays";
 import Image from "next/image";
+import type { ReactNode } from "react";
 
 type Props = {
   name: string;
@@ -10,6 +11,7 @@ type Props = {
   overallScore: number;
   rank: number | null;
   badges?: string[];
+  actions?: ReactNode;
 };
 
 export default function StudentProfileHeader({
@@ -19,9 +21,13 @@ export default function StudentProfileHeader({
   overallScore,
   rank,
   badges = [],
+  actions,
 }: Props) {
   return (
     <div className="w-full rounded-xl bg-[var(--color-bg3)] py-5 pr-5 text-[var(--color-text-primary)]">
+      {actions ? (
+        <div className="mb-3 flex justify-end pl-5">{actions}</div>
+      ) : null}
       <div className="flex items-center gap-6">
         {/* LEFT: Profile */}
         <div className="flex flex-col items-center gap-4">

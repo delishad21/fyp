@@ -1,5 +1,6 @@
 import StudentProfileHeader from "@/components/classes/student-page/StudentProfileHeader";
 import StudentProfileSwitcher from "@/components/classes/student-page/StudentProfileSwitcher";
+import ResetStudentPasswordButton from "@/components/classes/student-page/ResetStudentPasswordButton";
 import {
   getStudentInClass,
   getStudentScheduleSummary,
@@ -106,6 +107,9 @@ export default async function StudentProfilePage({
           rank: student.rank ?? null,
           stats: student.stats ?? null,
         }}
+        actions={
+          <ResetStudentPasswordButton classId={classId} studentId={studentId} />
+        }
       />
     </div>
   );

@@ -8,12 +8,14 @@ export default function InfoModal({
   title = "Info",
   message,
   closeLabel = "Close",
+  actions,
   onClose,
 }: {
   open: boolean;
   title?: string;
   message?: string | React.ReactNode;
   closeLabel?: string;
+  actions?: React.ReactNode;
   onClose: () => void;
 }) {
   if (!open) return null;
@@ -42,7 +44,8 @@ export default function InfoModal({
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end gap-2">
+          {actions}
           <Button variant="ghost" onClick={onClose} title={closeLabel}>
             {closeLabel}
           </Button>

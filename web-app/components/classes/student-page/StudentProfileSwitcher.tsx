@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import StudentAttemptsClient from "./StudentAttemptsClient";
 import type {
   ColumnDef,
@@ -62,18 +63,20 @@ export default function StudentProfileSwitcher({
   studentId,
   attemptsProps,
   statsProps,
+  actions,
 }: {
   classId: string;
   studentId: string;
   attemptsProps: AttemptsProps;
   statsProps: StatsProps;
+  actions?: ReactNode;
 }) {
   const [tab, setTab] = useState<"attempts" | "statistics">("attempts");
 
   return (
     <div className="space-y-4">
       {/* Tabs-like nav without background */}
-      <nav>
+      <nav className="flex items-center justify-between gap-3">
         <ul className="flex gap-2">
           {[
             { key: "attempts", label: "Attempts" },
@@ -98,6 +101,7 @@ export default function StudentProfileSwitcher({
             );
           })}
         </ul>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </nav>
 
       {tab === "attempts" ? (
