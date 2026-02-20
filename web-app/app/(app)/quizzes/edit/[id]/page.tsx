@@ -84,8 +84,8 @@ export default async function EditQuizPage({
   }
 
   return (
-    <div className="pt-6">
-      <h1 className="mb-4 px-4 text-xl font-semibold text-[var(--color-text-primary)]">
+    <div className="px-10 pt-6">
+      <h1 className="mb-4 text-xl font-semibold text-[var(--color-text-primary)]">
         Edit Quiz
       </h1>
       {form}

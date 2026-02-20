@@ -13,6 +13,7 @@
 
 import { Icon } from "@iconify/react";
 import ThemeToggle from "../ui/ThemeToggle";
+import PathBreadcrumbs from "./PathBreadcrumbs";
 
 export function TopBar({
   className = "",
@@ -27,26 +28,27 @@ export function TopBar({
     <header
       className={[
         "bg-[var(--color-bg2)] border-b border-[var(--color-bg3)]",
-        "flex items-center justify-between px-6 py-2",
+        "flex items-center justify-between gap-4 px-6 py-2",
         className,
       ].join(" ")}
     >
-      {onToggleSidebar ? (
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          className="p-2 rounded-md hover:bg-[var(--color-bg3)]"
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <Icon
-            icon="mingcute:menu-line"
-            className="text-[var(--color-icon)]"
-            width={22}
-          />
-        </button>
-      ) : (
-        <span />
-      )}
+      <div className="min-w-0 flex items-center gap-2">
+        {onToggleSidebar ? (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="p-2 rounded-md hover:bg-[var(--color-bg3)]"
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <Icon
+              icon="mingcute:menu-line"
+              className="text-[var(--color-icon)]"
+              width={22}
+            />
+          </button>
+        ) : null}
+        <PathBreadcrumbs />
+      </div>
 
       <div className="flex items-center gap-3">
         <button className="p-2 rounded-md hover:bg-[var(--color-bg3)]">
