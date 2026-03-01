@@ -5,8 +5,9 @@ const QUIZ_SERVICE_URL =
 
 export interface QuizStructureAndRules {
   quizTypes: string[];
-  schemas: {
-    basic?: {
+  schemas: Record<
+    string,
+    {
       description: string;
       schema: any;
       validation: any;
@@ -15,39 +16,15 @@ export interface QuizStructureAndRules {
         formatInstructions: string;
         examples: any[];
       };
-    };
-    rapid?: {
-      description: string;
-      schema: any;
-      validation: any;
-      aiPromptingRules: {
-        systemPrompt: string;
-        formatInstructions: string;
-        examples: any[];
-      };
-    };
-    crossword?: {
-      description: string;
-      schema: any;
-      validation: any;
-      aiPromptingRules: {
-        systemPrompt: string;
-        formatInstructions: string;
-        examples: any[];
-      };
-    };
-  };
+    }
+  >;
   validation: {
     general: {
       maxQuestions: number;
       maxOptions: number;
       requiredFields: string[];
     };
-    timing: {
-      basic: string;
-      rapid: string;
-      crossword: string;
-    };
+    timing: Record<string, string>;
   };
   usage?: {
     overview: string;
@@ -78,85 +55,13 @@ export class QuizServiceClient {
       return response.data.structureAndRules;
     } catch (error) {
       console.error("Failed to fetch quiz structure and rules:", error);
-      return this.getDefaultStructureAndRules();
-    }
-  }
-
-  /**
-   * Get default structure and rules as ultimate fallback
-   */
-  private getDefaultStructureAndRules(): QuizStructureAndRules {
-    return {
-      quizTypes: ["basic", "rapid", "crossword"],
-      schemas: {
-        basic: {
-          description: "Basic quiz with mixed question types",
-          schema: {},
-          validation: { maxItems: 20, minItems: 1 },
-          aiPromptingRules: {
-            systemPrompt:
-              "Create educational assessment questions for students.",
-            formatInstructions: "Return valid JSON.",
-            examples: [],
-          },
-        },
-        rapid: {
-          description: "Fast-paced multiple choice quiz",
-          schema: {},
-          validation: { maxItems: 20, minItems: 1 },
-          aiPromptingRules: {
-            systemPrompt: "Create fast-paced multiple choice questions.",
-            formatInstructions: "Return valid JSON.",
-            examples: [],
-          },
-        },
-        crossword: {
-          description: "Crossword puzzle quiz",
-          schema: {},
-          validation: { maxEntries: 10, minEntries: 5 },
-          aiPromptingRules: {
-            systemPrompt: "Create crossword puzzle entries.",
-            formatInstructions: "Return valid JSON.",
-            examples: [],
-          },
-        },
-      },
-      validation: {
-        general: {
-          maxQuestions: 20,
-          maxOptions: 6,
-          requiredFields: ["name", "subject", "topic", "quizType"],
-        },
-        timing: {
-          basic: "Single totalTimeLimit or null",
-          rapid: "Per-question timeLimit (5-60 seconds)",
-          crossword: "Single totalTimeLimit or null",
-        },
-      },
-    };
-  }
-
-  /**
-   * Get existing quiz names for the authenticated user
-   */
-  async getExistingQuizNames(authHeader: string): Promise<string[]> {
-    try {
-      const response = await axios.get(`${QUIZ_SERVICE_URL}/quiz`, {
-        headers: {
-          Authorization: authHeader,
-        },
-        params: {
-          page: 1,
-          pageSize: 1000, // Get all quizzes to check names
-        },
-        timeout: 10000,
-      });
-
-      const rows = response.data?.rows || [];
-      return rows.map((row: any) => row.name || "").filter(Boolean);
-    } catch (error) {
-      console.error("Failed to fetch existing quiz names:", error);
-      return [];
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown error while fetching quiz structure and rules";
+      throw new Error(
+        `Failed to fetch quiz structure and rules from quiz-service: ${message}`,
+      );
     }
   }
 

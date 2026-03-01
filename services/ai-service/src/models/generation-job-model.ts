@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface IDraftQuiz {
   tempId: string;
-  quizType: "basic" | "rapid" | "crossword";
+  quizType: "basic" | "rapid" | "crossword" | "true-false";
   name: string;
   subject: string;
   topic: string;
@@ -21,13 +21,82 @@ export interface IDraftQuiz {
   savedQuizId?: Types.ObjectId;
   error?: string;
   retryCount?: number;
+  analytics?: IQuizAnalytics;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ILLMTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface IQuizAttemptAnalytics {
+  attemptNumber: number;
+  success: boolean;
+  provider: "openai" | "anthropic" | "gemini";
+  model: string;
+  llmLatencyMs: number;
+  usage: ILLMTokenUsage;
+  startedAt: Date;
+  completedAt: Date;
+  error?: string;
+}
+
+export interface IQuizAnalyticsTotals {
+  attemptCount: number;
+  successfulAttempts: number;
+  retryCount: number;
+  llmLatencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface IQuizAnalytics {
+  attempts: IQuizAttemptAnalytics[];
+  totals: IQuizAnalyticsTotals;
+}
+
+export interface IJobProviderModelAnalytics {
+  provider: "openai" | "anthropic" | "gemini";
+  model: string;
+  attemptCount: number;
+  successfulAttempts: number;
+  llmLatencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface IPlanningPassAnalytics {
+  success: boolean;
+  fallbackUsed: boolean;
+  attemptCount: number;
+  successfulAttempts: number;
+  retryCount: number;
+  provider?: "openai" | "anthropic" | "gemini";
+  model?: string;
+  llmLatencyMs?: number;
+  usage?: ILLMTokenUsage;
+  startedAt: Date;
+  completedAt: Date;
+  planItemCount: number;
+  error?: string;
+}
+
+export interface IJobAnalytics {
+  totals: IQuizAnalyticsTotals;
+  byProviderModel: IJobProviderModelAnalytics[];
+  generatedAt: Date;
+  planning?: IPlanningPassAnalytics;
 }
 
 export interface IGenerationConfig {
   instructions: string; // Required - main generation prompt
   numQuizzes: number;
+  quizTypes: Array<"basic" | "rapid" | "crossword" | "true-false">;
   educationLevel:
     | "primary-1"
     | "primary-2"
@@ -36,8 +105,8 @@ export interface IGenerationConfig {
     | "primary-5"
     | "primary-6";
   questionsPerQuiz: number;
-  subject?: string;
-  topic?: string;
+  aiModel?: string; // Optional model id selected in UI
+  subject: string;
   timerSettings?: {
     type: "default" | "custom" | "none";
     defaultSeconds?: number;
@@ -45,6 +114,7 @@ export interface IGenerationConfig {
 }
 
 export interface IDocumentMeta {
+  documentType?: "syllabus" | "question-bank" | "subject-content" | "other";
   filename: string;
   originalName: string;
   size: number;
@@ -81,8 +151,10 @@ export interface IGenerationJob extends Document {
       status: "pending" | "generating" | "completed" | "failed";
       error?: string;
       retryCount: number;
+      analytics?: IQuizAnalytics;
     }>;
   };
+  analytics?: IJobAnalytics;
 }
 
 const DraftQuizSchema = new Schema<IDraftQuiz>(
@@ -91,7 +163,7 @@ const DraftQuizSchema = new Schema<IDraftQuiz>(
     quizType: {
       type: String,
       required: true,
-      enum: ["basic", "rapid", "crossword"],
+      enum: ["basic", "rapid", "crossword", "true-false"],
     },
     name: { type: String, required: true },
     subject: { type: String, required: true },
@@ -117,6 +189,7 @@ const DraftQuizSchema = new Schema<IDraftQuiz>(
     savedQuizId: { type: Schema.Types.ObjectId, ref: "Quiz" },
     error: { type: String },
     retryCount: { type: Number, default: 0 },
+    analytics: { type: Schema.Types.Mixed },
   },
   { timestamps: true },
 );
@@ -125,6 +198,19 @@ const GenerationConfigSchema = new Schema<IGenerationConfig>(
   {
     instructions: { type: String, required: true }, // Required field
     numQuizzes: { type: Number, required: true, min: 1, max: 20 },
+    quizTypes: {
+      type: [
+        {
+          type: String,
+          enum: ["basic", "rapid", "crossword", "true-false"],
+        },
+      ],
+      required: true,
+      validate: {
+        validator: (arr: string[]) => Array.isArray(arr) && arr.length > 0,
+        message: "At least one quiz type is required",
+      },
+    },
     educationLevel: {
       type: String,
       required: true,
@@ -138,8 +224,8 @@ const GenerationConfigSchema = new Schema<IGenerationConfig>(
       ],
     },
     questionsPerQuiz: { type: Number, required: true, min: 5, max: 20 },
-    subject: { type: String },
-    topic: { type: String },
+    aiModel: { type: String },
+    subject: { type: String, required: true },
     timerSettings: {
       type: new Schema(
         {
@@ -155,6 +241,11 @@ const GenerationConfigSchema = new Schema<IGenerationConfig>(
 
 const DocumentMetaSchema = new Schema<IDocumentMeta>(
   {
+    documentType: {
+      type: String,
+      enum: ["syllabus", "question-bank", "subject-content", "other"],
+      default: "other",
+    },
     filename: { type: String, required: true },
     originalName: { type: String, required: true },
     size: { type: Number, required: true },
@@ -194,7 +285,7 @@ const GenerationJobSchema = new Schema<IGenerationJob>(
       required: true,
     },
     documentMeta: {
-      type: DocumentMetaSchema,
+      type: [DocumentMetaSchema],
       required: false, // Now optional
     },
     extractedText: { type: String },
@@ -215,9 +306,11 @@ const GenerationJobSchema = new Schema<IGenerationJob>(
           },
           error: { type: String },
           retryCount: { type: Number, default: 0 },
+          analytics: { type: Schema.Types.Mixed },
         },
       ],
     },
+    analytics: { type: Schema.Types.Mixed },
   },
   {
     timestamps: true,
