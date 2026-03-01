@@ -361,7 +361,8 @@ export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
               {/* Quiz Content with Edit Buttons */}
               <div className="max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
                 {currentQuiz.quizType === "basic" ||
-                currentQuiz.quizType === "rapid" ? (
+                currentQuiz.quizType === "rapid" ||
+                currentQuiz.quizType === "true-false" ? (
                   <BasicOrRapidQuizPreview
                     data={currentQuiz as never}
                     showEditButtons={true}

@@ -55,7 +55,9 @@ export default async function Page({ params }: PageProps) {
 
       {/* Quiz content */}
       <div className="space-y-4">
-        {quizType === "basic" || quizType === "rapid" ? (
+        {quizType === "basic" ||
+        quizType === "rapid" ||
+        quizType === "true-false" ? (
           <BasicOrRapidQuizPreview data={quiz as never} />
         ) : (
           <CrosswordQuizPreview data={quiz as never} />

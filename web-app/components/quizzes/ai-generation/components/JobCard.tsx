@@ -8,6 +8,7 @@ interface JobCardProps {
     config: {
       subject?: string;
       topic?: string;
+      quizTypes?: string[];
       numQuizzes: number;
     };
     results?: {
@@ -36,6 +37,12 @@ export default function JobCard({
   getStatusColor,
 }: JobCardProps) {
   const hasPending = pendingCount > 0;
+  const quizTypeSummary = (job.config.quizTypes || [])
+    .map((type) => {
+      if (type === "true-false") return "True/False";
+      return type.charAt(0).toUpperCase() + type.slice(1);
+    })
+    .join(" · ");
 
   return (
     <Link
@@ -72,8 +79,12 @@ export default function JobCard({
 
           {/* Job info */}
           <h4 className="text-sm font-medium text-[var(--color-text-primary)] truncate mb-1">
-            {job.config.subject || "General"} - {job.config.topic || "Quiz"}
+            {job.config.subject || "General"}
           </h4>
+
+          <p className="text-xs text-[var(--color-text-secondary)] truncate mb-1">
+            {quizTypeSummary || "Mixed quiz types"}
+          </p>
 
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
             <Icon icon="mdi:file-document-multiple" className="w-3 h-3" />

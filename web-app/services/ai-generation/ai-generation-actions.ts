@@ -4,19 +4,50 @@ import { getAuthHeader } from "@/services/user/session-definitions";
 
 const AI_SERVICE_URL = process.env.AI_SVC_URL || "http://localhost:7304";
 
+async function parseApiResponse(response: Response): Promise<any> {
+  const raw = await response.text();
+  if (!raw) return {};
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const preview = raw
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 220);
+    return {
+      message: `Upstream returned non-JSON response (HTTP ${response.status}). ${preview}`,
+    };
+  }
+}
+
 export interface GenerationConfig {
+  instructions: string;
   numQuizzes: number;
-  quizType: "basic" | "rapid" | "crossword" | "mixed";
+  quizTypes: ("basic" | "rapid" | "crossword" | "true-false")[];
+  educationLevel:
+    | "primary-1"
+    | "primary-2"
+    | "primary-3"
+    | "primary-4"
+    | "primary-5"
+    | "primary-6";
   questionsPerQuiz: number;
-  difficulty: "easy" | "medium" | "hard" | "mixed";
-  questionTypes?: ("mc" | "open" | "context")[];
-  additionalPrompt?: string;
-  subject?: string;
+  aiModel?: string;
+  subject: string;
   topic?: string;
   timerSettings?: {
     type: "default" | "custom" | "none";
     defaultSeconds?: number;
   };
+}
+
+export interface AvailableAIModel {
+  id: string;
+  provider: "openai" | "anthropic" | "gemini";
+  model: string;
+  label: string;
+  description: string;
 }
 
 export interface GenerationJobStatus {
@@ -41,7 +72,7 @@ export interface GenerationJobStatus {
 
 export interface DraftQuiz {
   tempId: string;
-  quizType: "basic" | "rapid" | "crossword";
+  quizType: "basic" | "rapid" | "crossword" | "true-false";
   name: string;
   subject: string;
   topic: string;
@@ -76,7 +107,7 @@ export async function startGeneration(
       body: formData,
     });
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
 
     if (!response.ok) {
       return {
@@ -95,6 +126,63 @@ export async function startGeneration(
     return {
       ok: false,
       message: "An error occurred while starting generation",
+    };
+  }
+}
+
+/**
+ * Get available AI models (filtered by configured API keys in ai-service)
+ */
+export async function getAvailableModels(): Promise<{
+  ok: boolean;
+  available: boolean;
+  models: AvailableAIModel[];
+  defaultModelId?: string;
+  message?: string;
+}> {
+  try {
+    const authHeader = await getAuthHeader();
+    if (!authHeader) {
+      return {
+        ok: false,
+        available: false,
+        models: [],
+        message: "Not authenticated",
+      };
+    }
+
+    const response = await fetch(`${AI_SERVICE_URL}/models/`, {
+      method: "GET",
+      headers: {
+        Authorization: authHeader,
+      },
+      cache: "no-store",
+    });
+
+    const data = await parseApiResponse(response);
+    if (!response.ok) {
+      return {
+        ok: false,
+        available: false,
+        models: [],
+        message: data.message || "Failed to get available models",
+      };
+    }
+
+    return {
+      ok: true,
+      available: !!data.available,
+      models: Array.isArray(data.models) ? data.models : [],
+      defaultModelId: data.defaultModelId,
+      message: data.message,
+    };
+  } catch (error) {
+    console.error("Get available models error:", error);
+    return {
+      ok: false,
+      available: false,
+      models: [],
+      message: "An error occurred while fetching available models",
     };
   }
 }
@@ -119,7 +207,7 @@ export async function getGenerationStatus(
       cache: "no-store",
     });
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
 
     if (!response.ok) {
       return {
@@ -175,7 +263,7 @@ export async function getGenerationJobs(options?: {
       cache: "no-store",
     });
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
 
     if (!response.ok) {
       return {
@@ -224,7 +312,7 @@ export async function updateDraftQuiz(
       },
     );
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
 
     if (!response.ok) {
       return {
@@ -273,7 +361,7 @@ export async function approveQuizzes(
       body: JSON.stringify({ quizIds }),
     });
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
 
     if (!response.ok) {
       return {
@@ -316,7 +404,7 @@ export async function deleteGenerationJob(
       },
     });
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
 
     if (!response.ok) {
       return {
@@ -363,7 +451,7 @@ export async function getPendingJobsCount(): Promise<{
       return { ok: false, count: 0 };
     }
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
     return { ok: true, count: data.count || 0 };
   } catch (error) {
     console.error("Get pending jobs count error:", error);
@@ -394,11 +482,11 @@ export async function listGenerationJobs(): Promise<{
     });
 
     if (!response.ok) {
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       return { ok: false, jobs: [], message: data.message };
     }
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
     return { ok: true, jobs: data.jobs || [] };
   } catch (error) {
     console.error("List generation jobs error:", error);
@@ -428,7 +516,7 @@ export async function cleanupOldJobs(): Promise<{
     });
 
     if (!response.ok) {
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       return {
         ok: false,
         deleted: 0,
@@ -436,7 +524,7 @@ export async function cleanupOldJobs(): Promise<{
       };
     }
 
-    const data = await response.json();
+    const data = await parseApiResponse(response);
     return {
       ok: true,
       deleted: data.deleted || 0,

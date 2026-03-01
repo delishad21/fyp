@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import BasicQuizForm from "@/components/quizzes/quiz-forms/BasicQuizForm";
 import CrosswordQuizForm from "@/components/quizzes/quiz-forms/CrosswordQuizForm";
 import RapidQuizForm from "@/components/quizzes/quiz-forms/RapidQuizForm";
+import TrueFalseQuizForm from "@/components/quizzes/quiz-forms/TrueFalseQuizForm";
 import {
   getGenerationStatus,
   updateDraftQuiz,
@@ -157,6 +158,18 @@ export default function Page({
         onSubmit={handleSave}
         saving={saving}
         initialQuestionIndex={questionIndex}
+      />
+    );
+  } else if (quiz.quizType === "true-false") {
+    form = (
+      <TrueFalseQuizForm
+        key={`true-false-draft-${tempId}`}
+        meta={meta}
+        mode="draft"
+        initialData={quiz as never}
+        typeColorHex={typeColors["true-false"]}
+        onSubmit={handleSave}
+        saving={saving}
       />
     );
   }

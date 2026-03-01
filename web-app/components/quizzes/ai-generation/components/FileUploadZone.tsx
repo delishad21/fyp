@@ -1,8 +1,20 @@
 import { Icon } from "@iconify/react";
 import { useRef } from "react";
 
+export type UploadDocumentType =
+  | "syllabus"
+  | "question-bank"
+  | "subject-content"
+  | "other";
+
+export interface UploadedReferenceDocument {
+  file: File;
+  documentType: UploadDocumentType;
+}
+
 interface FileUploadZoneProps {
-  files: File[];
+  documents: UploadedReferenceDocument[];
+  maxFileSizeMb?: number;
   isDragging: boolean;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
@@ -11,8 +23,22 @@ interface FileUploadZoneProps {
   onRemoveFile: (index: number) => void;
 }
 
+function renderDocumentTypeLabel(type: UploadDocumentType): string {
+  switch (type) {
+    case "syllabus":
+      return "Syllabus";
+    case "question-bank":
+      return "Question Bank";
+    case "subject-content":
+      return "Subject Content";
+    default:
+      return "Other";
+  }
+}
+
 export default function FileUploadZone({
-  files,
+  documents,
+  maxFileSizeMb = 20,
   isDragging,
   onDragOver,
   onDragLeave,
@@ -35,11 +61,11 @@ export default function FileUploadZone({
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        onClick={() => files.length < 5 && fileInputRef.current?.click()}
+        onClick={() => documents.length < 5 && fileInputRef.current?.click()}
         className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
           isDragging
             ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
-            : files.length < 5
+            : documents.length < 5
               ? "border-[var(--color-bg4)] hover:border-[var(--color-primary)]/50"
               : "border-[var(--color-bg4)] opacity-50 cursor-not-allowed"
         }`}
@@ -48,13 +74,13 @@ export default function FileUploadZone({
           icon="mdi:cloud-upload"
           className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-secondary)]"
         />
-        {files.length > 0 ? (
+        {documents.length > 0 ? (
           <div>
             <p className="text-[var(--color-text-primary)] font-medium">
-              {files.length} file(s) selected
+              {documents.length} file(s) selected
             </p>
             <p className="text-xs text-[var(--color-text-secondary)] mt-2">
-              {files.length < 5
+              {documents.length < 5
                 ? "Click to add more files (max 5)"
                 : "Maximum files reached"}
             </p>
@@ -65,19 +91,18 @@ export default function FileUploadZone({
               Drop reference documents here or click to browse
             </p>
             <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-              Supports PDF, DOCX, and TXT files (max 10MB each, up to 5 files) -
-              Optional
+              Supports PDF, DOCX, and TXT files (max {maxFileSizeMb}MB each, up
+              to 5 files) - Optional
             </p>
           </div>
         )}
       </div>
 
-      {/* Display selected files */}
-      {files.length > 0 && (
+      {documents.length > 0 && (
         <div className="mt-4 space-y-2">
-          {files.map((file, index) => (
+          {documents.map((document, index) => (
             <div
-              key={index}
+              key={`${document.file.name}-${index}`}
               className="flex items-center justify-between p-3 bg-[var(--color-bg3)] rounded-lg"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -87,17 +112,23 @@ export default function FileUploadZone({
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-[var(--color-text-primary)] truncate font-medium">
-                    {file.name}
+                    {document.file.name}
                   </p>
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {(document.file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-[var(--color-bg4)] text-[var(--color-text-secondary)]">
+                      {renderDocumentTypeLabel(document.documentType)}
+                    </span>
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => onRemoveFile(index)}
                 className="p-2 hover:bg-[var(--color-bg4)] rounded-lg transition-colors flex-shrink-0"
+                title="Remove file"
               >
                 <Icon
                   icon="mdi:close"

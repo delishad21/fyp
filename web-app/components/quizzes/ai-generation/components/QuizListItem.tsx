@@ -26,6 +26,8 @@ export default function QuizListItem({
         return "Rapid Fire";
       case "crossword":
         return "Crossword";
+      case "true-false":
+        return "True / False";
       default:
         return "Quiz";
     }
@@ -39,6 +41,8 @@ export default function QuizListItem({
         return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
       case "crossword":
         return "bg-purple-500/10 text-purple-500 border-purple-500/20";
+      case "true-false":
+        return "bg-rose-500/10 text-rose-500 border-rose-500/20";
       default:
         return "bg-gray-500/10 text-gray-500 border-gray-500/20";
     }

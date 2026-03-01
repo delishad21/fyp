@@ -3,9 +3,16 @@ import { Icon } from "@iconify/react";
 import GenerationWizard from "@/components/quizzes/ai-generation/GenerationWizard";
 import JobsSidebar from "@/components/quizzes/ai-generation/JobsSidebar";
 import { getFilterMeta } from "@/services/quiz/actions/quiz-metadata-actions";
+import { getAvailableModels } from "@/services/ai-generation/ai-generation-actions";
 
 export default async function AIGeneratePage() {
-  const meta = await getFilterMeta();
+  const [meta, modelsResult] = await Promise.all([
+    getFilterMeta(),
+    getAvailableModels(),
+  ]);
+  const availableModels = modelsResult.models || [];
+  const aiGenerationAvailable =
+    modelsResult.ok && modelsResult.available && availableModels.length > 0;
 
   return (
     <div className="px-10 pt-6 pb-10">
@@ -25,7 +32,31 @@ export default async function AIGeneratePage() {
             <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-4">
               Create New Generation Job
             </h2>
-            <GenerationWizard meta={meta} />
+            {aiGenerationAvailable ? (
+              <GenerationWizard
+                meta={meta}
+                availableModels={availableModels}
+                defaultModelId={modelsResult.defaultModelId}
+              />
+            ) : (
+              <div className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg1)] p-5">
+                <div className="flex items-start gap-3">
+                  <Icon
+                    icon="mingcute:warning-fill"
+                    className="w-5 h-5 text-[var(--color-warning)] mt-0.5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                      AI generation is currently not available
+                    </p>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                      Configure at least one model API key in the AI service
+                      environment to enable quiz generation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
