@@ -18,7 +18,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function QuizPlayCoordinator() {
   const { attemptId, quizType } = useLocalSearchParams<{
     attemptId: string;
-    quizType: "basic" | "rapid" | "crossword";
+    quizType:
+      | "basic"
+      | "rapid"
+      | "crossword"
+      | "rapid-arithmetic"
+      | "crossword-bank"
+      | "true-false";
   }>();
 
   // ensure session is initialized

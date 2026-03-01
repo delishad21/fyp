@@ -46,9 +46,15 @@ const formatSecs = (secs: number) => {
 
 const quizTypeLabel = (spec: AttemptSpec | null) => {
   if (!spec) return null;
-  if (isRapid(spec)) return "Rapid";
+  if (isRapid(spec)) {
+    if (spec.quizType === "true-false") return "True / False";
+    if (spec.quizType === "rapid-arithmetic") return "Rapid Arithmetic";
+    return "Rapid";
+  }
   if (isBasic(spec)) return "Basic";
-  if (isCrossword(spec)) return "Crossword";
+  if (isCrossword(spec)) {
+    return spec.quizType === "crossword-bank" ? "Crossword Bank" : "Crossword";
+  }
   return null;
 };
 

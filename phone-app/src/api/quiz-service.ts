@@ -1,6 +1,12 @@
 // Client for Quiz Attempt Service (RN / Expo)
 
-export type QuizType = "basic" | "crossword" | "rapid";
+export type QuizType =
+  | "basic"
+  | "crossword"
+  | "rapid"
+  | "rapid-arithmetic"
+  | "crossword-bank"
+  | "true-false";
 
 // ---- Common bits ----
 export type McOption = { id: string; text: string };
@@ -114,14 +120,26 @@ export type BasicAttemptSpec = BaseAttemptSpec<BasicRenderSpec> & {
 export type RapidAttemptSpec = BaseAttemptSpec<RapidRenderSpec> & {
   quizType: "rapid";
 };
+export type RapidArithmeticAttemptSpec = BaseAttemptSpec<RapidRenderSpec> & {
+  quizType: "rapid-arithmetic";
+};
+export type TrueFalseAttemptSpec = BaseAttemptSpec<RapidRenderSpec> & {
+  quizType: "true-false";
+};
 export type CrosswordAttemptSpec = BaseAttemptSpec<CrosswordRenderSpec> & {
   quizType: "crossword";
+};
+export type CrosswordBankAttemptSpec = BaseAttemptSpec<CrosswordRenderSpec> & {
+  quizType: "crossword-bank";
 };
 
 export type AttemptSpec =
   | BasicAttemptSpec
   | RapidAttemptSpec
-  | CrosswordAttemptSpec;
+  | RapidArithmeticAttemptSpec
+  | TrueFalseAttemptSpec
+  | CrosswordAttemptSpec
+  | CrosswordBankAttemptSpec;
 
 // The server may include an optional inProgressAttemptId alongside the spec.
 export type AttemptSpecServerResponse = {
@@ -462,10 +480,16 @@ export async function fetchAttemptForPlay(
 // ---------- Type guards ----------
 export const isBasic = (s: AttemptSpec): s is BasicAttemptSpec =>
   s.quizType === "basic";
-export const isRapid = (s: AttemptSpec): s is RapidAttemptSpec =>
-  s.quizType === "rapid";
-export const isCrossword = (s: AttemptSpec): s is CrosswordAttemptSpec =>
-  s.quizType === "crossword";
+export const isRapid = (
+  s: AttemptSpec
+): s is RapidAttemptSpec | RapidArithmeticAttemptSpec | TrueFalseAttemptSpec =>
+  s.quizType === "rapid" ||
+  s.quizType === "rapid-arithmetic" ||
+  s.quizType === "true-false";
+export const isCrossword = (
+  s: AttemptSpec
+): s is CrosswordAttemptSpec | CrosswordBankAttemptSpec =>
+  s.quizType === "crossword" || s.quizType === "crossword-bank";
 
 // ===== Types for listed attempts (server shape) =====
 export type AttemptRow = {
@@ -493,7 +517,14 @@ export type AttemptRow = {
     subject?: string | null;
     subjectColorHex?: string | null;
     topic?: string | null;
-    quizType?: "basic" | "rapid" | "crossword" | null;
+    quizType?:
+      | "basic"
+      | "rapid"
+      | "crossword"
+      | "rapid-arithmetic"
+      | "crossword-bank"
+      | "true-false"
+      | null;
     typeColorHex?: string;
     contentHash?: string | null;
   } | null;

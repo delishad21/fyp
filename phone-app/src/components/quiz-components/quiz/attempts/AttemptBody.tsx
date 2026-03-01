@@ -19,8 +19,13 @@ export function AttemptBody({
 
   if (attemptDoc) {
     if (quizType === "basic") return <BasicAttemptViewer doc={attemptDoc} />;
-    if (quizType === "rapid") return <RapidAttemptViewer doc={attemptDoc} />;
-    if (quizType === "crossword")
+    if (
+      quizType === "rapid" ||
+      quizType === "rapid-arithmetic" ||
+      quizType === "true-false"
+    )
+      return <RapidAttemptViewer doc={attemptDoc} />;
+    if (quizType === "crossword" || quizType === "crossword-bank")
       return <CrosswordAttemptViewer doc={attemptDoc} />;
 
     // Fallback when we have a doc but no matching viewer
