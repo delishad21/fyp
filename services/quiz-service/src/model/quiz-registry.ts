@@ -2,8 +2,11 @@ import type { Model } from "mongoose";
 import "dotenv/config";
 import { connect } from "mongoose";
 import { registerBasicQuiz } from "./quiz-types/quiz-basic";
+import { registerCrosswordBankQuiz } from "./quiz-types/quiz-crossword-bank";
 import { registerCrosswordQuiz } from "./quiz-types/quiz-crossword";
+import { registerRapidArithmeticQuiz } from "./quiz-types/quiz-rapid-arithmetic";
 import { registerRapidQuiz } from "./quiz-types/quiz-rapid";
+import { registerTrueFalseQuiz } from "./quiz-types/quiz-true-false";
 import {
   Answer,
   AttemptSpecEnvelope,
@@ -54,6 +57,16 @@ export type QuizTypeDef = {
   aggregateScheduledQuiz: (
     input: ScheduleBreakdownInput
   ) => ScheduleBreakdownOutput;
+
+  /**
+   * Optional schedule-anchored variant generator.
+   * When provided, quiz-service persists one variant per
+   * (scheduleId, quizRootId, quizVersion) and uses it for attempt spec creation.
+   */
+  buildScheduleVariant?: (
+    quizDoc: any,
+    ctx: { scheduleId: string }
+  ) => Record<string, any>;
 };
 
 /** Type registry for dynamic lookups */
@@ -73,6 +86,9 @@ export function getQuizTypeDef(type: QuizTypeKey): QuizTypeDef | undefined {
  */
 export async function registerAllQuizzes() {
   registerBasicQuiz();
+  registerCrosswordBankQuiz();
   registerCrosswordQuiz();
+  registerRapidArithmeticQuiz();
   registerRapidQuiz();
+  registerTrueFalseQuiz();
 }

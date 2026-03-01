@@ -83,21 +83,64 @@ function coerceMCOption(raw: any) {
   };
 }
 
+function coerceStringArrayEntries(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (isString(entry)) return entry.trim();
+      if (typeof entry === "number" || typeof entry === "boolean") {
+        return String(entry).trim();
+      }
+      if (entry && typeof entry === "object") {
+        const record = entry as Record<string, unknown>;
+        const candidateFields = [
+          "text",
+          "value",
+          "label",
+          "item",
+          "name",
+          "answer",
+        ];
+        for (const field of candidateFields) {
+          const candidate = record[field];
+          if (isString(candidate)) {
+            const normalized = candidate.trim();
+            if (normalized) return normalized;
+          }
+          if (typeof candidate === "number" || typeof candidate === "boolean") {
+            const normalized = String(candidate).trim();
+            if (normalized) return normalized;
+          }
+        }
+      }
+      return "";
+    })
+    .filter((entry) => entry.length > 0);
+}
+
 function coerceOpenAnswer(raw: any) {
+  const answerType = ["exact", "fuzzy", "keywords", "list"].includes(
+    raw?.answerType,
+  )
+    ? raw.answerType
+    : "exact";
   const base = {
     id: isString(raw?.id) ? raw.id : crypto.randomUUID(),
-    text: isString(raw?.text) ? raw.text : "",
+    text:
+      answerType === "exact" || answerType === "fuzzy"
+        ? isString(raw?.text)
+          ? raw.text
+          : ""
+        : "",
     caseSensitive: !!raw?.caseSensitive,
-    answerType: ["exact", "fuzzy", "keywords", "list"].includes(raw?.answerType)
-      ? raw.answerType
-      : "exact",
+    answerType,
   };
 
   // Add type-specific fields
   if (base.answerType === "keywords") {
     return {
       ...base,
-      keywords: Array.isArray(raw?.keywords) ? raw.keywords : [],
+      keywords: coerceStringArrayEntries(raw?.keywords),
       minKeywords: typeof raw?.minKeywords === "number" ? raw.minKeywords : 1,
     };
   }
@@ -105,7 +148,7 @@ function coerceOpenAnswer(raw: any) {
   if (base.answerType === "list") {
     return {
       ...base,
-      listItems: Array.isArray(raw?.listItems) ? raw.listItems : [],
+      listItems: coerceStringArrayEntries(raw?.listItems),
       requireOrder: !!raw?.requireOrder,
       minCorrectItems:
         typeof raw?.minCorrectItems === "number" ? raw.minCorrectItems : 1,
@@ -214,16 +257,26 @@ function validateBasic(body: any, items: any[]) {
         errs.push("Add at least one accepted answer");
 
       it.answers?.forEach((a: any, i: number) => {
-        if (!a.text?.trim()) errs.push(`Answer ${i + 1} text is required`);
-
         // Validate answer type specific fields
         const answerType = a.answerType || "exact";
+        const requiresText =
+          answerType === "exact" || answerType === "fuzzy";
+
+        if (requiresText && !a.text?.trim()) {
+          errs.push(`Answer ${i + 1} text is required`);
+        }
 
         if (answerType === "keywords") {
+          const keywords = Array.isArray(a.keywords)
+            ? a.keywords
+                .filter((k: unknown) => isString(k))
+                .map((k: string) => k.trim())
+                .filter(Boolean)
+            : [];
           if (
             !a.keywords ||
             !Array.isArray(a.keywords) ||
-            a.keywords.length === 0
+            keywords.length === 0
           ) {
             errs.push(
               `Answer ${i + 1}: Keyword mode requires at least one keyword`,
@@ -235,10 +288,16 @@ function validateBasic(body: any, items: any[]) {
         }
 
         if (answerType === "list") {
+          const listItems = Array.isArray(a.listItems)
+            ? a.listItems
+                .filter((entry: unknown) => isString(entry))
+                .map((entry: string) => entry.trim())
+                .filter(Boolean)
+            : [];
           if (
             !a.listItems ||
             !Array.isArray(a.listItems) ||
-            a.listItems.length === 0
+            listItems.length === 0
           ) {
             errs.push(`Answer ${i + 1}: List mode requires list items`);
           }
@@ -832,13 +891,14 @@ export const BASIC_QUIZ_AI_METADATA = {
               caseSensitive: { type: "boolean", default: false },
               answerType: {
                 type: "string",
-                enum: ["exact", "fuzzy", "keywords", "list"],
+                enum: ["exact", "keywords", "list"],
                 default: "exact",
                 description: "Answer validation strategy",
               },
               keywords: {
                 type: "array",
-                description: "For answerType=keywords: required keywords",
+                description:
+                  "For answerType=keywords: required keywords (array of strings)",
               },
               minKeywords: {
                 type: "number",
@@ -846,7 +906,8 @@ export const BASIC_QUIZ_AI_METADATA = {
               },
               listItems: {
                 type: "array",
-                description: "For answerType=list: expected list items",
+                description:
+                  "For answerType=list: expected list items (array of strings)",
               },
               requireOrder: {
                 type: "boolean",
@@ -855,13 +916,6 @@ export const BASIC_QUIZ_AI_METADATA = {
               minCorrectItems: {
                 type: "number",
                 description: "For answerType=list: minimum correct items",
-              },
-              similarityThreshold: {
-                type: "number",
-                min: 0.5,
-                max: 1.0,
-                default: 0.85,
-                description: "For answerType=fuzzy: similarity threshold",
               },
             },
           },
@@ -923,7 +977,13 @@ export const BASIC_QUIZ_AI_METADATA = {
 
 CRITICAL RULES:
 - Include 2-6 options for MC questions, at least one must be correct
-- For open questions, use answerType: "exact" for simple answers, "fuzzy" for answers with possible typos, "keywords" for explanations, "list" for enumerated answers
+- For open questions, use answerType: "exact" for short exact responses, "keywords" for explanation-style responses, and "list" for enumerated answers. Not all answer types need to be used, only use list and keywords when appropriate.
+- For answerType "exact", include one or more accepted texts in "text"; any one accepted text can be correct.
+- For answerType "keywords", include at least one keyword and set minKeywords to 1 or higher (never 0)
+- For answerType "keywords", "keywords" must be an array of plain strings (no objects)
+- For answerType "list", include at least one list item and set minCorrectItems to 1 or higher
+- For answerType "list", "listItems" must be an array of plain strings (no objects)
+- For answerType "keywords" and "list", keep "text" empty unless absolutely needed for author notes; grading should use keywords/listItems fields.
 - Maximum 20 items total
 - Generate age-appropriate vocabulary and complexity
 

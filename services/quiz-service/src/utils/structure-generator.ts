@@ -10,8 +10,11 @@
 
 import { QUIZ_TYPES } from "../model/quiz-shared";
 import { BASIC_QUIZ_AI_METADATA } from "../model/quiz-types/quiz-basic";
+import { CROSSWORD_BANK_QUIZ_AI_METADATA } from "../model/quiz-types/quiz-crossword-bank";
 import { RAPID_QUIZ_AI_METADATA } from "../model/quiz-types/quiz-rapid";
+import { RAPID_ARITHMETIC_QUIZ_AI_METADATA } from "../model/quiz-types/quiz-rapid-arithmetic";
 import { CROSSWORD_QUIZ_AI_METADATA } from "../model/quiz-types/quiz-crossword";
+import { TRUE_FALSE_QUIZ_AI_METADATA } from "../model/quiz-types/quiz-true-false";
 
 /**
  * Generate quiz structure and AI generation rules from actual type definitions
@@ -26,6 +29,9 @@ export function generateQuizStructureAndRules() {
       basic: BASIC_QUIZ_AI_METADATA,
       rapid: RAPID_QUIZ_AI_METADATA,
       crossword: CROSSWORD_QUIZ_AI_METADATA,
+      "rapid-arithmetic": RAPID_ARITHMETIC_QUIZ_AI_METADATA,
+      "crossword-bank": CROSSWORD_BANK_QUIZ_AI_METADATA,
+      "true-false": TRUE_FALSE_QUIZ_AI_METADATA,
     },
 
     // General validation rules (apply to all types)
@@ -39,6 +45,9 @@ export function generateQuizStructureAndRules() {
         basic: "Single totalTimeLimit or null",
         rapid: "Per-question timeLimit (5-60 seconds)",
         crossword: "Single totalTimeLimit or null",
+        "rapid-arithmetic": "Per-question timeLimit from quiz config",
+        "crossword-bank": "Single totalTimeLimit or null",
+        "true-false": "Per-question timeLimit (5-60 seconds)",
       },
     },
 

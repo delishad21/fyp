@@ -21,6 +21,22 @@ export function computeContentHashForDoc(quizType: string, doc: any): string {
         grid: doc.grid,
         totalTimeLimit: doc.totalTimeLimit,
       });
+    case "true-false":
+      return contentHash({ items: doc.items });
+    case "rapid-arithmetic":
+      return contentHash({
+        questionCount: doc.questionCount,
+        operators: doc.operators,
+        timePerQuestion: doc.timePerQuestion,
+        choicesPerQuestion: doc.choicesPerQuestion,
+        operationSettings: doc.operationSettings,
+      });
+    case "crossword-bank":
+      return contentHash({
+        wordsPerQuiz: doc.wordsPerQuiz,
+        entriesBank: doc.entriesBank,
+        totalTimeLimit: doc.totalTimeLimit,
+      });
     default:
       return contentHash({});
   }

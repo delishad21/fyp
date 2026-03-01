@@ -29,6 +29,7 @@ import {
   getLiveMetaForRoot,
   getLiveMetaMapFromRows,
 } from "../utils/quiz-attempt-utils";
+import { resolveQuizForSchedule } from "../utils/schedule-quiz-variant-utils";
 
 /** ---------- Helpers ---------- */
 
@@ -150,7 +151,12 @@ export async function postAttemptSpec(req: CustomRequest, res: Response) {
     const def = getQuizTypeDef(quiz.quizType);
     if (!def)
       return res.status(400).json({ ok: false, message: "Unknown quiz type" });
-    const envelope = def.buildAttemptSpec(quiz);
+    const quizForSchedule = await resolveQuizForSchedule({
+      scheduleId: String(scheduleId),
+      quizDoc: quiz,
+      def,
+    });
+    const envelope = def.buildAttemptSpec(quizForSchedule);
 
     const familyMeta = await getFamilyMetaMap([String(quiz.rootQuizId)]);
     const liveMeta = familyMeta.get(String(quiz.rootQuizId)) || {};
@@ -338,7 +344,12 @@ export async function startAttempt(req: CustomRequest, res: Response) {
     const def = getQuizTypeDef(quiz.quizType);
     if (!def)
       return res.status(400).json({ ok: false, message: "Unknown quiz type" });
-    const envelope = def.buildAttemptSpec(quiz);
+    const quizForSchedule = await resolveQuizForSchedule({
+      scheduleId: String(scheduleId),
+      quizDoc: quiz,
+      def,
+    });
+    const envelope = def.buildAttemptSpec(quizForSchedule);
 
     // ── 9) create attempt
     const attempt = await AttemptModel.create({
@@ -1204,6 +1215,12 @@ export async function getScheduledQuizStatsInternal(
       return res.status(404).json({ ok: false, message: "Quiz not found" });
     }
 
+    const quizDocForSchedule = await resolveQuizForSchedule({
+      scheduleId: String(scheduleId),
+      quizDoc,
+      def,
+    });
+
     // 6) Load attempts — only canonicals, sanity-checked to schedule (and optional class/quiz)
     const ids = attemptIds.map((id) => new Types.ObjectId(id));
     const query: any = {
@@ -1264,7 +1281,7 @@ export async function getScheduledQuizStatsInternal(
     }
 
     const breakdown = def.aggregateScheduledQuiz({
-      quizDoc,
+      quizDoc: quizDocForSchedule,
       quizType: def.type,
       attempts,
       openAnswerMinPct:

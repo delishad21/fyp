@@ -1,7 +1,14 @@
 import { Schema, Types } from "mongoose";
 
 /** ---------- Quiz type keys & labels/colors ---------- */
-export const QUIZ_TYPES = ["basic", "rapid", "crossword"] as const;
+export const QUIZ_TYPES = [
+  "basic",
+  "rapid",
+  "crossword",
+  "rapid-arithmetic",
+  "crossword-bank",
+  "true-false",
+] as const;
 export type QuizTypeKey = (typeof QUIZ_TYPES)[number];
 export function isQuizType(x: unknown): x is QuizTypeKey {
   return (
@@ -15,11 +22,17 @@ export const QUIZ_TYPE_COLORS: Record<QuizTypeKey, string> = {
   basic: "#22c55e",
   rapid: "#f59e0b",
   crossword: "#3b82f6",
+  "rapid-arithmetic": "#eab308",
+  "crossword-bank": "#0ea5e9",
+  "true-false": "#ef4444",
 };
 export const QUIZ_TYPE_LABELS: Record<QuizTypeKey, string> = {
   basic: "Basic",
   rapid: "Rapid",
   crossword: "Crossword",
+  "rapid-arithmetic": "Rapid Arithmetic",
+  "crossword-bank": "Crossword Bank",
+  "true-false": "True/False",
 };
 
 /** ---------- Shared sub-schemas for images/options/answers ---------- */
