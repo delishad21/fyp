@@ -1,13 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
-
-module.exports = {
   experimental: {
     serverActions: {
-      bodySizeLimit: "2mb",
+      // Supports AI generation form uploads (up to 5 files, 20MB each).
+      bodySizeLimit: "120mb",
     },
   },
 };

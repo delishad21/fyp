@@ -1,4 +1,5 @@
 node_modules
+dist/
 .vscode
 setup-project.sh
 .env
@@ -10,3 +11,5 @@ uploads
 issued-credentials.csv
 archive
 teacher-credentials.csv
+docs
+llm-eval-app

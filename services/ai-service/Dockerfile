@@ -2,6 +2,12 @@ FROM node:20-alpine AS dev
 
 WORKDIR /app
 
+# OCR runtime deps for scanned PDFs (fallback path)
+RUN apk add --no-cache \
+    tesseract-ocr \
+    tesseract-ocr-data-eng \
+    poppler-utils
+
 # Copy package files
 COPY package*.json ./
 
@@ -24,6 +30,12 @@ CMD ["npm", "run", "dev"]
 FROM node:20-alpine
 
 WORKDIR /app
+
+# OCR runtime deps for scanned PDFs (fallback path)
+RUN apk add --no-cache \
+    tesseract-ocr \
+    tesseract-ocr-data-eng \
+    poppler-utils
 
 # Copy package files
 COPY package*.json ./

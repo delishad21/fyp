@@ -226,8 +226,11 @@ services:
       NODE_ENV: production
       USER_PORT: ${USER_PORT:-7301}
       USER_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-user:27017/user?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
+      QUIZ_SVC_URL: http://quiz-service:7302
       ENV: ${ENV:-PROD}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      QUIZ_WEBHOOK_SECRET: ${QUIZ_WEBHOOK_SECRET}
+      CLASS_SHARED_SECRET: ${CLASS_SHARED_SECRET}
       GMAIL_USER: ${GMAIL_USER}
       GMAIL_PASS: ${GMAIL_PASS}
       GMAIL_NAME: ${GMAIL_NAME}
@@ -245,8 +248,14 @@ services:
       AI_PORT: ${AI_PORT:-7304}
       AI_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-ai:27017/ai?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
       QUIZ_SVC_URL: http://quiz-service:7302
+      PORT: ${AI_PORT:-7304}
+      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-ai:27017/ai?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
+      QUIZ_SERVICE_URL: http://quiz-service:7302
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      AI_ANALYTICS_SECRET: ${AI_ANALYTICS_SECRET}
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
     ports:
       - "7304:7304"
