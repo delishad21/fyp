@@ -392,13 +392,16 @@ export default function Select({
             <input
               id={id}
               type="text"
-              value={searchQuery}
+              value={
+                searchQuery ||
+                (open ? "" : currentValue ? currentLabel : "")
+              }
               onChange={(e) => {
                 setSearchQuery(e.currentTarget.value);
                 if (!open) setOpen(true);
               }}
               onFocus={() => !disabled && setOpen(true)}
-              placeholder={currentValue ? currentLabel : placeholder ?? ""}
+              placeholder={placeholder ?? ""}
               disabled={disabled}
               className="min-w-0 flex-1 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none"
             />

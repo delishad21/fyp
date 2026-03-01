@@ -22,6 +22,8 @@ const STATIC_SEGMENT_LABELS: Record<string, string> = {
   results: "Results",
   scheduling: "Scheduling",
   settings: "Settings",
+  accounts: "Accounts",
+  subjects: "Subjects & Topics",
   quizzes: "Quizzes",
   view: "View",
   "ai-generate": "AI Generate",
@@ -54,6 +56,8 @@ const ROUTE_PATTERNS: RegExp[] = [
   /^\/quizzes\/ai-generate\/review\/[^/]+\/view\/[^/]+$/,
   /^\/scheduling$/,
   /^\/settings$/,
+  /^\/settings\/accounts$/,
+  /^\/settings\/subjects$/,
 ];
 
 const PARENT_PATH_PATTERNS: RegExp[] = [
@@ -120,6 +124,11 @@ function canonicalizePath(path: string) {
   const classRoot = normalized.match(/^\/classes\/([^/]+)$/);
   if (classRoot) {
     return `/classes/${classRoot[1]}/overview`;
+  }
+
+  // /settings redirects to /settings/accounts.
+  if (normalized === "/settings") {
+    return "/settings/accounts";
   }
 
   return normalized;

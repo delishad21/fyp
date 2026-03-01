@@ -43,7 +43,11 @@ const items: NavItem[] = [
     icon: "mingcute:calendar-line",
     href: "/scheduling",
   },
-  { label: "Settings", icon: "mingcute:settings-2-line", href: "/settings" },
+  {
+    label: "Settings",
+    icon: "mingcute:settings-2-line",
+    href: "/settings/accounts",
+  },
 ];
 
 function normalizePathname(pathname: string | null) {
@@ -72,6 +76,9 @@ export function SideBar({
         pathname === "/home" ||
         pathname.startsWith("/home/")
       );
+    if (label === "Settings") {
+      return pathname === "/settings" || pathname.startsWith("/settings/");
+    }
     // Others: active if exact match or nested routes
     return pathname === href || pathname.startsWith(`${href}/`);
   };

@@ -3,32 +3,53 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const tabs = [
+const classTabs = [
   { slug: "overview", label: "Overview" },
   { slug: "students", label: "Students" },
   { slug: "scheduling", label: "Scheduling" },
   { slug: "results", label: "Results" },
 ];
 
-export default function TabsNav({ id }: { id: string }) {
-  const pathname = usePathname();
-  const base = `/classes/${encodeURIComponent(id)}`;
+export type NavTab = {
+  label: string;
+  href: string;
+  exact?: boolean;
+};
 
-  const isActive = (slug: string) => {
-    const href = `${base}/${slug}`;
-    return pathname === href || pathname.startsWith(`${href}/`);
+export default function TabsNav({
+  id,
+  tabs,
+}: {
+  id?: string;
+  tabs?: NavTab[];
+}) {
+  const pathname = usePathname();
+
+  const resolvedTabs: NavTab[] = tabs
+    ? tabs
+    : id
+      ? classTabs.map((t) => ({
+          label: t.label,
+          href: `/classes/${encodeURIComponent(id)}/${t.slug}`,
+        }))
+      : [];
+
+  const isActive = (tab: NavTab) => {
+    if (tab.exact) return pathname === tab.href;
+    return pathname === tab.href || pathname.startsWith(`${tab.href}/`);
   };
+
+  if (!resolvedTabs.length) return null;
 
   return (
     <nav>
       <ul className="flex flex-wrap gap-2 bg-[var(--color-bg2)] p-1 ring-1 ring-black/5 py-2 px-3">
-        {tabs.map((t) => {
-          const href = `${base}/${t.slug}`;
-          const active = isActive(t.slug);
+        {resolvedTabs.map((t) => {
+          const active = isActive(t);
           return (
-            <li key={t.slug}>
+            <li key={t.href}>
               <Link
-                href={href}
+                href={t.href}
                 className={[
                   "inline-flex items-center rounded-sm px-3 py-1.5 text-md transition",
                   active

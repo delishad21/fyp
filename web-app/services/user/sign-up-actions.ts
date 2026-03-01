@@ -188,7 +188,7 @@ export async function resendCode(selector: string): Promise<{
   );
 
   if (!response.ok) {
-    const errorData = await response.json();
+    const errorData = await response.json().catch(() => ({}));
     return { ok: false, error: errorData.message ?? "Could not resend code." };
   }
 

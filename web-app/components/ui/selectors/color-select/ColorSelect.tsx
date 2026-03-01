@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import clsx from "clsx";
 import { DEFAULT_COLOR_PALETTE } from "@/utils/utils";
 
 export function ColorSelect({
@@ -9,12 +10,18 @@ export function ColorSelect({
   palette = DEFAULT_COLOR_PALETTE,
   label = "Color",
   error,
+  compact = false,
+  hideLabel = false,
+  className,
 }: {
   value: string;
   onChange: (hex: string) => void;
   palette?: string[];
   label?: string;
   error?: string;
+  compact?: boolean;
+  hideLabel?: boolean;
+  className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const btnRef = React.useRef<HTMLButtonElement | null>(null);
@@ -43,23 +50,31 @@ export function ColorSelect({
   const selected = value || "#ffffff";
 
   return (
-    <div className="relative min-w-[240px]">
-      <label className="mb-1 block text-sm text-[var(--color-text-primary)]">
-        {label}
-      </label>
+    <div
+      className={clsx(
+        "relative",
+        compact ? "w-fit min-w-0" : "min-w-[240px]",
+        className
+      )}
+    >
+      {!hideLabel && (
+        <label className="mb-1 block text-sm text-[var(--color-text-primary)]">
+          {label}
+        </label>
+      )}
 
       {/* Trigger */}
       <button
         ref={btnRef}
         type="button"
+        aria-label={label}
         onClick={() => setOpen((o) => !o)}
-        className="
-          inline-flex w-full items-center justify-between rounded-lg border px-3 py-2
-          border-[var(--color-bg4)] bg-[var(--color-bg2)]
-          text-[var(--color-text-primary)]
-          hover:bg-[var(--color-bg3)]
-          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
-        "
+        className={clsx(
+          "inline-flex items-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg3)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]",
+          compact
+            ? "h-11 w-[64px] justify-center gap-1.5 px-2"
+            : "w-full justify-between px-3 py-2"
+        )}
       >
         <span className="inline-flex items-center gap-2">
           <span

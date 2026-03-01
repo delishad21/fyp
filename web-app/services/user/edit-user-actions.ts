@@ -219,7 +219,7 @@ export async function confirmEmailChangeAction(params: {
   }
 
   await session.save();
-  revalidatePath("/settings");
+  revalidatePath("/settings/accounts");
 
   return apiRes;
 }
