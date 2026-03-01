@@ -29,6 +29,7 @@ export interface IAssignedQuiz {
   subject?: string;
   subjectColor?: string;
   topic?: string;
+  quizType?: string;
 
   [key: string]: any;
 }
@@ -80,6 +81,7 @@ const AssignedQuizSchema = new Schema<IAssignedQuiz>(
     subject: { type: String },
     subjectColor: { type: String },
     topic: { type: String },
+    quizType: { type: String },
   },
   { _id: true }
 );

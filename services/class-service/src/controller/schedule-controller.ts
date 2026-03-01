@@ -44,6 +44,13 @@ import {
 } from "../utils/events/schedule-events";
 import { enqueueEvent } from "../utils/events/outbox-enqeue";
 
+const RANDOMIZED_QUIZ_TYPES = new Set(["rapid-arithmetic", "crossword-bank"]);
+
+function isRandomizedQuizType(quizType: unknown): boolean {
+  if (typeof quizType !== "string") return false;
+  return RANDOMIZED_QUIZ_TYPES.has(quizType.trim().toLowerCase());
+}
+
 /** ---------- controllers ---------- */
 
 /**
@@ -133,6 +140,9 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
       });
     }
     const quizId = String(quizMeta._id);
+    const quizType =
+      typeof quizMeta.quizType === "string" ? quizMeta.quizType : "";
+    const skipConflictCheck = isRandomizedQuizType(quizType);
 
     let savedEntry: any;
 
@@ -142,6 +152,7 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
 
       // Conflict check uses canonical identity only
       if (
+        !skipConflictCheck &&
         hasScheduleConflict(
           c.schedule,
           { quizRootId, quizVersion },
@@ -160,6 +171,7 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
         subject: quizMeta.subject,
         subjectColor: quizMeta.subjectColorHex,
         topic: quizMeta.topic,
+        quizType,
       };
 
       const newEntry: any = {
@@ -288,6 +300,10 @@ export async function editScheduleItem(req: CustomRequest, res: Response) {
       let nextQuizRootId = currentRoot;
       let nextQuizVersion = currentVersion;
       let quizVersionChanged = false;
+      let nextQuizType =
+        typeof (target as any).quizType === "string"
+          ? String((target as any).quizType)
+          : "";
 
       if (patch.quizVersion != null) {
         const vNum = Number(patch.quizVersion);
@@ -320,10 +336,28 @@ export async function editScheduleItem(req: CustomRequest, res: Response) {
         (target as any).quizRootId = nextQuizRootId;
         (target as any).quizVersion = nextQuizVersion;
         (target as any).quizId = match._id;
+        nextQuizType =
+          typeof match.quizType === "string" ? String(match.quizType) : "";
+        if (nextQuizType) {
+          (target as any).quizType = nextQuizType;
+        }
+      }
+
+      // Older rows may not have quizType snapshot; best-effort resolve from quiz-svc.
+      if (!nextQuizType) {
+        const resolvedMeta = await fetchQuizMetaOnce(nextQuizRootId, nextQuizVersion);
+        nextQuizType =
+          typeof resolvedMeta?.quizType === "string"
+            ? String(resolvedMeta.quizType)
+            : "";
+        if (nextQuizType) {
+          (target as any).quizType = nextQuizType;
+        }
       }
 
       // Overlap check must use *next* canonical identity
       if (
+        !isRandomizedQuizType(nextQuizType) &&
         hasScheduleConflict(
           c.schedule,
           { quizRootId: nextQuizRootId, quizVersion: nextQuizVersion },

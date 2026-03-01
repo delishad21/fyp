@@ -3,6 +3,7 @@ import { ScheduleUpdatedEvent } from "../types";
 import { AttemptModel } from "../../model/quiz-attempt-model";
 import { buildAttemptEvent } from "../outgoing/attempt-events";
 import { enqueueEvent } from "../outgoing/outbox-enqueue";
+import { purgeScheduleVariants } from "../../utils/schedule-quiz-variant-utils";
 
 /**
  * Handle ScheduleUpdatedEvent from class-service.
@@ -43,6 +44,21 @@ export async function handleScheduleUpdated(evt: ScheduleUpdatedEvent) {
     // all versions for this schedule get invalidated, no extra filter
   } else {
     return;
+  }
+
+  // Schedule-anchored randomized variants must be purged when schedules change.
+  if (evt.action === "deleted") {
+    await purgeScheduleVariants({
+      scheduleId: evt.scheduleId,
+      quizRootId: evt.quizRootId ?? null,
+    });
+  } else if (evt.action === "version_bumped") {
+    await purgeScheduleVariants({
+      scheduleId: evt.scheduleId,
+      quizRootId: evt.quizRootId ?? null,
+      quizVersion:
+        typeof evt.previousVersion === "number" ? evt.previousVersion : null,
+    });
   }
 
   const attempts = await AttemptModel.find(filter).lean();
