@@ -3,43 +3,389 @@ import { Types } from "mongoose";
 import {
   GenerationJobModel,
   IGenerationConfig,
+  IJobAnalytics,
+  IPlanningPassAnalytics,
+  IQuizAttemptAnalytics,
 } from "../models/generation-job-model";
 import { DocumentParserService } from "../services/document-parser";
 import { QuizGeneratorService } from "../services/quiz-generator";
 import { QuizServiceClient } from "../services/quiz-service-client";
 import { CustomRequest } from "../middleware/auth";
 import fs from "fs/promises";
+import {
+  getAvailableAIModels,
+  resolveSelectedAIModel,
+} from "../services/ai-model-catalog";
+import {
+  buildGenerationContexts,
+  GenerationDocumentType,
+} from "../services/document-context-builder";
 
 // Service instances (singleton-like)
 const documentParser = new DocumentParserService();
 const quizGenerator = new QuizGeneratorService();
 const quizServiceClient = new QuizServiceClient();
+const ANALYTICS_SECRET = String(process.env.AI_ANALYTICS_SECRET || "").trim();
+const QUIZ_TYPES = ["basic", "rapid", "crossword", "true-false"] as const;
+type AllowedQuizType = (typeof QUIZ_TYPES)[number];
+const DOCUMENT_TYPES: GenerationDocumentType[] = [
+  "syllabus",
+  "question-bank",
+  "subject-content",
+  "other",
+];
 
-/**
- * Make quiz names unique by appending numbers if duplicates exist
- */
-function makeNamesUnique(
-  quizNames: string[],
-  existingNames: string[],
-): string[] {
-  const allNames = new Set(existingNames);
-  const uniqueNames: string[] = [];
+function normalizeIncomingDocumentType(value?: string): GenerationDocumentType {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (
+    normalized === "syllabus" ||
+    normalized === "question-bank" ||
+    normalized === "subject-content"
+  ) {
+    return normalized;
+  }
+  return "other";
+}
 
-  for (let quizName of quizNames) {
-    let finalName = quizName;
-    let counter = 2;
-
-    // Check if name exists (in existing DB or in current batch)
-    while (allNames.has(finalName)) {
-      finalName = `${quizName} ${counter}`;
-      counter++;
-    }
-
-    allNames.add(finalName);
-    uniqueNames.push(finalName);
+function parseRequestedDocumentTypes(raw: unknown): GenerationDocumentType[] {
+  if (Array.isArray(raw)) {
+    return raw.map((entry) => normalizeIncomingDocumentType(String(entry)));
   }
 
-  return uniqueNames;
+  if (typeof raw !== "string") {
+    return [];
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) =>
+          normalizeIncomingDocumentType(String(entry)),
+        );
+      }
+    } catch {
+      // Fall through to comma/single parsing.
+    }
+  }
+
+  if (trimmed.includes(",")) {
+    return trimmed
+      .split(",")
+      .map((s) => normalizeIncomingDocumentType(s))
+      .filter((s) => DOCUMENT_TYPES.includes(s));
+  }
+
+  return [normalizeIncomingDocumentType(trimmed)];
+}
+
+function normalizeIncomingQuizType(value?: string): AllowedQuizType | null {
+  const normalized = String(value || "").trim().toLowerCase();
+  return (QUIZ_TYPES as readonly string[]).includes(normalized)
+    ? (normalized as AllowedQuizType)
+    : null;
+}
+
+function parseRequestedQuizTypes(raw: unknown): AllowedQuizType[] {
+  const parsed: string[] = [];
+
+  if (Array.isArray(raw)) {
+    for (const entry of raw) parsed.push(String(entry));
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const json = JSON.parse(trimmed);
+        if (Array.isArray(json)) {
+          for (const entry of json) parsed.push(String(entry));
+        } else {
+          parsed.push(trimmed);
+        }
+      } catch {
+        parsed.push(trimmed);
+      }
+    } else if (trimmed.includes(",")) {
+      parsed.push(...trimmed.split(","));
+    } else {
+      parsed.push(trimmed);
+    }
+  }
+
+  const dedup = new Set<AllowedQuizType>();
+  for (const entry of parsed) {
+    const normalized = normalizeIncomingQuizType(entry);
+    if (normalized) dedup.add(normalized);
+  }
+
+  return Array.from(dedup);
+}
+
+function toDocumentMetaList(value: unknown): Array<{
+  documentType?: string;
+  filename: string;
+  originalName: string;
+  size: number;
+  mimetype: string;
+  storagePath: string;
+  uploadedAt?: Date;
+}> {
+  if (Array.isArray(value)) {
+    return value as Array<{
+      documentType?: string;
+      filename: string;
+      originalName: string;
+      size: number;
+      mimetype: string;
+      storagePath: string;
+      uploadedAt?: Date;
+    }>;
+  }
+
+  if (value && typeof value === "object") {
+    return [
+      value as {
+        documentType?: string;
+        filename: string;
+        originalName: string;
+        size: number;
+        mimetype: string;
+        storagePath: string;
+        uploadedAt?: Date;
+      },
+    ];
+  }
+
+  return [];
+}
+
+function buildGenerationAnalytics(
+  progressQuizzes: Array<{
+    analytics?: {
+      attempts?: IQuizAttemptAnalytics[];
+    };
+  }>,
+  planning?: IPlanningPassAnalytics,
+): IJobAnalytics {
+  const attempts = progressQuizzes.flatMap((q) =>
+    Array.isArray(q.analytics?.attempts) ? q.analytics.attempts : [],
+  );
+
+  const planningAttemptCount =
+    typeof planning?.attemptCount === "number"
+      ? planning.attemptCount
+      : planning
+        ? 1
+        : 0;
+  const planningSuccessfulAttempts =
+    typeof planning?.successfulAttempts === "number"
+      ? planning.successfulAttempts
+      : planning?.success
+        ? 1
+        : 0;
+  const planningLatencyMs =
+    typeof planning?.llmLatencyMs === "number" ? planning.llmLatencyMs : 0;
+  const planningInputTokens =
+    typeof planning?.usage?.inputTokens === "number"
+      ? planning.usage.inputTokens
+      : 0;
+  const planningOutputTokens =
+    typeof planning?.usage?.outputTokens === "number"
+      ? planning.usage.outputTokens
+      : 0;
+  const planningTotalTokens =
+    typeof planning?.usage?.totalTokens === "number"
+      ? planning.usage.totalTokens
+      : 0;
+
+  const totals = {
+    attemptCount: attempts.length + planningAttemptCount,
+    successfulAttempts:
+      attempts.filter((a) => a.success).length + planningSuccessfulAttempts,
+    llmLatencyMs:
+      attempts.reduce((sum, a) => sum + (a.llmLatencyMs || 0), 0) +
+      planningLatencyMs,
+    inputTokens:
+      attempts.reduce((sum, a) => sum + (a.usage?.inputTokens || 0), 0) +
+      planningInputTokens,
+    outputTokens:
+      attempts.reduce((sum, a) => sum + (a.usage?.outputTokens || 0), 0) +
+      planningOutputTokens,
+    totalTokens:
+      attempts.reduce((sum, a) => sum + (a.usage?.totalTokens || 0), 0) +
+      planningTotalTokens,
+    retryCount: 0,
+  };
+  totals.retryCount = Math.max(0, totals.attemptCount - totals.successfulAttempts);
+
+  const grouped = new Map<
+    string,
+    {
+      provider: "openai" | "anthropic" | "gemini";
+      model: string;
+      attemptCount: number;
+      successfulAttempts: number;
+      llmLatencyMs: number;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    }
+  >();
+
+  for (const attempt of attempts) {
+    const key = `${attempt.provider}:${attempt.model}`;
+    const existing = grouped.get(key) || {
+      provider: attempt.provider,
+      model: attempt.model,
+      attemptCount: 0,
+      successfulAttempts: 0,
+      llmLatencyMs: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    };
+
+    existing.attemptCount += 1;
+    if (attempt.success) existing.successfulAttempts += 1;
+    existing.llmLatencyMs += attempt.llmLatencyMs || 0;
+    existing.inputTokens += attempt.usage?.inputTokens || 0;
+    existing.outputTokens += attempt.usage?.outputTokens || 0;
+    existing.totalTokens += attempt.usage?.totalTokens || 0;
+
+    grouped.set(key, existing);
+  }
+
+  if (
+    planning &&
+    planning.provider &&
+    planning.model &&
+    planningAttemptCount > 0
+  ) {
+    const key = `${planning.provider}:${planning.model}`;
+    const existing = grouped.get(key) || {
+      provider: planning.provider,
+      model: planning.model,
+      attemptCount: 0,
+      successfulAttempts: 0,
+      llmLatencyMs: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    };
+    existing.attemptCount += planningAttemptCount;
+    existing.successfulAttempts += planningSuccessfulAttempts;
+    existing.llmLatencyMs += planningLatencyMs;
+    existing.inputTokens += planningInputTokens;
+    existing.outputTokens += planningOutputTokens;
+    existing.totalTokens += planningTotalTokens;
+    grouped.set(key, existing);
+  }
+  const byProviderModel = Array.from(grouped.values());
+
+  return {
+    totals,
+    byProviderModel,
+    generatedAt: new Date(),
+    ...(planning ? { planning } : {}),
+  };
+}
+
+function canReadAnalytics(req: CustomRequest): boolean {
+  if (!ANALYTICS_SECRET) return false;
+  const provided = req.query.analyticsSecret;
+  if (typeof provided !== "string") return false;
+  return provided.trim().length > 0 && provided.trim() === ANALYTICS_SECRET;
+}
+
+function stripEstimatedCostFields<T>(value: T): T {
+  if (!value || typeof value !== "object") return value;
+
+  const visit = (node: any) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(node, "estimatedCostUsd")) {
+      delete node.estimatedCostUsd;
+    }
+    for (const child of Object.values(node)) {
+      visit(child);
+    }
+  };
+
+  const cloned = JSON.parse(JSON.stringify(value));
+  visit(cloned);
+  return cloned as T;
+}
+
+function sanitizeProgressForResponse(progress: any, includeAnalytics: boolean) {
+  if (!progress) return progress;
+  const sanitized =
+    typeof progress.toObject === "function" ? progress.toObject() : { ...progress };
+
+  if (Array.isArray(sanitized.quizzes)) {
+    sanitized.quizzes = sanitized.quizzes.map((quiz: any) => {
+      const q = typeof quiz?.toObject === "function" ? quiz.toObject() : { ...quiz };
+      if (!includeAnalytics) {
+        delete q.analytics;
+      } else if (q.analytics) {
+        q.analytics = stripEstimatedCostFields(q.analytics);
+      }
+      return q;
+    });
+  }
+
+  return sanitized;
+}
+
+function sanitizeResultsForResponse(results: any, includeAnalytics: boolean) {
+  if (!results) return results;
+  const sanitized =
+    typeof results.toObject === "function" ? results.toObject() : { ...results };
+
+  if (Array.isArray(sanitized.quizzes)) {
+    sanitized.quizzes = sanitized.quizzes.map((quiz: any) => {
+      const q = typeof quiz?.toObject === "function" ? quiz.toObject() : { ...quiz };
+      if (!includeAnalytics) {
+        delete q.analytics;
+      } else if (q.analytics) {
+        q.analytics = stripEstimatedCostFields(q.analytics);
+      }
+      return q;
+    });
+  }
+
+  return sanitized;
+}
+
+function sanitizeJobForResponse(
+  job: any,
+  includeAnalytics: boolean,
+  options?: { idAsString?: boolean },
+) {
+  const id = options?.idAsString ? job._id.toString() : job._id;
+  const base: any = {
+    id,
+    status: job.status,
+    progress: sanitizeProgressForResponse(job.progress, includeAnalytics),
+    config: job.config,
+    results: sanitizeResultsForResponse(job.results, includeAnalytics),
+    error: job.error,
+    createdAt: job.createdAt,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt,
+  };
+
+  if (includeAnalytics) {
+    base.analytics = job.analytics ? stripEstimatedCostFields(job.analytics) : null;
+  }
+
+  return base;
 }
 
 /** ---------- Public API Endpoints ---------- */
@@ -49,21 +395,23 @@ function makeNamesUnique(
  * @auth   verifyAccessToken + verifyIsTeacher
  *
  * @input
- *   File: multipart/form-data 'document' (PDF, DOCX, or TXT) - OPTIONAL
+ *   File: multipart/form-data 'documents' (PDF, DOCX, or TXT, up to 5) - OPTIONAL
  *   Body: {
  *     instructions: string (REQUIRED),
- *     numQuizzes: number (10-20),
+ *     numQuizzes: number (1-20),
  *     educationLevel: 'primary-1' | 'primary-2' | ... | 'primary-6',
  *     questionsPerQuiz: number (5-20),
- *     subject?: string,
- *     topic?: string,
+ *     aiModel?: string (optional, defaults to first configured model),
+ *     quizTypes: ('basic' | 'rapid' | 'crossword' | 'true-false')[],
+ *     documentTypes?: ('syllabus' | 'question-bank' | 'subject-content' | 'other')[],
+ *     subject: string,
  *     timerSettings?: JSON object
  *   }
  *
  * @notes
  *   - Instructions are required - main generation prompt
  *   - File upload is optional - can be used as reference material
- *   - AI decides quiz types (basic/rapid/crossword mix or extracts details from instructions)
+ *   - Quiz types are explicitly selected by teacher and evenly distributed by generator
  *   - Education level determines age-appropriate content for Singapore Primary Schools
  *   - Creates a generation job in 'pending' status
  *   - Processing happens asynchronously in background
@@ -100,13 +448,57 @@ export async function startGeneration(req: CustomRequest, res: Response) {
     const files = req.files as Express.Multer.File[] | undefined;
 
     // Parse configuration from request body
+    const requestedModelId = req.body.aiModel?.trim();
+    const selectedModel = resolveSelectedAIModel(requestedModelId);
+    if (!selectedModel) {
+      const availableModels = getAvailableAIModels();
+      if (availableModels.length === 0) {
+        return res.status(503).json({
+          ok: false,
+          message:
+            "AI generation is currently unavailable. No model API keys are configured.",
+        });
+      }
+
+      return res.status(400).json({
+        ok: false,
+        message: "Invalid AI model selection",
+      });
+    }
+
+    const subject = String(req.body.subject ?? "").trim();
+    if (!subject) {
+      return res.status(400).json({
+        ok: false,
+        message: "Subject is required",
+      });
+    }
+
+    const requestedQuizTypes = parseRequestedQuizTypes(req.body.quizTypes);
+    if (requestedQuizTypes.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          "At least one quiz type must be selected (basic, rapid, crossword, true-false)",
+      });
+    }
+
+    if (typeof req.body.topic !== "undefined") {
+      return res.status(400).json({
+        ok: false,
+        message:
+          "Topic input is not supported. Topics are generated automatically per quiz.",
+      });
+    }
+
     const config: IGenerationConfig = {
       instructions,
       numQuizzes: parseInt(req.body.numQuizzes) || 10,
+      quizTypes: requestedQuizTypes,
       educationLevel: req.body.educationLevel || "primary-1",
       questionsPerQuiz: parseInt(req.body.questionsPerQuiz) || 10,
-      subject: req.body.subject,
-      topic: req.body.topic,
+      aiModel: selectedModel.id,
+      subject,
       timerSettings: req.body.timerSettings
         ? JSON.parse(req.body.timerSettings)
         : undefined,
@@ -146,9 +538,16 @@ export async function startGeneration(req: CustomRequest, res: Response) {
       },
     };
 
+    const requestedDocumentTypes = parseRequestedDocumentTypes(
+      req.body.documentTypes,
+    );
+
     // Add document metadata if files are provided
     if (files && files.length > 0) {
-      jobData.documentMeta = files.map((file) => ({
+      jobData.documentMeta = files.map((file, index) => ({
+        documentType: normalizeIncomingDocumentType(
+          requestedDocumentTypes[index],
+        ),
         filename: file.filename,
         originalName: file.originalname,
         size: file.size,
@@ -177,6 +576,49 @@ export async function startGeneration(req: CustomRequest, res: Response) {
       ok: false,
       message: "Failed to start generation",
       error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+}
+
+/**
+ * @route  GET /generate/models
+ * @auth   verifyAccessToken + verifyIsTeacher
+ *
+ * @returns 200 {
+ *   ok: true,
+ *   available: boolean,
+ *   models: Array<{ id, provider, model, label, description }>,
+ *   defaultModelId?: string,
+ *   message?: string
+ * }
+ */
+export async function getAvailableModels(req: CustomRequest, res: Response) {
+  try {
+    const models = getAvailableAIModels();
+    if (models.length === 0) {
+      return res.json({
+        ok: true,
+        available: false,
+        models: [],
+        message:
+          "AI generation is currently not available. Configure at least one model API key.",
+      });
+    }
+
+    const defaultModelId = models[0]?.id;
+    return res.json({
+      ok: true,
+      available: true,
+      models,
+      defaultModelId,
+    });
+  } catch (error) {
+    console.error("Get available models error:", error);
+    return res.status(500).json({
+      ok: false,
+      available: false,
+      models: [],
+      message: "Failed to get available AI models",
     });
   }
 }
@@ -227,6 +669,7 @@ export async function getGenerationStatus(req: CustomRequest, res: Response) {
   try {
     const { jobId } = req.params;
     const teacherId = req.teacherId;
+    const includeAnalytics = canReadAnalytics(req);
 
     if (!jobId || !Types.ObjectId.isValid(jobId)) {
       return res.status(400).json({ ok: false, message: "Invalid job ID" });
@@ -243,17 +686,7 @@ export async function getGenerationStatus(req: CustomRequest, res: Response) {
 
     res.json({
       ok: true,
-      job: {
-        id: job._id,
-        status: job.status,
-        progress: job.progress,
-        config: job.config,
-        results: job.results,
-        error: job.error,
-        createdAt: job.createdAt,
-        startedAt: job.startedAt,
-        completedAt: job.completedAt,
-      },
+      job: sanitizeJobForResponse(job, includeAnalytics),
     });
   } catch (error) {
     console.error("Get generation status error:", error);
@@ -299,6 +732,7 @@ export async function getGenerationStatus(req: CustomRequest, res: Response) {
 export async function getGenerationJobs(req: CustomRequest, res: Response) {
   try {
     const teacherId = req.teacherId;
+    const includeAnalytics = canReadAnalytics(req);
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = parseInt(req.query.skip as string) || 0;
 
@@ -314,9 +748,25 @@ export async function getGenerationJobs(req: CustomRequest, res: Response) {
       teacherId: new Types.ObjectId(teacherId),
     });
 
+    const transformedJobs = jobs.map((job) => {
+      const raw =
+        typeof job.toObject === "function" ? job.toObject() : { ...job };
+      const sanitized: any = {
+        ...raw,
+        progress: sanitizeProgressForResponse(raw.progress, includeAnalytics),
+        results: sanitizeResultsForResponse(raw.results, includeAnalytics),
+      };
+
+      if (!includeAnalytics) {
+        delete sanitized.analytics;
+      }
+
+      return sanitized;
+    });
+
     res.json({
       ok: true,
-      jobs,
+      jobs: transformedJobs,
       pagination: {
         total,
         limit,
@@ -496,21 +946,11 @@ export async function approveQuizzes(req: CustomRequest, res: Response) {
         .json({ ok: false, message: "No valid quizzes to approve" });
     }
 
-    // Fetch existing quiz names from the user's database
-    const existingNames =
-      await quizServiceClient.getExistingQuizNames(authHeader);
-
-    // Get the names of quizzes to be created
-    const quizNames = selectedQuizzes.map((q) => q.name);
-
-    // Make names unique by appending numbers if needed
-    const uniqueNames = makeNamesUnique(quizNames, existingNames);
-
-    // Transform quizzes to quiz-service format with unique names
-    const quizzesToCreate = selectedQuizzes.map((quiz, index) => {
+    // Transform quizzes to quiz-service format without AI-side duplicate-name rewrites.
+    const quizzesToCreate = selectedQuizzes.map((quiz) => {
       const baseQuiz: any = {
         quizType: quiz.quizType,
-        name: uniqueNames[index] || quiz.name,
+        name: quiz.name,
         subject: quiz.subject,
         topic: quiz.topic,
         totalTimeLimit: quiz.totalTimeLimit,
@@ -612,8 +1052,9 @@ export async function deleteGenerationJob(req: CustomRequest, res: Response) {
     }
 
     // Delete uploaded files if they exist
-    if (job.documentMeta && job.documentMeta.length > 0) {
-      for (const doc of job.documentMeta) {
+    const documentMetaList = toDocumentMetaList(job.documentMeta);
+    if (documentMetaList.length > 0) {
+      for (const doc of documentMetaList) {
         try {
           await fs.unlink(doc.storagePath);
           console.log(`Deleted file: ${doc.filename}`);
@@ -650,7 +1091,7 @@ export async function deleteGenerationJob(req: CustomRequest, res: Response) {
  *   - Background job processor that runs asynchronously after job creation
  *   - Handles three main phases:
  *     1. Document parsing (PDF/DOCX/TXT) → extractedText
- *     2. Quiz generation using OpenAI GPT-5 mini → draft quizzes
+ *     2. Quiz generation using selected configured AI model → draft quizzes
  *     3. Result aggregation and job completion
  *   - Updates job status throughout: pending → processing → completed/failed
  *   - Progress updates saved to database for real-time polling
@@ -680,30 +1121,55 @@ async function processGenerationJob(jobId: string) {
     await job.save();
 
     let contentForGeneration = job.config.instructions;
+    let precomputedContexts: string[] | undefined;
+
+    const documentMetaList = toDocumentMetaList(job.documentMeta);
 
     // Parse documents if provided (can handle multiple files)
-    if (job.documentMeta && job.documentMeta.length > 0) {
-      console.log(`Parsing ${job.documentMeta.length} document(s)...`);
-      const parsedTexts: string[] = [];
+    if (documentMetaList.length > 0) {
+      console.log(`Parsing ${documentMetaList.length} document(s)...`);
+      const parsedDocuments: Array<{
+        documentMeta: {
+          originalName: string;
+          documentType?: GenerationDocumentType;
+        };
+        text: string;
+      }> = [];
 
-      for (const doc of job.documentMeta) {
-        console.log(`Parsing document: ${doc.filename}`);
+      for (const doc of documentMetaList) {
+        const documentType = normalizeIncomingDocumentType(doc.documentType);
+        console.log(
+          `Parsing document: ${doc.filename} (type: ${documentType})`,
+        );
         const parsed = await documentParser.parseDocument(
           doc.storagePath,
           doc.mimetype,
         );
-        parsedTexts.push(`\n\n=== ${doc.originalName} ===\n${parsed.text}`);
-        console.log(`Document parsed: ${parsed.metadata.wordCount} words`);
+        parsedDocuments.push({
+          documentMeta: {
+            originalName: doc.originalName,
+            documentType,
+          },
+          text: parsed.text,
+        });
+        console.log(
+          `Document parsed: ${parsed.metadata.wordCount} words${parsed.metadata.ocrApplied ? " (OCR applied)" : ""}`,
+        );
       }
 
-      const combinedText = parsedTexts.join("\n");
-      job.extractedText = combinedText;
+      const contextBuild = buildGenerationContexts({
+        instructions: job.config.instructions,
+        numQuizzes: job.config.numQuizzes,
+        documents: parsedDocuments,
+      });
+      job.extractedText = contextBuild.combinedExtractedText;
       await job.save();
 
-      console.log(`All documents parsed: ${job.documentMeta.length} file(s)`);
+      console.log(`All documents parsed: ${documentMetaList.length} file(s)`);
 
-      // Combine instructions with all document contents
-      contentForGeneration = `${job.config.instructions}\n\nReference Material:${combinedText}`;
+      precomputedContexts = contextBuild.perQuizContexts;
+      contentForGeneration =
+        precomputedContexts[0] || job.config.instructions;
     } else {
       console.log("Generating from instructions only (no documents provided)");
     }
@@ -748,11 +1214,22 @@ async function processGenerationJob(jobId: string) {
       }, 500);
     };
 
-    const generatedQuizzes = await quizGenerator.generateQuizzes(
+    let latestProgressArray: Array<{
+      tempId: string;
+      quizNumber: number;
+      status: "pending" | "generating" | "completed" | "failed";
+      error?: string;
+      retryCount: number;
+      analytics?: any;
+    }> = [];
+
+    const generationResult = await quizGenerator.generateQuizzes(
       contentForGeneration,
       job.config,
       structureAndRules,
       async (progressArray) => {
+        latestProgressArray = progressArray;
+
         // Update progress in memory
         job.progress.current = progressArray.filter(
           (p) => p.status === "completed" || p.status === "failed",
@@ -766,12 +1243,15 @@ async function processGenerationJob(jobId: string) {
           status: p.status,
           error: p.error,
           retryCount: p.retryCount,
+          analytics: p.analytics,
         }));
 
         // Debounced save (won't execute in parallel)
         saveProgress();
       },
+      precomputedContexts,
     );
+    const generatedQuizzes = generationResult.quizzes;
 
     // Final save after generation completes
     if (saveTimeout) {
@@ -813,6 +1293,7 @@ async function processGenerationJob(jobId: string) {
           totalTimeLimit: quiz.totalTimeLimit,
           status: quiz.status || "draft",
           retryCount: quiz.retryCount || 0,
+          analytics: quiz.analytics,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -828,6 +1309,17 @@ async function processGenerationJob(jobId: string) {
         return result;
       }),
     };
+
+    const progressForAnalytics = Array.isArray((job.progress as any).quizzes)
+      ? ((job.progress as any).quizzes as Array<{
+          analytics?: { attempts?: IQuizAttemptAnalytics[] };
+        }>)
+      : latestProgressArray;
+
+    job.analytics = buildGenerationAnalytics(
+      progressForAnalytics,
+      generationResult.planning,
+    );
 
     job.status = "completed";
     job.completedAt = new Date();
@@ -870,6 +1362,7 @@ async function processGenerationJob(jobId: string) {
 export async function listJobs(req: CustomRequest, res: Response) {
   try {
     const teacherId = req.teacherId;
+    const includeAnalytics = canReadAnalytics(req);
 
     const jobs = await GenerationJobModel.find({
       teacherId: new Types.ObjectId(teacherId),
@@ -879,17 +1372,9 @@ export async function listJobs(req: CustomRequest, res: Response) {
       .select("-extractedText"); // Don't return full text
 
     // Transform jobs to match frontend interface
-    const transformedJobs = jobs.map((job) => ({
-      id: job._id.toString(),
-      status: job.status,
-      progress: job.progress,
-      config: job.config,
-      results: job.results,
-      error: job.error,
-      createdAt: job.createdAt,
-      startedAt: job.startedAt,
-      completedAt: job.completedAt,
-    }));
+    const transformedJobs = jobs.map((job) =>
+      sanitizeJobForResponse(job, includeAnalytics, { idAsString: true }),
+    );
 
     res.json({
       ok: true,
@@ -989,8 +1474,9 @@ export async function cleanupOldJobs(req: CustomRequest, res: Response) {
     let deletedCount = 0;
     for (const job of jobsToDelete) {
       // Delete uploaded files if they exist
-      if (job.documentMeta && job.documentMeta.length > 0) {
-        for (const doc of job.documentMeta) {
+      const documentMetaList = toDocumentMetaList(job.documentMeta);
+      if (documentMetaList.length > 0) {
+        for (const doc of documentMetaList) {
           try {
             await fs.unlink(doc.storagePath);
           } catch (err) {

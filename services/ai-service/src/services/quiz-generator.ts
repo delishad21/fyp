@@ -1,12 +1,50 @@
-import OpenAI from "openai";
-import { IGenerationConfig } from "../models/generation-job-model";
+import {
+  IGenerationConfig,
+  IPlanningPassAnalytics,
+  IQuizAnalytics,
+  IQuizAttemptAnalytics,
+  IQuizAnalyticsTotals,
+} from "../models/generation-job-model";
 import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
 import { QuizStructureAndRules } from "./quiz-service-client";
+import {
+  AIModelDescriptor,
+  getConfiguredProviderApiKey,
+  resolveSelectedAIModel,
+} from "./ai-model-catalog";
+import {
+  generateJsonWithModel,
+  LLMCallMetrics,
+  LLMGenerationError,
+  LLMTokenUsage,
+} from "./llm-client";
+
+type AIGeneratedQuizType = "basic" | "rapid" | "crossword" | "true-false";
+
+interface BatchPlanQuizItem {
+  quizNumber: number;
+  quizType: AIGeneratedQuizType;
+  focus: string;
+  angle: string;
+  mustCover: string[];
+  avoidOverlap: string[];
+  titleHint?: string;
+  topicHint?: string;
+}
+
+interface BatchGenerationPlan {
+  quizzes: BatchPlanQuizItem[];
+}
+
+export interface QuizBatchGenerationResult {
+  quizzes: GeneratedQuiz[];
+  planning: IPlanningPassAnalytics;
+}
 
 export interface GeneratedQuiz {
   tempId: string;
-  quizType: "basic" | "rapid" | "crossword";
+  quizType: AIGeneratedQuizType;
   name: string;
   subject: string;
   topic: string;
@@ -20,6 +58,7 @@ export interface GeneratedQuiz {
   status?: "pending" | "generating" | "draft" | "failed";
   error?: string;
   retryCount?: number;
+  analytics?: IQuizAnalytics;
 }
 
 export interface QuizGenerationProgress {
@@ -28,40 +67,52 @@ export interface QuizGenerationProgress {
   status: "pending" | "generating" | "completed" | "failed";
   error?: string;
   retryCount: number;
+  analytics: IQuizAnalytics;
 }
 
 export class QuizGeneratorService {
-  private openai: OpenAI;
-  private model: string;
   private readonly MAX_RETRIES = 5;
+  private readonly MAX_PLANNING_RETRIES: number = 3;
   private readonly PARALLEL_LIMIT: number; // Number of quizzes to generate in parallel
 
   constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OPENAI_API_KEY environment variable is required");
-    }
-    this.openai = new OpenAI({ apiKey });
-
-    // GPT-5 mini: $0.25/1M input, $2.00/1M output tokens
-    // Supports prompt caching (90% discount: $0.025/1M for cached inputs)
-    this.model = process.env.OPENAI_MODEL || "gpt-5-mini";
-
     // Configurable parallel limit (default: 10)
     this.PARALLEL_LIMIT = parseInt(process.env.AI_PARALLEL_LIMIT || "10", 10);
+    this.MAX_PLANNING_RETRIES = Math.max(
+      1,
+      parseInt(process.env.AI_PLANNING_MAX_RETRIES || "3", 10),
+    );
   }
 
   /**
-   * Generate multiple quizzes in parallel with retry logic
+   * Two-pass generation:
+   * Pass 1) Build a batch blueprint in a single LLM call.
+   * Pass 2) Generate each quiz in parallel, guided by its blueprint item.
    */
   async generateQuizzes(
     contentOrInstructions: string,
     config: IGenerationConfig,
     structureAndRules: QuizStructureAndRules,
     onProgress?: (progress: QuizGenerationProgress[]) => void,
-  ): Promise<GeneratedQuiz[]> {
-    const chunks = this.splitContent(contentOrInstructions, config.numQuizzes);
-    const requestedTypes = this.detectRequestedQuizTypes(config.instructions);
+    precomputedChunks?: string[],
+  ): Promise<QuizBatchGenerationResult> {
+    const selectedModel = this.resolveRuntimeModel(config);
+    const chunks =
+      Array.isArray(precomputedChunks) && precomputedChunks.length > 0
+        ? precomputedChunks
+        : this.splitContent(contentOrInstructions, config.numQuizzes);
+    const requestedTypes = this.resolveRequestedQuizTypes(
+      config,
+      structureAndRules,
+    );
+    const quizTypePlan = this.buildQuizTypePlan(config.numQuizzes, requestedTypes);
+    const planning = await this.buildBatchPlan(
+      contentOrInstructions,
+      chunks,
+      config,
+      quizTypePlan,
+      selectedModel,
+    );
 
     // Initialize progress tracking for all quizzes
     const progressTracking: QuizGenerationProgress[] = [];
@@ -71,6 +122,7 @@ export class QuizGeneratorService {
         quizNumber: i + 1,
         status: "pending",
         retryCount: 0,
+        analytics: this.createEmptyQuizAnalytics(),
       });
     }
 
@@ -83,14 +135,19 @@ export class QuizGeneratorService {
     const results = await this.generateInParallel(
       config.numQuizzes,
       chunks,
-      requestedTypes,
+      quizTypePlan,
+      planning.plan.quizzes,
       config,
+      selectedModel,
       structureAndRules,
       progressTracking,
       onProgress,
     );
 
-    return results.filter((r) => r !== null) as GeneratedQuiz[];
+    return {
+      quizzes: results.filter((r) => r !== null) as GeneratedQuiz[],
+      planning: planning.analytics,
+    };
   }
 
   /**
@@ -99,8 +156,10 @@ export class QuizGeneratorService {
   private async generateInParallel(
     count: number,
     chunks: string[],
-    requestedTypes: string[],
+    quizTypePlan: AIGeneratedQuizType[],
+    planItems: BatchPlanQuizItem[],
     config: IGenerationConfig,
+    selectedModel: { descriptor: AIModelDescriptor; apiKey: string },
     structureAndRules: QuizStructureAndRules,
     progressTracking: QuizGenerationProgress[],
     onProgress?: (progress: QuizGenerationProgress[]) => void,
@@ -122,10 +181,17 @@ export class QuizGeneratorService {
           return;
         }
 
-        const quizType = this.selectQuizType(
-          requestedTypes,
-          index,
-          config.subject,
+        const quizType = quizTypePlan[index] || quizTypePlan[0] || "basic";
+        const planItem = planItems[index];
+        if (!planItem) {
+          throw new Error(
+            `Planning pass returned incomplete blueprint: missing plan item for quiz ${index + 1}.`,
+          );
+        }
+        const runtimeConfig = this.buildPerQuizRuntimeConfig(
+          config,
+          quizType as AIGeneratedQuizType,
+          index + 1,
         );
         const progress = progressTracking[index];
 
@@ -142,12 +208,9 @@ export class QuizGeneratorService {
 
         // Generate with retries
         const quiz = await this.generateWithRetry(
-          chunk,
-          {
-            ...config,
-            quizType: quizType as "basic" | "rapid" | "crossword",
-            quizNumber: index + 1,
-          },
+          this.buildGuidedContent(chunk, planItem, planItems),
+          runtimeConfig,
+          selectedModel,
           structureAndRules,
           progress,
           onProgress ? () => onProgress([...progressTracking]) : undefined,
@@ -193,6 +256,384 @@ export class QuizGeneratorService {
     return results;
   }
 
+  private buildPerQuizRuntimeConfig(
+    config: IGenerationConfig,
+    quizType: AIGeneratedQuizType,
+    quizNumber: number,
+  ): IGenerationConfig & {
+    quizNumber: number;
+    quizType: AIGeneratedQuizType;
+  } {
+    const normalizedSubject = String(config.subject || "").trim();
+    if (!normalizedSubject) {
+      throw new Error(
+        `Quiz #${quizNumber} (${quizType}) missing required selected subject.`,
+      );
+    }
+
+    return {
+      instructions: String(config.instructions || ""),
+      numQuizzes: Number(config.numQuizzes) || 1,
+      quizTypes: Array.isArray(config.quizTypes)
+        ? [...config.quizTypes]
+        : [quizType],
+      educationLevel: config.educationLevel,
+      questionsPerQuiz: Number(config.questionsPerQuiz) || 10,
+      ...(config.aiModel ? { aiModel: config.aiModel } : {}),
+      subject: normalizedSubject,
+      ...(config.timerSettings
+        ? { timerSettings: { ...config.timerSettings } }
+        : {}),
+      quizType,
+      quizNumber,
+    };
+  }
+
+  private async buildBatchPlan(
+    contentOrInstructions: string,
+    chunks: string[],
+    config: IGenerationConfig,
+    quizTypePlan: AIGeneratedQuizType[],
+    selectedModel: { descriptor: AIModelDescriptor; apiKey: string },
+  ): Promise<{ plan: BatchGenerationPlan; analytics: IPlanningPassAnalytics }> {
+    const planningStartedAtMs = Date.now();
+    const planningContext = this.buildPlanningContext(contentOrInstructions, chunks);
+    const planningAttempts: Array<{
+      success: boolean;
+      provider: "openai" | "anthropic" | "gemini";
+      model: string;
+      llmLatencyMs: number;
+      usage: LLMTokenUsage;
+      error?: string;
+    }> = [];
+
+    let lastMessage = "Failed to build batch plan";
+
+    for (let attempt = 0; attempt < this.MAX_PLANNING_RETRIES; attempt++) {
+      const attemptStartedAtMs = Date.now();
+      try {
+        const planned = await generateJsonWithModel({
+          provider: selectedModel.descriptor.provider,
+          apiKey: selectedModel.apiKey,
+          model: selectedModel.descriptor.model,
+          systemPrompt: this.buildPlanningSystemPrompt(config, quizTypePlan),
+          userPrompt: this.buildPlanningUserPrompt(
+            planningContext,
+            config,
+            quizTypePlan,
+          ),
+        });
+
+        planningAttempts.push({
+          success: true,
+          provider: planned.metrics.provider,
+          model: planned.metrics.model,
+          llmLatencyMs: planned.metrics.llmLatencyMs,
+          usage: planned.metrics.usage,
+        });
+
+        const normalizedItems = this.normalizeBatchPlan(
+          planned.parsed,
+          config.numQuizzes,
+          quizTypePlan,
+        );
+        const aggregated = this.computePlanningAnalyticsTotals(planningAttempts);
+
+        return {
+          plan: { quizzes: normalizedItems },
+          analytics: {
+            success: true,
+            fallbackUsed: false,
+            attemptCount: aggregated.attemptCount,
+            successfulAttempts: aggregated.successfulAttempts,
+            retryCount: aggregated.retryCount,
+            provider: planned.metrics.provider,
+            model: planned.metrics.model,
+            llmLatencyMs: aggregated.llmLatencyMs,
+            usage: aggregated.usage,
+            startedAt: new Date(planningStartedAtMs),
+            completedAt: new Date(),
+            planItemCount: normalizedItems.length,
+          },
+        };
+      } catch (error) {
+        const llmError = error instanceof LLMGenerationError ? error : null;
+        const metrics = llmError?.metrics;
+        lastMessage =
+          error instanceof Error ? error.message : "Failed to build batch plan";
+
+        planningAttempts.push({
+          success: false,
+          provider: metrics?.provider || selectedModel.descriptor.provider,
+          model: metrics?.model || selectedModel.descriptor.model,
+          llmLatencyMs: metrics?.llmLatencyMs || Date.now() - attemptStartedAtMs,
+          usage: metrics?.usage || {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+          },
+          error: lastMessage,
+        });
+
+        if (attempt < this.MAX_PLANNING_RETRIES - 1) {
+          console.warn(
+            `[QuizGenerator] Planning pass attempt ${attempt + 1}/${this.MAX_PLANNING_RETRIES} failed. Retrying:`,
+            lastMessage,
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.pow(2, attempt) * 1000),
+          );
+        }
+      }
+    }
+
+    const aggregated = this.computePlanningAnalyticsTotals(planningAttempts);
+    const planningFailureMessage = `Planning pass failed after ${this.MAX_PLANNING_RETRIES} attempt(s): ${lastMessage}`;
+
+    console.error("[QuizGenerator]", planningFailureMessage, {
+      attempts: aggregated.attemptCount,
+      retries: aggregated.retryCount,
+      llmLatencyMs: aggregated.llmLatencyMs || Date.now() - planningStartedAtMs,
+      usage: aggregated.usage,
+    });
+
+    throw new Error(planningFailureMessage);
+  }
+
+  private buildPlanningSystemPrompt(
+    config: IGenerationConfig,
+    quizTypePlan: AIGeneratedQuizType[],
+  ): string {
+    const levelDescriptions: Record<string, string> = {
+      "primary-1": "7-year-old children (Primary 1 Singapore)",
+      "primary-2": "8-year-old children (Primary 2 Singapore)",
+      "primary-3": "9-year-old children (Primary 3 Singapore)",
+      "primary-4": "10-year-old children (Primary 4 Singapore)",
+      "primary-5": "11-year-old children (Primary 5 Singapore)",
+      "primary-6": "12-year-old children (Primary 6 Singapore)",
+    };
+    const targetAudience =
+      levelDescriptions[config.educationLevel] || "primary school students";
+    return [
+      "You are an expert educational assessment planner for quiz generation.",
+      `Plan ${config.numQuizzes} distinct quizzes for ${targetAudience}.`,
+      `Subject is fixed to "${config.subject}" and cannot be changed.`,
+      "Return ONLY valid JSON (no markdown).",
+      "The plan must reduce duplication across quizzes and maximize topical/skill coverage.",
+      "Source documents may contain irrelevant or off-topic sections; prioritize relevance to teacher instructions, subject, and level.",
+      "Ignore unrelated context rather than forcing it into the plan.",
+      `Quiz type assignments are pre-locked: ${quizTypePlan
+        .map((type, index) => `${index + 1}:${type}`)
+        .join(", ")}.`,
+    ].join(" ");
+  }
+
+  private buildPlanningUserPrompt(
+    planningContext: string,
+    config: IGenerationConfig,
+    quizTypePlan: AIGeneratedQuizType[],
+  ): string {
+    return [
+      `Create a generation blueprint for ${config.numQuizzes} quizzes.`,
+      "Return JSON with this exact top-level shape:",
+      '{"quizzes":[{"quizNumber":1,"quizType":"basic","focus":"...","angle":"...","mustCover":["..."],"avoidOverlap":["..."],"titleHint":"...","topicHint":"..."}]}',
+      "Rules:",
+      `- quizzes array length must be exactly ${config.numQuizzes}.`,
+      "- quizNumber must be sequential from 1..N.",
+      "- quizType for each quiz must exactly match the pre-locked assignment.",
+      "- planning context can include noisy or irrelevant material; use only instruction-relevant evidence.",
+      "- if context conflicts with teacher instructions, prioritize teacher instructions and subject/level constraints.",
+      "- focus should be concise (3-8 words), concrete, and unique across quizzes.",
+      "- angle should describe the pedagogical approach/style (short phrase).",
+      "- mustCover should list 1-3 concepts/skills to prioritize.",
+      "- avoidOverlap should list 1-3 things to avoid repeating from other quizzes.",
+      "- titleHint/topicHint should be concise and not include numbering/progress markers.",
+      `- respect subject "${config.subject}", education level "${config.educationLevel}", and requested count ${config.questionsPerQuiz} questions per quiz.`,
+      `Pre-locked quiz type assignments: ${quizTypePlan
+        .map((type, index) => `${index + 1}:${type}`)
+        .join(", ")}.`,
+      "",
+      "Planning context:",
+      planningContext,
+    ].join("\n");
+  }
+
+  private buildPlanningContext(
+    contentOrInstructions: string,
+    chunks: string[],
+  ): string {
+    const contextParts: string[] = [];
+    const maxChunkCount = Math.min(chunks.length, 10);
+    const maxCharsPerChunk = 1200;
+
+    contextParts.push(
+      `Teacher instructions (full or truncated):\n${String(
+        contentOrInstructions || "",
+      ).slice(0, 4000)}`,
+    );
+
+    for (let i = 0; i < maxChunkCount; i++) {
+      const chunk = chunks[i];
+      if (!chunk) continue;
+      contextParts.push(
+        `Context slice ${i + 1}:\n${chunk.slice(0, maxCharsPerChunk)}`,
+      );
+    }
+
+    return contextParts.join("\n\n").slice(0, 16000);
+  }
+
+  private normalizeBatchPlan(
+    parsed: any,
+    numQuizzes: number,
+    quizTypePlan: AIGeneratedQuizType[],
+  ): BatchPlanQuizItem[] {
+    const rawCandidates = Array.isArray(parsed?.quizzes)
+      ? parsed.quizzes
+      : Array.isArray(parsed?.plan?.quizzes)
+        ? parsed.plan.quizzes
+        : null;
+
+    if (!rawCandidates || rawCandidates.length === 0) {
+      throw new Error("Planning pass returned empty quizzes array.");
+    }
+
+    const sanitized: BatchPlanQuizItem[] = [];
+    const seenFocus = new Set<string>();
+
+    for (let i = 0; i < Math.max(1, numQuizzes); i++) {
+      const quizNumber = i + 1;
+      const expectedType = quizTypePlan[i] || quizTypePlan[0] || "basic";
+      const byNumber = rawCandidates.find(
+        (candidate: any) => Number(candidate?.quizNumber) === quizNumber,
+      );
+      if (!byNumber) {
+        throw new Error(
+          `Planning pass missing blueprint item for quizNumber ${quizNumber}.`,
+        );
+      }
+      const raw = byNumber;
+
+      const rawType = String(raw?.quizType || "").trim();
+      if (rawType !== expectedType) {
+        throw new Error(
+          `Planning pass quizType mismatch for quizNumber ${quizNumber}: expected "${expectedType}", got "${rawType || "<empty>"}".`,
+        );
+      }
+
+      const focus = String(raw?.focus || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 80);
+      if (!focus) {
+        throw new Error(
+          `Planning pass missing required focus for quizNumber ${quizNumber}.`,
+        );
+      }
+      const normalizedFocusKey = focus.toLowerCase();
+      if (seenFocus.has(normalizedFocusKey)) {
+        throw new Error(
+          `Planning pass focus must be unique across quizzes. Duplicate focus: "${focus}".`,
+        );
+      }
+      seenFocus.add(focus.toLowerCase());
+
+      const angle =
+        String(raw?.angle || "")
+          .trim()
+          .replace(/\s+/g, " ")
+          .slice(0, 80);
+      if (!angle) {
+        throw new Error(
+          `Planning pass missing required angle for quizNumber ${quizNumber}.`,
+        );
+      }
+
+      const toStrictShortStringArray = (
+        value: unknown,
+        fieldName: "mustCover" | "avoidOverlap",
+      ): string[] => {
+        const values = this.normalizeStringArray(value)
+          .slice(0, 3)
+          .map((entry) => entry.slice(0, 80));
+        if (values.length === 0) {
+          throw new Error(
+            `Planning pass missing required ${fieldName} for quizNumber ${quizNumber}.`,
+          );
+        }
+        return values;
+      };
+
+      const mustCover = toStrictShortStringArray(raw?.mustCover, "mustCover");
+      const avoidOverlap = toStrictShortStringArray(
+        raw?.avoidOverlap,
+        "avoidOverlap",
+      );
+      const titleHint = String(raw?.titleHint || "").trim().slice(0, 120) || undefined;
+      const topicHint = String(raw?.topicHint || "").trim().slice(0, 120) || undefined;
+
+      sanitized.push({
+        quizNumber,
+        quizType: rawType as AIGeneratedQuizType,
+        focus,
+        angle,
+        mustCover,
+        avoidOverlap,
+        ...(titleHint ? { titleHint } : {}),
+        ...(topicHint ? { topicHint } : {}),
+      });
+    }
+
+    return sanitized;
+  }
+
+  private buildGuidedContent(
+    baseContent: string,
+    planItem: BatchPlanQuizItem,
+    allPlanItems: BatchPlanQuizItem[],
+  ): string {
+    const otherFocuses = allPlanItems
+      .filter((item) => item.quizNumber !== planItem.quizNumber)
+      .slice(0, 8)
+      .map((item) => `${item.quizNumber}: ${item.focus}`)
+      .join("; ");
+
+    const mustCoverText =
+      planItem.mustCover.length > 0
+        ? planItem.mustCover.join("; ")
+        : "No additional must-cover constraints";
+    const avoidText =
+      planItem.avoidOverlap.length > 0
+        ? planItem.avoidOverlap.join("; ")
+        : "Avoid repeating exact stems or only changing numbers";
+
+    const titleHint = planItem.titleHint
+      ? `- title hint: ${planItem.titleHint}\n`
+      : "";
+    const topicHint = planItem.topicHint
+      ? `- topic hint: ${planItem.topicHint}\n`
+      : "";
+
+    return [
+      "===== PLANNING PASS BLUEPRINT (MANDATORY) =====",
+      `This quiz must follow blueprint item #${planItem.quizNumber}.`,
+      `- quiz type: ${planItem.quizType}`,
+      `- focus: ${planItem.focus}`,
+      `- angle/style: ${planItem.angle}`,
+      `- must cover: ${mustCoverText}`,
+      `- avoid overlap: ${avoidText}`,
+      `${titleHint}${topicHint}`.trim(),
+      `Other quiz focuses in this batch (do not duplicate): ${otherFocuses || "N/A"}`,
+      "You must prioritize this blueprint while staying faithful to source context.",
+      "Source context can contain unrelated sections; use only parts relevant to teacher instructions and this quiz blueprint.",
+      "",
+      "===== SOURCE CONTEXT =====",
+      baseContent,
+    ]
+      .filter((line) => line.length > 0)
+      .join("\n");
+  }
+
   /**
    * Generate a single quiz with retry logic
    */
@@ -200,8 +641,9 @@ export class QuizGeneratorService {
     content: string,
     config: IGenerationConfig & {
       quizNumber: number;
-      quizType: "basic" | "rapid" | "crossword";
+      quizType: AIGeneratedQuizType;
     },
+    selectedModel: { descriptor: AIModelDescriptor; apiKey: string },
     structureAndRules: QuizStructureAndRules,
     progress: QuizGenerationProgress,
     onRetry?: () => void,
@@ -209,23 +651,59 @@ export class QuizGeneratorService {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < this.MAX_RETRIES; attempt++) {
+      const attemptStartedAtMs = Date.now();
       try {
         progress.retryCount = attempt;
         if (onRetry && attempt > 0) {
           onRetry();
         }
 
-        const quiz = await this.generateSingleQuiz(
+        const generated = await this.generateSingleQuiz(
           content,
           config,
+          selectedModel,
           structureAndRules,
         );
+
+        this.appendAttemptAnalytics(progress, {
+          attemptNumber: attempt + 1,
+          success: true,
+          provider: generated.llmMetrics.provider,
+          model: generated.llmMetrics.model,
+          llmLatencyMs: generated.llmMetrics.llmLatencyMs,
+          usage: generated.llmMetrics.usage,
+          startedAt: new Date(attemptStartedAtMs),
+          completedAt: new Date(),
+        });
+
+        const quiz = generated.quiz;
         quiz.tempId = progress.tempId;
         quiz.status = "draft";
         quiz.retryCount = attempt;
+        quiz.analytics = progress.analytics;
         return quiz;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown error");
+        const llmError = error instanceof LLMGenerationError ? error : null;
+        const metrics = llmError?.metrics;
+        const usage: LLMTokenUsage = metrics?.usage || {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+        };
+
+        this.appendAttemptAnalytics(progress, {
+          attemptNumber: attempt + 1,
+          success: false,
+          provider: metrics?.provider || selectedModel.descriptor.provider,
+          model: metrics?.model || selectedModel.descriptor.model,
+          llmLatencyMs: metrics?.llmLatencyMs || Date.now() - attemptStartedAtMs,
+          usage,
+          startedAt: new Date(attemptStartedAtMs),
+          completedAt: new Date(),
+          error: lastError.message,
+        });
+
         console.error(
           `Attempt ${attempt + 1}/${this.MAX_RETRIES} failed for quiz ${config.quizNumber}:`,
           lastError.message,
@@ -254,36 +732,137 @@ export class QuizGeneratorService {
     content: string,
     config: IGenerationConfig & {
       quizNumber: number;
-      quizType: "basic" | "rapid" | "crossword";
+      quizType: AIGeneratedQuizType;
     },
+    selectedModel: { descriptor: AIModelDescriptor; apiKey: string },
     structureAndRules: QuizStructureAndRules,
-  ): Promise<GeneratedQuiz> {
+  ): Promise<{ quiz: GeneratedQuiz; llmMetrics: LLMCallMetrics }> {
     const prompt = this.buildPrompt(content, config, structureAndRules);
-
-    const response = await this.openai.chat.completions.create({
-      model: this.model,
-      messages: [
-        {
-          role: "system",
-          content: this.getSystemPrompt(config, structureAndRules),
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      response_format: { type: "json_object" },
+    const generated = await generateJsonWithModel({
+      provider: selectedModel.descriptor.provider,
+      apiKey: selectedModel.apiKey,
+      model: selectedModel.descriptor.model,
+      systemPrompt: this.getSystemPrompt(config, structureAndRules),
+      userPrompt: prompt,
     });
 
-    const content_text = response.choices[0]?.message?.content;
-    if (!content_text) {
-      throw new Error("No response from OpenAI");
+    // Validate and transform the response
+    return {
+      quiz: await this.transformToQuizFormat(generated.parsed, config),
+      llmMetrics: generated.metrics,
+    };
+  }
+
+  private resolveRuntimeModel(config: IGenerationConfig): {
+    descriptor: AIModelDescriptor;
+    apiKey: string;
+  } {
+    const descriptor = resolveSelectedAIModel(config.aiModel);
+    if (!descriptor) {
+      throw new Error(
+        "AI generation is currently unavailable. No model API keys are configured.",
+      );
     }
 
-    const parsed = JSON.parse(content_text);
+    const apiKey = getConfiguredProviderApiKey(descriptor.provider);
+    if (!apiKey) {
+      throw new Error(
+        `Selected model provider '${descriptor.provider}' is not configured.`,
+      );
+    }
 
-    // Validate and transform the response
-    return await this.transformToQuizFormat(parsed, config);
+    return { descriptor, apiKey };
+  }
+
+  private createEmptyQuizAnalytics(): IQuizAnalytics {
+    return {
+      attempts: [],
+      totals: {
+        attemptCount: 0,
+        successfulAttempts: 0,
+        retryCount: 0,
+        llmLatencyMs: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      },
+    };
+  }
+
+  private appendAttemptAnalytics(
+    progress: QuizGenerationProgress,
+    attempt: IQuizAttemptAnalytics,
+  ): void {
+    const current = progress.analytics || this.createEmptyQuizAnalytics();
+    const attempts = [...current.attempts, attempt];
+    const totals = this.computeQuizAnalyticsTotals(attempts);
+    progress.analytics = {
+      attempts,
+      totals,
+    };
+  }
+
+  private computeQuizAnalyticsTotals(
+    attempts: IQuizAttemptAnalytics[],
+  ): IQuizAnalyticsTotals {
+    return {
+      attemptCount: attempts.length,
+      successfulAttempts: attempts.filter((a) => a.success).length,
+      retryCount: Math.max(
+        0,
+        attempts.length - attempts.filter((a) => a.success).length,
+      ),
+      llmLatencyMs: attempts.reduce((sum, a) => sum + (a.llmLatencyMs || 0), 0),
+      inputTokens: attempts.reduce(
+        (sum, a) => sum + (a.usage?.inputTokens || 0),
+        0,
+      ),
+      outputTokens: attempts.reduce(
+        (sum, a) => sum + (a.usage?.outputTokens || 0),
+        0,
+      ),
+      totalTokens: attempts.reduce(
+        (sum, a) => sum + (a.usage?.totalTokens || 0),
+        0,
+      ),
+    };
+  }
+
+  private computePlanningAnalyticsTotals(
+    attempts: Array<{
+      success: boolean;
+      llmLatencyMs: number;
+      usage: LLMTokenUsage;
+    }>,
+  ): {
+    attemptCount: number;
+    successfulAttempts: number;
+    retryCount: number;
+    llmLatencyMs: number;
+    usage: LLMTokenUsage;
+  } {
+    const attemptCount = attempts.length;
+    const successfulAttempts = attempts.filter((a) => a.success).length;
+    return {
+      attemptCount,
+      successfulAttempts,
+      retryCount: Math.max(0, attemptCount - successfulAttempts),
+      llmLatencyMs: attempts.reduce((sum, a) => sum + (a.llmLatencyMs || 0), 0),
+      usage: {
+        inputTokens: attempts.reduce(
+          (sum, a) => sum + (a.usage?.inputTokens || 0),
+          0,
+        ),
+        outputTokens: attempts.reduce(
+          (sum, a) => sum + (a.usage?.outputTokens || 0),
+          0,
+        ),
+        totalTokens: attempts.reduce(
+          (sum, a) => sum + (a.usage?.totalTokens || 0),
+          0,
+        ),
+      },
+    };
   }
 
   /**
@@ -294,10 +873,15 @@ export class QuizGeneratorService {
     content: string,
     config: IGenerationConfig & {
       quizNumber: number;
-      quizType: "basic" | "rapid" | "crossword";
+      quizType: AIGeneratedQuizType;
     },
     structureAndRules: QuizStructureAndRules,
   ): string {
+    const expectedQuestionCount = this.getExpectedQuestionCount(
+      config.quizType,
+      config.questionsPerQuiz,
+    );
+
     // Map education level to age-appropriate description
     const levelDescriptions: Record<string, string> = {
       "primary-1": "7-year-old children (Primary 1 Singapore)",
@@ -311,8 +895,18 @@ export class QuizGeneratorService {
     const targetAudience =
       levelDescriptions[config.educationLevel] || "primary school students";
 
-    let prompt = `Generate a ${config.quizType} quiz with ${config.questionsPerQuiz} questions appropriate for ${targetAudience}.\n\n`;
+    let prompt = `Generate a ${config.quizType} quiz with exactly ${expectedQuestionCount} questions appropriate for ${targetAudience}.\n\n`;
     prompt += `IMPORTANT: Questions must be age-appropriate in vocabulary, complexity, and concepts for ${targetAudience}.\n\n`;
+    prompt += `STRICT REQUIREMENT: Return exactly ${expectedQuestionCount} entries in the quiz items list. Do not return more or fewer.\n\n`;
+    prompt += `COUNT VALIDATION (MANDATORY BEFORE YOU RESPOND):\n`;
+    prompt += `- If your output structure uses 'items', the 'items' array length MUST be exactly ${expectedQuestionCount}.\n`;
+    prompt += `- If your output structure uses 'entries', the 'entries' array length MUST be exactly ${expectedQuestionCount}.\n`;
+    prompt += `- Perform a final self-check and fix the count before returning.\n`;
+    prompt += `- Return only the final corrected JSON object.\n\n`;
+
+    if (config.quizType === "crossword" && config.questionsPerQuiz > 10) {
+      prompt += `NOTE: Crossword quizzes support a maximum of 10 entries. Use exactly 10 entries.\n\n`;
+    }
 
     // Add batch awareness and variety instructions for multiple quiz generation
     if (config.numQuizzes > 1) {
@@ -323,29 +917,49 @@ export class QuizGeneratorService {
       prompt += `- Focus on different aspects or subtopics within the content\n`;
       prompt += `- Vary the difficulty distribution and question types\n`;
       prompt += `- Approach the material from different angles or perspectives\n\n`;
+      prompt += `IMPORTANT OUTPUT RULE: Do NOT include batch numbering, index markers, or progress markers in "name" or "topic" (e.g., "Quiz 2", "#3", "(2/5)", "Quiz 4").\n\n`;
     }
 
     prompt += `Instructions/Content:\n${content.slice(0, 8000)}\n\n`; // Limit content length
 
     prompt += `\n===== QUIZ TITLE =====\n`;
     prompt += `Generate a creative, descriptive title for the 'name' field.\n`;
-    if (config.subject || config.topic) {
-      const contextParts = [];
-      if (config.subject) contextParts.push(config.subject);
-      if (config.topic) contextParts.push(config.topic);
-      prompt += `Context: This quiz is about ${contextParts.join(" - ")}.\n`;
-      prompt += `Example titles: "${config.subject || "Subject"} Fundamentals", "Exploring ${config.topic || "Topic"}", "${config.topic || "Topic"} Challenge"\n`;
+    prompt += `Title rules: plain human-readable title, no numbering/progress markers, no parenthesized batch labels.\n`;
+    prompt += `METADATA COMPLIANCE RULES:\n`;
+    prompt += `- "name" must not contain quiz numbering markers (forbidden examples: "Quiz 2", "#3", "(2/5)", "4/5").\n`;
+    prompt += `- "topic" must be concise and content-based (prefer 1-2 words, maximum 4 words unless absolutely necessary).\n`;
+    prompt += `- "topic" must not contain numbering/progress markers.\n`;
+    prompt += `- If any rule is violated, rewrite before returning the final JSON.\n`;
+    if (config.subject) {
+      prompt += `The subject is fixed to "${config.subject}". Keep the subject value exactly as "${config.subject}".\n`;
+      prompt += `Generate a specific topic label based on quiz content and set it in the "topic" field.\n`;
+      prompt += `Topic rules: prefer 1-2 words; use >2 words only when absolutely necessary for clarity; never include numbering/progress markers.\n`;
+      prompt += `Example titles: "${config.subject} Fundamentals", "${config.subject} Challenge", "${config.subject} Practice"\n`;
+    }
+    prompt += `Context relevance rule: uploaded documents may include unrelated content. Use only evidence relevant to the teacher instructions, subject, level, and blueprint focus.\n`;
+
+    if (config.quizType === "true-false") {
+      prompt += `\n===== TRUE/FALSE QUALITY RULES =====\n`;
+      prompt += `- Every item MUST include a non-empty question/statement text.\n`;
+      prompt += `- Every item MUST include explicit boolean correctness for True/False (never omit correctness).\n`;
+      prompt += `- Ensure the answer key is not one-sided: include a balanced mix of True and False correct answers.\n`;
+      prompt += `- Do NOT make all items have True as correct.\n`;
+      prompt += `- Keep statements clear, specific, and fact-checkable.\n`;
+    }
+    if (config.quizType === "basic") {
+      prompt += `\n===== OPEN-ENDED ANSWER TYPE RULES =====\n`;
+      prompt += `- Allowed open answerType values are ONLY: "exact", "keywords", and "list".\n`;
+      prompt += `- Do NOT use answerType "fuzzy".\n`;
+      prompt += `- For answerType "exact", provide one or more accepted answers in "text" (any one accepted text can be correct).\n`;
+      prompt += `- For answerType "keywords", include at least one keyword and set minKeywords to 1 or higher (never 0).\n`;
+      prompt += `- For answerType "keywords", "keywords" must be an array of plain strings (no objects).\n`;
+      prompt += `- For answerType "list", include at least one list item and set minCorrectItems to 1 or higher.\n`;
+      prompt += `- For answerType "list", "listItems" must be an array of plain strings (no objects like { "text": "..." }).\n`;
+      prompt += `- For answerType "keywords" and "list", do not rely on "text" for grading; put grading data in keywords/listItems fields.\n`;
     }
     prompt += `\n`;
 
-    const formatConfig: { subject?: string; topic?: string } = {};
-    if (config.subject) formatConfig.subject = config.subject;
-    if (config.topic) formatConfig.topic = config.topic;
-    prompt += this.getFormatInstructions(
-      config.quizType,
-      structureAndRules,
-      formatConfig,
-    );
+    prompt += this.getFormatInstructions(config.quizType, structureAndRules);
 
     return prompt;
   }
@@ -356,84 +970,55 @@ export class QuizGeneratorService {
    */
   private getSystemPrompt(
     config: IGenerationConfig & {
-      quizType: "basic" | "rapid" | "crossword";
+      quizType: AIGeneratedQuizType;
       quizNumber: number;
     },
     structureAndRules: QuizStructureAndRules,
   ): string {
-    // Try to use system prompt from quiz service rules
-    if (structureAndRules && "schemas" in structureAndRules) {
-      const schema = structureAndRules.schemas[config.quizType];
-      if (schema && "aiPromptingRules" in schema) {
-        // Enhance with education level
-        const levelDescriptions: Record<string, string> = {
-          "primary-1": "7-year-old children (Primary 1 Singapore)",
-          "primary-2": "8-year-old children (Primary 2 Singapore)",
-          "primary-3": "9-year-old children (Primary 3 Singapore)",
-          "primary-4": "10-year-old children (Primary 4 Singapore)",
-          "primary-5": "11-year-old children (Primary 5 Singapore)",
-          "primary-6": "12-year-old children (Primary 6 Singapore)",
-        };
-        const targetLevel =
-          levelDescriptions[config.educationLevel] || "primary school students";
+    const expectedQuestionCount = this.getExpectedQuestionCount(
+      config.quizType,
+      config.questionsPerQuiz,
+    );
 
-        // Add batch awareness for variety
-        const batchContext =
-          config.numQuizzes > 1
-            ? ` IMPORTANT: You are generating quiz ${config.quizNumber} of ${config.numQuizzes}. Each quiz in this batch must be unique and diverse. Use different question styles, perspectives, and aspects of the content to ensure variety across all quizzes.`
-            : "";
-
-        return `${schema.aiPromptingRules.systemPrompt} Target audience: ${targetLevel}.${batchContext}`;
-      }
+    if (!structureAndRules || !("schemas" in structureAndRules)) {
+      throw new Error(
+        `Missing quiz schema rules for system prompt resolution (quizType "${config.quizType}").`,
+      );
+    }
+    const schema = structureAndRules.schemas[config.quizType];
+    const baseSystemPrompt = String(schema?.aiPromptingRules?.systemPrompt || "").trim();
+    if (!baseSystemPrompt) {
+      throw new Error(
+        `Missing AI system prompt in quiz-service schema for quizType "${config.quizType}".`,
+      );
     }
 
-    // Fallback to local prompts
+    // Enhance canonical system prompt with runtime constraints.
     const levelDescriptions: Record<string, string> = {
-      "primary-1":
-        "7-year-old children (Primary 1 Singapore) - use simple vocabulary and basic concepts",
-      "primary-2":
-        "8-year-old children (Primary 2 Singapore) - use simple vocabulary with slightly more complexity",
-      "primary-3":
-        "9-year-old children (Primary 3 Singapore) - use grade-appropriate vocabulary",
-      "primary-4":
-        "10-year-old children (Primary 4 Singapore) - can handle more abstract concepts",
-      "primary-5":
-        "11-year-old children (Primary 5 Singapore) - preparing for PSLE, advanced concepts",
-      "primary-6":
-        "12-year-old children (Primary 6 Singapore) - PSLE level, comprehensive understanding",
+      "primary-1": "7-year-old children (Primary 1 Singapore)",
+      "primary-2": "8-year-old children (Primary 2 Singapore)",
+      "primary-3": "9-year-old children (Primary 3 Singapore)",
+      "primary-4": "10-year-old children (Primary 4 Singapore)",
+      "primary-5": "11-year-old children (Primary 5 Singapore)",
+      "primary-6": "12-year-old children (Primary 6 Singapore)",
     };
-
     const targetLevel =
       levelDescriptions[config.educationLevel] || "primary school students";
 
-    const basePrompt = `You are an expert educational content creator specializing in creating high-quality, age-appropriate assessment questions for ${targetLevel}. `;
-
-    // Add batch awareness for variety (same as above)
     const batchContext =
       config.numQuizzes > 1
         ? ` IMPORTANT: You are generating quiz ${config.quizNumber} of ${config.numQuizzes}. Each quiz in this batch must be unique and diverse. Use different question styles, perspectives, and aspects of the content to ensure variety across all quizzes.`
         : "";
 
-    switch (config.quizType) {
-      case "basic":
-        return (
-          basePrompt +
-          `Create diverse quiz questions including multiple choice, open-ended, and context items. Ensure questions test understanding at an appropriate level for ${targetLevel}. Use vocabulary and concepts suitable for their age.` +
-          batchContext
-        );
-      case "rapid":
-        return (
-          basePrompt +
-          `Create fast-paced multiple choice questions suitable for timed quizzes at ${targetLevel}. Questions should be clear, concise, and age-appropriate.` +
-          batchContext
-        );
-      case "crossword":
-        return (
-          basePrompt +
-          `Create crossword puzzle entries with clear clues and single-word or short-phrase answers appropriate for ${targetLevel}. Use vocabulary they would know.` +
-          batchContext
-        );
-    }
+    const fixedSubject = config.subject?.trim();
+    const subjectConstraint = fixedSubject
+      ? ` Subject is fixed to "${fixedSubject}" and must not be changed.`
+      : "";
+    const topicConstraint =
+      ' Generate a concise content-based "topic" label for each quiz and include it in the output. Prefer 1-2 words and keep to at most 4 words unless a longer phrase is essential.';
+    const namingConstraint =
+      ' Do not include batch numbers/progress markers in "name" or "topic" (e.g. "Quiz 2", "(2/5)", "#3", "4/5").';
+    return `${baseSystemPrompt} Target audience: ${targetLevel}.${batchContext} You MUST return exactly ${expectedQuestionCount} questions/entries (array length must match exactly).${subjectConstraint}${topicConstraint}${namingConstraint}`;
   }
 
   /**
@@ -443,23 +1028,21 @@ export class QuizGeneratorService {
   private getFormatInstructions(
     quizType: string,
     structureAndRules: QuizStructureAndRules,
-    config?: { subject?: string; topic?: string },
   ): string {
-    // Use format instructions from quiz service rules (always available via client fallback)
-    if (
-      "schemas" in structureAndRules &&
-      structureAndRules.schemas[quizType as "basic" | "rapid" | "crossword"]
-    ) {
-      const schema =
-        structureAndRules.schemas[quizType as "basic" | "rapid" | "crossword"];
+    // Use format instructions from quiz service rules.
+    if ("schemas" in structureAndRules && structureAndRules.schemas[quizType]) {
+      const schema = structureAndRules.schemas[quizType];
       if (schema && "aiPromptingRules" in schema) {
-        return schema.aiPromptingRules.formatInstructions;
+        const formatInstructions = schema.aiPromptingRules.formatInstructions;
+        if (String(formatInstructions || "").trim().length > 0) {
+          return formatInstructions;
+        }
       }
     }
 
-    // This should never happen as quiz-service-client provides a fallback
-    // But if it does, return a minimal instruction to fail gracefully
-    return "\n\nReturn a valid JSON object with quiz structure.";
+    throw new Error(
+      `Missing AI format instructions for quiz type "${quizType}" from quiz-service structure rules.`,
+    );
   }
 
   /**
@@ -469,11 +1052,15 @@ export class QuizGeneratorService {
     parsed: any,
     config: IGenerationConfig & {
       quizNumber: number;
-      quizType: "basic" | "rapid" | "crossword";
+      quizType: AIGeneratedQuizType;
     },
   ): Promise<GeneratedQuiz> {
     const tempId = uuidv4();
     const quizType = config.quizType;
+    const expectedQuestionCount = this.getExpectedQuestionCount(
+      quizType,
+      config.questionsPerQuiz,
+    );
 
     // Add IDs to all items/options/answers
     let items = this.addItemIds(parsed.items || parsed.entries || [], quizType);
@@ -485,6 +1072,8 @@ export class QuizGeneratorService {
       );
       items = items.slice(0, 10);
     }
+
+    items = this.enforceQuestionCount(items, expectedQuestionCount, config);
 
     // Debug log for crossword entries
     if (quizType === "crossword") {
@@ -500,9 +1089,16 @@ export class QuizGeneratorService {
     const timeLimit = parsed.totalTimeLimit || this.getDefaultTimeLimit(config);
     const validTimeLimit = timeLimit && !isNaN(timeLimit) ? timeLimit : null;
 
-    // Always use user-provided subject/topic from config - AI should never generate these
-    const subject = config.subject?.trim() || "General";
-    const topic = config.topic?.trim() || "General";
+    // Subject is teacher-selected and fixed.
+    const subject = String(config.subject || "").trim();
+    if (!subject) {
+      throw new Error(
+        `Quiz #${config.quizNumber} (${config.quizType}) missing required selected subject.`,
+      );
+    }
+
+    // Topic must be generated by the model.
+    const topic = this.resolveGeneratedTopic(parsed);
 
     // Name: Use AI-generated name, or create from subject/topic
     let name = parsed.name?.trim();
@@ -519,6 +1115,11 @@ export class QuizGeneratorService {
       items,
       totalTimeLimit: validTimeLimit,
     };
+
+    this.validateGeneratedMetadata(name, topic, config);
+    if (quizType === "true-false") {
+      this.validateTrueFalseBalance(items, config);
+    }
 
     // For crossword quizzes, generate the grid immediately
     if (quizType === "crossword" && items.length > 0) {
@@ -570,15 +1171,250 @@ export class QuizGeneratorService {
     return `General Quiz`;
   }
 
+  private resolveGeneratedTopic(parsed: any): string {
+    const rawTopic = String(parsed?.topic ?? "").trim();
+    if (rawTopic) {
+      return rawTopic;
+    }
+    throw new Error("Generated quiz is missing required topic.");
+  }
+
+  private parseBooleanLike(value: unknown): boolean | undefined {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") {
+      if (value === 1) return true;
+      if (value === 0) return false;
+      return undefined;
+    }
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (
+        normalized === "true" ||
+        normalized === "t" ||
+        normalized === "yes" ||
+        normalized === "y" ||
+        normalized === "1"
+      ) {
+        return true;
+      }
+      if (
+        normalized === "false" ||
+        normalized === "f" ||
+        normalized === "no" ||
+        normalized === "n" ||
+        normalized === "0"
+      ) {
+        return false;
+      }
+    }
+    return undefined;
+  }
+
+  private normalizeStringArrayEntry(entry: unknown): string | null {
+    if (typeof entry === "string") {
+      const normalized = entry.trim();
+      return normalized.length > 0 ? normalized : null;
+    }
+    if (typeof entry === "number" || typeof entry === "boolean") {
+      const normalized = String(entry).trim();
+      return normalized.length > 0 ? normalized : null;
+    }
+    if (entry && typeof entry === "object") {
+      const raw = entry as Record<string, unknown>;
+      const candidateFields = [
+        "text",
+        "value",
+        "label",
+        "item",
+        "name",
+        "answer",
+      ];
+      for (const field of candidateFields) {
+        const candidate = raw[field];
+        if (typeof candidate === "string") {
+          const normalized = candidate.trim();
+          if (normalized.length > 0) return normalized;
+        }
+        if (typeof candidate === "number" || typeof candidate === "boolean") {
+          const normalized = String(candidate).trim();
+          if (normalized.length > 0) return normalized;
+        }
+      }
+    }
+    return null;
+  }
+
+  private normalizeStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry) => this.normalizeStringArrayEntry(entry))
+      .filter((entry): entry is string => Boolean(entry));
+  }
+
+  private extractTrueFalseText(raw: any): string {
+    const candidates = [
+      raw?.text,
+      raw?.question,
+      raw?.statement,
+      raw?.prompt,
+      raw?.title,
+    ];
+    for (const candidate of candidates) {
+      const text = String(candidate ?? "").trim();
+      if (text.length > 0) return text;
+    }
+    return "";
+  }
+
+  private containsBatchMarker(value: string): boolean {
+    const v = String(value || "");
+    return (
+      /\bquiz\s*#?\s*\d+\b/i.test(v) ||
+      /\(\s*\d+\s*\/\s*\d+\s*\)/.test(v) ||
+      /#\s*\d+\b/.test(v) ||
+      /\b\d+\s*\/\s*\d+\b/.test(v)
+    );
+  }
+
+  private validateGeneratedMetadata(
+    name: string,
+    topic: string,
+    config: IGenerationConfig & {
+      quizNumber: number;
+      quizType: AIGeneratedQuizType;
+    },
+  ): void {
+    const trimmedName = String(name || "").trim();
+    const trimmedTopic = String(topic || "").trim();
+
+    if (!trimmedName) {
+      throw new Error(
+        `Quiz #${config.quizNumber} (${config.quizType}) generated empty name.`,
+      );
+    }
+
+    if (!trimmedTopic) {
+      throw new Error(
+        `Quiz #${config.quizNumber} (${config.quizType}) generated empty topic.`,
+      );
+    }
+
+    if (this.containsBatchMarker(trimmedName) || this.containsBatchMarker(trimmedTopic)) {
+      throw new Error(
+        `Quiz #${config.quizNumber} (${config.quizType}) generated metadata with numbering markers in name/topic.`,
+      );
+    }
+
+  }
+
+  private validateTrueFalseBalance(
+    items: any[],
+    config: IGenerationConfig & {
+      quizNumber: number;
+      quizType: AIGeneratedQuizType;
+    },
+  ): void {
+    const trueCorrectCount = items.reduce((count, item) => {
+      const trueOpt = (item?.options || []).find(
+        (o: any) =>
+          String(o?.text ?? "")
+            .trim()
+            .toLowerCase() === "true",
+      );
+      return count + (trueOpt?.correct ? 1 : 0);
+    }, 0);
+
+    const falseCorrectCount = items.length - trueCorrectCount;
+    if (items.length > 1 && (trueCorrectCount === 0 || falseCorrectCount === 0)) {
+      throw new Error(
+        `Quiz #${config.quizNumber} (${config.quizType}) generated one-sided answer key.`,
+      );
+    }
+  }
+
   /**
    * Add unique IDs to all items and their sub-elements
    */
   private addItemIds(items: any[], quizType: string): any[] {
-    return items.map((item: any) => {
+    return items.flatMap((item: any) => {
       const baseItem = {
         ...item,
         id: item.id || uuidv4(),
       };
+      const normalizedItemType = String(baseItem.type || "")
+        .trim()
+        .toLowerCase();
+
+      // True/False questions are always MC with exactly two fixed options.
+      if (quizType === "true-false") {
+        const inferTrueCorrect = (): boolean | undefined => {
+          const directCandidates = [
+            baseItem.correctAnswer,
+            baseItem.answer,
+            baseItem.correct,
+            baseItem.isTrue,
+            baseItem.isCorrectTrue,
+            baseItem.label,
+          ];
+          for (const candidate of directCandidates) {
+            const parsed = this.parseBooleanLike(candidate);
+            if (typeof parsed === "boolean") return parsed;
+          }
+
+          if (Array.isArray(baseItem.options)) {
+            const t = baseItem.options.find(
+              (o: any) =>
+                String(o?.text ?? "")
+                  .trim()
+                  .toLowerCase() === "true",
+            );
+            const f = baseItem.options.find(
+              (o: any) =>
+                String(o?.text ?? "")
+                  .trim()
+                  .toLowerCase() === "false",
+            );
+            const tCorrect = this.parseBooleanLike(t?.correct);
+            const fCorrect = this.parseBooleanLike(f?.correct);
+            if (
+              typeof tCorrect === "boolean" &&
+              typeof fCorrect === "boolean" &&
+              tCorrect !== fCorrect
+            ) {
+              return tCorrect;
+            }
+            if (typeof tCorrect === "boolean") return tCorrect;
+            if (typeof fCorrect === "boolean") return !fCorrect;
+          }
+          return undefined;
+        };
+
+        const trueCorrect = inferTrueCorrect();
+        if (typeof trueCorrect !== "boolean") {
+          throw new Error(
+            `True/False item is missing explicit boolean answer correctness.`,
+          );
+        }
+        const text = this.extractTrueFalseText(baseItem);
+        if (!text) {
+          throw new Error(`True/False item is missing question text.`);
+        }
+        return {
+          id: baseItem.id,
+          type: "mc",
+          text,
+          timeLimit: Number(baseItem.timeLimit) || 10,
+          image: baseItem.image ?? null,
+          options: [
+            { id: `${baseItem.id}:true`, text: "True", correct: trueCorrect },
+            {
+              id: `${baseItem.id}:false`,
+              text: "False",
+              correct: !trueCorrect,
+            },
+          ],
+        };
+      }
 
       // Add IDs to options (for MC)
       if (baseItem.options && Array.isArray(baseItem.options)) {
@@ -590,46 +1426,107 @@ export class QuizGeneratorService {
 
       // Add IDs to answers (for open-ended) and ensure answerType is set
       if (baseItem.answers && Array.isArray(baseItem.answers)) {
-        baseItem.answers = baseItem.answers.map((ans: any) => {
-          const answerType =
-            ans.answerType || this.determineAnswerType(baseItem.text || "");
+        let invalidOpenItem = false;
+        const normalizedAnswers = baseItem.answers.map((ans: any) => {
+          const normalizedText = String(ans.text || "").trim();
+          const candidateType = String(ans.answerType || "")
+            .trim()
+            .toLowerCase();
+          const answerType: "exact" | "keywords" | "list" | null =
+            candidateType === "exact" ||
+            candidateType === "keywords" ||
+            candidateType === "list"
+              ? (candidateType as "exact" | "keywords" | "list")
+              : null;
+
+          if (!answerType) {
+            invalidOpenItem = true;
+            return null;
+          }
+
+          if (answerType === "exact" && normalizedText.length === 0) {
+            invalidOpenItem = true;
+            return null;
+          }
 
           const answer: any = {
-            ...ans,
             id: ans.id || uuidv4(),
             answerType,
+            caseSensitive: !!ans.caseSensitive,
+            // Keep text only for exact answers; keywords/list should grade via their own fields.
+            text: answerType === "exact" ? normalizedText : "",
           };
 
           // Preserve type-specific fields if provided by AI
-          if (answerType === "fuzzy") {
-            answer.similarityThreshold = ans.similarityThreshold ?? 0.85;
-          } else if (answerType === "keywords") {
-            answer.keywords = ans.keywords || [];
-            answer.minKeywords =
-              ans.minKeywords ?? Math.ceil((ans.keywords?.length || 0) * 0.6);
+          if (answerType === "keywords") {
+            const keywords = this.normalizeStringArray(ans.keywords);
+            if (keywords.length === 0) {
+              invalidOpenItem = true;
+              return null;
+            }
+
+            answer.keywords = keywords;
+
+            const rawMinKeywords = Number(ans.minKeywords);
+            const defaultMin = Math.ceil((keywords.length || 0) * 0.6);
+            const normalizedMin = Number.isFinite(rawMinKeywords)
+              ? Math.floor(rawMinKeywords)
+              : defaultMin;
+            answer.minKeywords = Math.max(
+              1,
+              keywords.length > 0
+                ? Math.min(normalizedMin, keywords.length)
+                : normalizedMin,
+              );
           } else if (answerType === "list") {
-            answer.listItems = ans.listItems || [];
+            const listItems = this.normalizeStringArray(ans.listItems);
+            if (listItems.length === 0) {
+              invalidOpenItem = true;
+              return null;
+            }
+
+            answer.listItems = listItems;
             answer.requireOrder = ans.requireOrder ?? false;
-            answer.minCorrectItems =
-              ans.minCorrectItems ?? (ans.listItems?.length || 0);
+            const rawMinCorrectItems = Number(ans.minCorrectItems);
+            const defaultMinCorrectItems = listItems.length || 1;
+            const normalizedMinCorrectItems = Number.isFinite(rawMinCorrectItems)
+              ? Math.floor(rawMinCorrectItems)
+              : defaultMinCorrectItems;
+            answer.minCorrectItems = Math.max(
+              1,
+              listItems.length > 0
+                ? Math.min(normalizedMinCorrectItems, listItems.length)
+                : normalizedMinCorrectItems,
+            );
           }
 
           return answer;
         });
+
+        const compactAnswers = normalizedAnswers.filter(Boolean);
+        if (
+          normalizedItemType === "open" &&
+          (invalidOpenItem || compactAnswers.length === 0)
+        ) {
+          return [];
+        }
+        baseItem.answers = compactAnswers;
       }
 
       // For crossword entries
       if (quizType === "crossword" && !baseItem.type) {
-        return {
-          id: baseItem.id,
-          answer: (baseItem.answer || "").toUpperCase().replace(/\s+/g, ""),
-          clue: baseItem.clue || "",
-          positions: [],
-          direction: null,
-        };
+        return [
+          {
+            id: baseItem.id,
+            answer: (baseItem.answer || "").toUpperCase().replace(/\s+/g, ""),
+            clue: baseItem.clue || "",
+            positions: [],
+            direction: null,
+          },
+        ];
       }
 
-      return baseItem;
+      return [baseItem];
     });
   }
 
@@ -654,41 +1551,54 @@ export class QuizGeneratorService {
   }
 
   /**
-   * Intelligently determine answer type for open-ended questions
-   * Fallback for when AI doesn't specify answerType
+   * Compute the effective expected question count for this quiz.
+   * Crossword is capped to 10 due quiz-service constraints.
    */
-  private determineAnswerType(questionText: string): string {
-    const lowerQ = questionText.toLowerCase();
+  private getExpectedQuestionCount(
+    quizType: AIGeneratedQuizType,
+    requested: number,
+  ): number {
+    const normalized = Math.max(1, Number(requested) || 10);
+    if (quizType === "crossword") {
+      return Math.min(normalized, 10);
+    }
+    return normalized;
+  }
 
-    // List questions: "name three...", "list five...", "what are the..."
-    if (
-      /\b(name|list|identify|give|state)\s+(three|four|five|several|all|some|examples?|the)\b/.test(
-        lowerQ,
-      )
-    ) {
-      return "list";
+  /**
+   * Question-count enforcement:
+   * - If model returns too many, truncate to expected count.
+   * - If model returns too few, keep as-is (prompt-level constraints are primary),
+   *   but reject empty outputs so they still enter retry flow.
+   */
+  private enforceQuestionCount(
+    items: any[],
+    expectedCount: number,
+    config: IGenerationConfig & {
+      quizNumber: number;
+      quizType: AIGeneratedQuizType;
+    },
+  ): any[] {
+    if (items.length > expectedCount) {
+      console.warn(
+        `Quiz #${config.quizNumber} (${config.quizType}) produced ${items.length} items, truncating to ${expectedCount}.`,
+      );
+      return items.slice(0, expectedCount);
     }
 
-    // Keyword questions: "explain", "describe", "why", "how"
-    if (
-      /\b(explain|describe|why|how|discuss|compare|analyze|elaborate)\b/.test(
-        lowerQ,
-      )
-    ) {
-      return "keywords";
+    if (items.length === 0) {
+      throw new Error(
+        `Quiz #${config.quizNumber} (${config.quizType}) produced 0 items.`,
+      );
     }
 
-    // Exact questions: capital, who invented, dates, names
-    if (
-      /\b(capital|who\s+(invented|discovered|wrote)|what\s+year|date|name\s+of)\b/.test(
-        lowerQ,
-      )
-    ) {
-      return "exact";
+    if (items.length < expectedCount) {
+      console.warn(
+        `Quiz #${config.quizNumber} (${config.quizType}) produced ${items.length} items (requested ${expectedCount}); keeping underfilled output.`,
+      );
     }
 
-    // Default: fuzzy (handles typos for most questions)
-    return "fuzzy";
+    return items;
   }
 
   /**
@@ -749,110 +1659,60 @@ export class QuizGeneratorService {
     }
   }
 
-  /**
-   * Detect all quiz types mentioned in user instructions (called once)
-   */
-  private detectRequestedQuizTypes(instructions: string): string[] {
-    const lowerInstructions = instructions.toLowerCase();
-    const requestedTypes: string[] = [];
-
-    if (
-      lowerInstructions.includes("crossword") ||
-      lowerInstructions.includes("cross word") ||
-      lowerInstructions.includes("puzzle")
-    ) {
-      requestedTypes.push("crossword");
-    }
-
-    if (
-      lowerInstructions.includes("rapid") ||
-      lowerInstructions.includes("quick") ||
-      lowerInstructions.includes("fast-paced") ||
-      lowerInstructions.includes("multiple choice only")
-    ) {
-      requestedTypes.push("rapid");
-    }
-
-    if (
-      lowerInstructions.includes("basic") ||
-      lowerInstructions.includes("standard") ||
-      lowerInstructions.includes("mixed questions")
-    ) {
-      requestedTypes.push("basic");
-    }
-
-    return requestedTypes;
+  private isAIGeneratedQuizType(type: string): type is AIGeneratedQuizType {
+    return (
+      type === "basic" ||
+      type === "rapid" ||
+      type === "crossword" ||
+      type === "true-false"
+    );
   }
 
-  /**
-   * Select quiz type based on detected types and current index (called per quiz)
-   */
-  private selectQuizType(
-    requestedTypes: string[],
-    index: number,
-    subject?: string,
-  ): string {
-    // If multiple types requested, distribute them across quizzes
-    if (requestedTypes.length > 1) {
-      return requestedTypes[index % requestedTypes.length] || "basic";
+  private resolveRequestedQuizTypes(
+    config: IGenerationConfig,
+    structureAndRules: QuizStructureAndRules,
+  ): AIGeneratedQuizType[] {
+    const allowed = new Set(
+      (structureAndRules.quizTypes || []).filter((t) =>
+        this.isAIGeneratedQuizType(t),
+      ) as AIGeneratedQuizType[],
+    );
+
+    const requestedRaw = Array.isArray(config.quizTypes) ? config.quizTypes : [];
+    const requested = requestedRaw.filter((t) => this.isAIGeneratedQuizType(t));
+    const dedupRequested = Array.from(new Set(requested));
+    const requestedAllowed = dedupRequested.filter((t) => allowed.has(t));
+
+    if (requestedAllowed.length > 0) {
+      return requestedAllowed;
     }
 
-    // If single type requested, use it for all quizzes
-    if (requestedTypes.length === 1) {
-      return requestedTypes[0] || "basic";
-    }
-
-    // If no specific type mentioned, use intelligent distribution
-    return this.intelligentQuizTypeSelection(index, subject);
-  }
-
-  /**
-   * Intelligently select quiz type - AI decides the mix
-   * Creates a balanced distribution of basic, rapid, and crossword quizzes
-   */
-  private intelligentQuizTypeSelection(
-    index: number,
-    subject?: string,
-  ): string {
-    // Check if subject is math-related (crosswords don't work well for math)
-    const isMathSubject =
-      subject &&
-      /^(math|mathematics|algebra|geometry|calculus|arithmetic|trigonometry)$/i.test(
-        subject.trim(),
-      );
-
-    if (isMathSubject) {
-      // Math distribution: 60% basic, 40% rapid (no crosswords)
-      const mathDistribution = [
-        "basic",
-        "basic",
-        "rapid",
-        "basic",
-        "rapid",
-        "basic",
-        "basic",
-        "rapid",
-        "basic",
-        "rapid",
-      ];
-      return mathDistribution[index % mathDistribution.length] || "basic";
-    }
-
-    // Default distribution: 50% basic, 30% rapid, 20% crossword
-    // This ensures variety while prioritizing comprehensive assessment (basic)
-    const distribution = [
-      "basic",
-      "basic",
-      "rapid",
-      "basic",
-      "crossword",
-      "basic",
-      "rapid",
+    const fallbackOrder: AIGeneratedQuizType[] = [
       "basic",
       "rapid",
       "crossword",
+      "true-false",
     ];
-    return distribution[index % distribution.length] || "basic";
+    const allowedByFallback = fallbackOrder.filter(
+      (t) => allowed.size === 0 || allowed.has(t),
+    );
+    return allowedByFallback.length > 0 ? allowedByFallback : ["basic"];
+  }
+
+  /**
+   * Build a deterministic, even quiz-type plan over N quizzes.
+   * Example: types=[basic,rapid,crossword], N=5 => [basic,rapid,crossword,basic,rapid]
+   */
+  private buildQuizTypePlan(
+    numQuizzes: number,
+    selectedTypes: AIGeneratedQuizType[],
+  ): AIGeneratedQuizType[] {
+    const types: AIGeneratedQuizType[] =
+      selectedTypes.length > 0 ? selectedTypes : ["basic"];
+    return Array.from(
+      { length: Math.max(1, numQuizzes) },
+      (_, index) => types[index % types.length] || "basic",
+    );
   }
 
   /**
