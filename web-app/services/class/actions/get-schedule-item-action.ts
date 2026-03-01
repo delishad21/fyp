@@ -51,7 +51,14 @@ export type ScheduleItemWithMeta = {
   quizName?: string;
   subject?: string;
   subjectColor?: string;
-  quizType?: "basic" | "rapid" | "crossword" | string;
+  quizType?:
+    | "basic"
+    | "rapid"
+    | "crossword"
+    | "true-false"
+    | "rapid-arithmetic"
+    | "crossword-bank"
+    | string;
   topic?: string;
   typeColorHex?: string;
 

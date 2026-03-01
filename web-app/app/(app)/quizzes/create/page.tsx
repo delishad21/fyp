@@ -29,6 +29,31 @@ export default async function Page() {
       color: "#f59e0b",
       href: "/quizzes/create/rapid",
     },
+    {
+      title: "True / False",
+      id: "true-false",
+      description: ["Rapid-format quiz with only True and False responses"],
+      color: "#ef4444",
+      href: "/quizzes/create/true-false",
+    },
+    {
+      title: "Rapid Arithmetic",
+      id: "rapid-arithmetic",
+      description: [
+        "Configure operators and number range; each schedule gets randomized MC arithmetic questions",
+      ],
+      color: "#eab308",
+      href: "/quizzes/create/rapid-arithmetic",
+    },
+    {
+      title: "Crossword Bank",
+      id: "crossword-bank",
+      description: [
+        "Build a word bank and generate a fresh crossword subset for each schedule",
+      ],
+      color: "#0ea5e9",
+      href: "/quizzes/create/crossword-bank",
+    },
   ];
 
   return (
@@ -37,7 +62,7 @@ export default async function Page() {
         Select Quiz Type
       </h1>
 
-      <div className="flex gap-10">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {quizzes.map((quiz) => (
           <CreateQuizCard
             key={quiz.title}
@@ -46,7 +71,7 @@ export default async function Page() {
             description={quiz.description}
             href={quiz.href}
             screenshot={quiz.imagePath}
-            className="flex-1"
+            className="h-full"
           />
         ))}
       </div>

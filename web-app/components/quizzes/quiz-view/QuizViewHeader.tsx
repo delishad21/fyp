@@ -10,7 +10,14 @@ import { normalizeHex } from "@/services/class/helpers/class-helpers";
 
 type Props = {
   quizId: string;
-  quizType: "basic" | "rapid" | "crossword" | string;
+  quizType:
+    | "basic"
+    | "rapid"
+    | "crossword"
+    | "true-false"
+    | "rapid-arithmetic"
+    | "crossword-bank"
+    | string;
   name: string;
   subject: string;
   topic: string;

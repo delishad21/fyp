@@ -1,6 +1,9 @@
 import BasicQuizForm from "@/components/quizzes/quiz-forms/BasicQuizForm";
+import CrosswordBankQuizForm from "@/components/quizzes/quiz-forms/CrosswordBankQuizForm";
 import CrosswordQuizForm from "@/components/quizzes/quiz-forms/CrosswordQuizForm";
+import RapidArithmeticQuizForm from "@/components/quizzes/quiz-forms/RapidArithmeticQuizForm";
 import RapidQuizForm from "@/components/quizzes/quiz-forms/RapidQuizForm";
+import TrueFalseQuizForm from "@/components/quizzes/quiz-forms/TrueFalseQuizForm";
 import { getQuizForEdit } from "@/services/quiz/actions/get-quiz-action";
 import { getFilterMeta } from "@/services/quiz/actions/quiz-metadata-actions";
 import { getQuizTypeColors } from "@/services/quiz/actions/quiz-type-colors-action";
@@ -49,6 +52,20 @@ export default async function EditQuizPage({
     );
   }
 
+  if (data.quizType === "true-false") {
+    form = (
+      <TrueFalseQuizForm
+        key={`true-false-${paramsResolved.id}-v${currentVersion}`}
+        meta={meta}
+        mode="edit"
+        initialData={data}
+        versions={versions}
+        currentVersion={currentVersion}
+        typeColorHex={typeColors["true-false"]}
+      />
+    );
+  }
+
   if (data.quizType === "crossword") {
     form = (
       <CrosswordQuizForm
@@ -60,6 +77,34 @@ export default async function EditQuizPage({
         currentVersion={currentVersion}
         typeColorHex={typeColors.crossword}
         initialQuestionIndex={questionIndex}
+      />
+    );
+  }
+
+  if (data.quizType === "crossword-bank") {
+    form = (
+      <CrosswordBankQuizForm
+        key={`crossword-bank-${paramsResolved.id}-v${currentVersion}`}
+        meta={meta}
+        mode="edit"
+        initialData={data}
+        versions={versions}
+        currentVersion={currentVersion}
+        typeColorHex={typeColors["crossword-bank"]}
+      />
+    );
+  }
+
+  if (data.quizType === "rapid-arithmetic") {
+    form = (
+      <RapidArithmeticQuizForm
+        key={`rapid-arithmetic-${paramsResolved.id}-v${currentVersion}`}
+        meta={meta}
+        mode="edit"
+        initialData={data}
+        versions={versions}
+        currentVersion={currentVersion}
+        typeColorHex={typeColors["rapid-arithmetic"]}
       />
     );
   }

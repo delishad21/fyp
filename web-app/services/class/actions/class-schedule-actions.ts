@@ -24,7 +24,14 @@ export type ApiScheduleItem = {
   showAnswersAfterAttempt: boolean; // default false (server-enforced)
 
   // optional quiz meta
-  quizType?: "basic" | "rapid" | "crossword" | string;
+  quizType?:
+    | "basic"
+    | "rapid"
+    | "crossword"
+    | "true-false"
+    | "rapid-arithmetic"
+    | "crossword-bank"
+    | string;
   topic?: string;
   typeColorHex?: string;
 

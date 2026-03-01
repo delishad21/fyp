@@ -82,7 +82,10 @@ export default function QuizzesTable({
       if (
         quizType === "basic" ||
         quizType === "crossword" ||
-        quizType === "rapid"
+        quizType === "rapid" ||
+        quizType === "true-false" ||
+        quizType === "rapid-arithmetic" ||
+        quizType === "crossword-bank"
       ) {
         router.push(`/quizzes/create/${quizType}?from=${row.id}`);
       } else {

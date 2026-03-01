@@ -27,7 +27,7 @@ export default function ScheduleStatsPanel({
   }
 
   const t = (quizType || "").toLowerCase();
-  if (t === "crossword") {
+  if (t === "crossword" || t === "crossword-bank") {
     return (
       <CrosswordStats
         breakdown={breakdown as CrosswordStatsProps["breakdown"]}

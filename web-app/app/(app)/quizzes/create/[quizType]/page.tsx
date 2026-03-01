@@ -1,14 +1,20 @@
 import BasicQuizForm from "@/components/quizzes/quiz-forms/BasicQuizForm";
+import CrosswordBankQuizForm from "@/components/quizzes/quiz-forms/CrosswordBankQuizForm";
 import CrosswordQuizForm from "@/components/quizzes/quiz-forms/CrosswordQuizForm";
+import RapidArithmeticQuizForm from "@/components/quizzes/quiz-forms/RapidArithmeticQuizForm";
 import RapidQuizForm from "@/components/quizzes/quiz-forms/RapidQuizForm";
+import TrueFalseQuizForm from "@/components/quizzes/quiz-forms/TrueFalseQuizForm";
 import { getFilterMeta } from "@/services/quiz/actions/quiz-metadata-actions";
 import { getQuizTypeColors } from "@/services/quiz/actions/quiz-type-colors-action";
 import { notFound } from "next/navigation";
 import type {
   BasicInitial,
+  CrosswordBankInitial,
   CrosswordInitial,
   RapidInitial,
+  RapidArithmeticInitial,
   QuizType,
+  TrueFalseInitial,
 } from "@/services/quiz/types/quizTypes";
 import { getQuizForEdit } from "@/services/quiz/actions/get-quiz-action";
 
@@ -24,7 +30,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const fromParam = (await searchParams)?.from;
   const versionParam = (await searchParams)?.version;
-  const fromId = Array.isArray(fromParam) ? fromParam[0] : fromParam ?? null;
+  const fromId = Array.isArray(fromParam) ? fromParam[0] : (fromParam ?? null);
   const version =
     typeof versionParam === "string" && versionParam !== ""
       ? Number(versionParam)
@@ -32,12 +38,28 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const isClone = Boolean(fromId);
 
-  // If someone hits /quizzes/create/something-we-don't-support
-  if (!["basic", "crossword", "rapid"].includes(quizTypeParam)) {
+  // If someone hits /quizzes/create/something-not supported
+  if (
+    ![
+      "basic",
+      "crossword",
+      "rapid",
+      "true-false",
+      "rapid-arithmetic",
+      "crossword-bank",
+    ].includes(quizTypeParam)
+  ) {
     notFound();
   }
 
-  let initialData: BasicInitial | CrosswordInitial | RapidInitial | undefined;
+  let initialData:
+    | BasicInitial
+    | CrosswordInitial
+    | RapidInitial
+    | TrueFalseInitial
+    | RapidArithmeticInitial
+    | CrosswordBankInitial
+    | undefined;
   let versions: number[] | undefined;
   let currentVersion: number | undefined;
 
@@ -61,12 +83,37 @@ export default async function Page({ params, searchParams }: PageProps) {
   const isBasic = quizTypeParam === "basic";
   const isCrossword = quizTypeParam === "crossword";
   const isRapid = quizTypeParam === "rapid";
+  const isTrueFalse = quizTypeParam === "true-false";
+  const isRapidArithmetic = quizTypeParam === "rapid-arithmetic";
+  const isCrosswordBank = quizTypeParam === "crossword-bank";
 
   const title = isClone
     ? `Duplicate ${
-        isBasic ? "Basic" : isCrossword ? "Crossword" : "Rapid"
+        isBasic
+          ? "Basic"
+          : isCrossword
+            ? "Crossword"
+            : isRapid
+              ? "Rapid"
+              : isTrueFalse
+                ? "True/False"
+                : isRapidArithmetic
+                  ? "Rapid Arithmetic"
+                  : "Crossword Bank"
       } Quiz`
-    : `Create ${isBasic ? "Basic" : isCrossword ? "Crossword" : "Rapid"} Quiz`;
+    : `Create ${
+        isBasic
+          ? "Basic"
+          : isCrossword
+            ? "Crossword"
+            : isRapid
+              ? "Rapid"
+              : isTrueFalse
+                ? "True/False"
+                : isRapidArithmetic
+                  ? "Rapid Arithmetic"
+                  : "Crossword Bank"
+      } Quiz`;
 
   let Form: React.ReactNode;
 
@@ -104,6 +151,42 @@ export default async function Page({ params, searchParams }: PageProps) {
         currentVersion={currentVersion}
         isClone={isClone}
         typeColorHex={typeColors.rapid}
+      />
+    );
+  } else if (isTrueFalse) {
+    Form = (
+      <TrueFalseQuizForm
+        meta={meta}
+        mode="create"
+        initialData={initialData as TrueFalseInitial | undefined}
+        versions={versions}
+        currentVersion={currentVersion}
+        isClone={isClone}
+        typeColorHex={typeColors["true-false"]}
+      />
+    );
+  } else if (isRapidArithmetic) {
+    Form = (
+      <RapidArithmeticQuizForm
+        meta={meta}
+        mode="create"
+        initialData={initialData as RapidArithmeticInitial | undefined}
+        versions={versions}
+        currentVersion={currentVersion}
+        isClone={isClone}
+        typeColorHex={typeColors["rapid-arithmetic"]}
+      />
+    );
+  } else if (isCrosswordBank) {
+    Form = (
+      <CrosswordBankQuizForm
+        meta={meta}
+        mode="create"
+        initialData={initialData as CrosswordBankInitial | undefined}
+        versions={versions}
+        currentVersion={currentVersion}
+        isClone={isClone}
+        typeColorHex={typeColors["crossword-bank"]}
       />
     );
   }

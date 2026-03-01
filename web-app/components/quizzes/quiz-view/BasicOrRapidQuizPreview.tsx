@@ -1,6 +1,7 @@
 import type {
   BasicInitial,
   RapidInitial,
+  TrueFalseInitial,
 } from "@/services/quiz/types/quizTypes";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
@@ -41,7 +42,7 @@ type BasicLikeItem =
     };
 
 type Props = {
-  data: BasicInitial | RapidInitial;
+  data: BasicInitial | RapidInitial | TrueFalseInitial;
   showEditButtons?: boolean;
   onEditQuestion?: (questionIndex: number) => void;
 };
@@ -53,8 +54,8 @@ export default function BasicOrRapidQuizPreview({
 }: Props) {
   // Normalize Rapid items to "mc" type with same shape as Basic.
   const items: BasicLikeItem[] =
-    data.quizType === "rapid"
-      ? (data as RapidInitial).items.map((it) => ({
+    data.quizType === "rapid" || data.quizType === "true-false"
+      ? (data as RapidInitial | TrueFalseInitial).items.map((it) => ({
           id: it.id,
           type: "mc" as const,
           text: it.text,
@@ -163,7 +164,11 @@ function MCOptionsPreview({
     <div className="mt-5">
       <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
         Options{" "}
-        {quizType === "rapid" ? "(single correct answer)" : "(multiple choice)"}
+        {quizType === "rapid"
+          ? "(single correct answer)"
+          : quizType === "true-false"
+            ? "(true / false)"
+            : "(multiple choice)"}
         :
       </div>
       <ul className="space-y-2.5">
@@ -212,94 +217,120 @@ function OpenAnswersPreview({
   if (!answers?.length) return null;
 
   const firstAnswer = answers[0];
-  const answerType = firstAnswer?.answerType || "exact";
+  const answerType =
+    firstAnswer?.answerType === "keywords" ||
+    firstAnswer?.answerType === "list" ||
+    firstAnswer?.answerType === "fuzzy"
+      ? firstAnswer.answerType
+      : "exact";
 
-  // For keyword and list modes, show the keywords/items instead of text
-  if (answerType === "keywords" && firstAnswer?.keywords?.length) {
-    return (
-      <div className="mt-5">
-        <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
-          Required keywords:
+  const formatLabel =
+    answerType === "keywords"
+      ? "keywords"
+      : answerType === "list"
+        ? "list"
+        : answerType === "fuzzy"
+          ? "fuzzy"
+          : "exact match";
+
+  return (
+    <div className="mt-5 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg3)] p-4">
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-[var(--color-text-primary)]">
+          Accepted answers
         </div>
-        <div className="text-xs text-[var(--color-text-secondary)] mb-3">
-          Student must include at least {firstAnswer.minKeywords || 0} of these
-          keywords
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {firstAnswer.keywords.map((kw, idx) => (
-            <span
-              key={idx}
-              className="rounded-lg bg-[var(--color-bg3)] px-3 py-1.5 text-sm border border-[var(--color-bg4)] font-medium text-[var(--color-text-primary)]"
-            >
-              {kw}
-            </span>
-          ))}
+        <div className="mt-1 text-xs text-[var(--color-text-secondary)]">
+          Format:{" "}
+          <span className="font-semibold text-[var(--color-text-primary)]">
+            {formatLabel}
+          </span>
         </div>
       </div>
-    );
-  }
 
-  if (answerType === "list" && firstAnswer?.listItems?.length) {
-    return (
-      <div className="mt-5">
-        <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
-          Expected list items:
+      {answerType === "keywords" && (
+        <div className="space-y-2">
+          <div className="text-xs text-[var(--color-text-secondary)]">
+            Minimum keywords required:{" "}
+            <span className="font-semibold text-[var(--color-text-primary)]">
+              {firstAnswer.minKeywords || 1}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(firstAnswer.keywords ?? []).map((kw, idx) => (
+              <span
+                key={idx}
+                className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)]"
+              >
+                {kw}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="text-xs text-[var(--color-text-secondary)] mb-3">
-          {firstAnswer.requireOrder ? "Order matters" : "Any order accepted"} •
-          At least {firstAnswer.minCorrectItems || 1} correct items required
+      )}
+
+      {answerType === "list" && (
+        <div className="space-y-2">
+          <div className="text-xs text-[var(--color-text-secondary)]">
+            Minimum correct items required:{" "}
+            <span className="font-semibold text-[var(--color-text-primary)]">
+              {firstAnswer.minCorrectItems || 1}
+            </span>
+            {" • "}
+            {firstAnswer.requireOrder ? "Order required" : "Any order accepted"}
+          </div>
+          <ul className="space-y-2">
+            {(firstAnswer.listItems ?? []).map((item, idx) => (
+              <li
+                key={idx}
+                className="flex items-center gap-3 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 py-2"
+              >
+                {firstAnswer.requireOrder && (
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-[10px] font-bold text-[var(--color-primary)]">
+                    {idx + 1}
+                  </span>
+                )}
+                <span className="text-sm text-[var(--color-text-primary)]">
+                  {item}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="space-y-2">
-          {firstAnswer.listItems.map((item, idx) => (
+      )}
+
+      {answerType === "fuzzy" && (
+        <div className="space-y-2">
+          <div className="text-xs text-[var(--color-text-secondary)]">
+            Similarity threshold:{" "}
+            <span className="font-semibold text-[var(--color-text-primary)]">
+              {Math.round((firstAnswer?.similarityThreshold || 0.85) * 100)}%
+            </span>
+          </div>
+          <div className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 py-2 text-sm text-[var(--color-text-primary)]">
+            {firstAnswer?.text || "(no accepted text provided)"}
+          </div>
+        </div>
+      )}
+
+      {answerType === "exact" && (
+        <ul className="space-y-2 text-sm text-[var(--color-text-primary)]">
+          {answers.map((ans, idx) => (
             <li
-              key={idx}
-              className="flex items-center gap-3 rounded-lg bg-[var(--color-bg3)] px-4 py-2.5 border border-[var(--color-bg4)]"
+              key={ans.id}
+              className="flex items-center justify-between rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 py-2"
             >
-              {firstAnswer.requireOrder && (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-primary)]/10 text-xs font-bold text-[var(--color-primary)]">
-                  {idx + 1}
+              <span className="font-medium">
+                {ans.text || "(empty accepted answer)"}
+              </span>
+              {ans.caseSensitive && (
+                <span className="ml-3 rounded bg-[var(--color-bg4)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  Case sensitive
                 </span>
               )}
-              <span className="font-medium text-[var(--color-text-primary)]">
-                {item}
-              </span>
             </li>
           ))}
         </ul>
-      </div>
-    );
-  }
-
-  // For exact and fuzzy modes, show accepted text answers
-  return (
-    <div className="mt-5">
-      <div className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
-        Accepted answers:
-      </div>
-      {answerType === "fuzzy" && (
-        <div className="text-xs text-[var(--color-text-secondary)] mb-3">
-          Fuzzy matching enabled (
-          {Math.round((firstAnswer?.similarityThreshold || 0.85) * 100)}%
-          similarity threshold)
-        </div>
       )}
-      <ul className="space-y-2 text-sm text-[var(--color-text-primary)]">
-        {answers.map((ans, idx) => (
-          <li
-            key={ans.id}
-            className="flex items-center justify-between rounded-lg bg-[var(--color-bg3)] px-4 py-2.5 border border-[var(--color-bg4)] hover:border-[var(--color-primary)]/30 transition-all"
-          >
-            <span className="font-medium">
-              {ans.text || `Answer ${idx + 1}`}
-            </span>
-            {ans.caseSensitive && answerType === "exact" && (
-              <span className="ml-3 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)] bg-[var(--color-bg4)] px-2 py-1 rounded">
-                Case sensitive
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

@@ -94,11 +94,29 @@ export default async function AttemptPage({
             attempt={attempt as BasicOrRapidAttemptType}
           />
         )}
+        {type === "true-false" && (
+          <BasicOrRapidAttempt
+            attempt={attempt as BasicOrRapidAttemptType}
+          />
+        )}
+        {type === "rapid-arithmetic" && (
+          <BasicOrRapidAttempt
+            attempt={attempt as BasicOrRapidAttemptType}
+          />
+        )}
         {type === "crossword" && (
           <CrosswordAttempt attempt={attempt as CrosswordAttemptType} />
         )}
+        {type === "crossword-bank" && (
+          <CrosswordAttempt attempt={attempt as CrosswordAttemptType} />
+        )}
 
-        {type !== "basic" && type !== "rapid" && type !== "crossword" && (
+        {type !== "basic" &&
+          type !== "rapid" &&
+          type !== "crossword" &&
+          type !== "true-false" &&
+          type !== "rapid-arithmetic" &&
+          type !== "crossword-bank" && (
           <div className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg3)] p-4 text-[var(--color-text-primary)]">
             This quiz type isn&apos;t supported for viewing yet.
           </div>

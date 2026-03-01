@@ -7,8 +7,10 @@
 import type { TagsCell as TagsCellType } from "../../../services/quiz/types/quiz-table-types";
 
 export default function TagsCell({ data }: TagsCellType) {
+  const isColumn = data.stack === "column";
+
   return (
-    <span className="flex flex-wrap gap-2">
+    <span className={isColumn ? "flex flex-col gap-1.5" : "flex flex-wrap gap-2"}>
       {data.tags.map((t, idx) => (
         <span
           key={idx}
