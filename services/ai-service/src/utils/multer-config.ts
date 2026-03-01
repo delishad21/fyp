@@ -1,6 +1,8 @@
 import multer from "multer";
 import path from "path";
 
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // Hard cap: 20MB
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -35,7 +37,7 @@ export const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE_MB || "10") * 1024 * 1024,
+    fileSize: MAX_FILE_SIZE_BYTES,
   },
 });
 
@@ -44,7 +46,7 @@ export const uploadMultiple = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE_MB || "10") * 1024 * 1024,
+    fileSize: MAX_FILE_SIZE_BYTES,
     files: 5, // Maximum 5 files
   },
 });
