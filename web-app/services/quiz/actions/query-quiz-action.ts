@@ -27,6 +27,12 @@ export type QuizLite = {
   createdAt?: string | Date;
 };
 
+function isRandomizedQuizType(type: unknown): boolean {
+  if (typeof type !== "string") return false;
+  const normalized = type.trim().toLowerCase();
+  return normalized === "rapid-arithmetic" || normalized === "crossword-bank";
+}
+
 function toRowData(doc: any): RowData {
   const id = String(doc.rootQuizId);
 
@@ -43,6 +49,21 @@ function toRowData(doc: any): RowData {
     type: String(doc.quizType ?? ""),
     createdAt: doc.createdAt,
   };
+  const quizType = String(doc.quizType ?? "");
+  const tags = [
+    {
+      tag: quizType,
+      color: doc.typeColorHex,
+    },
+  ];
+  const randomized = isRandomizedQuizType(quizType);
+
+  if (randomized) {
+    tags.push({
+      tag: "random",
+      color: "var(--color-bg4)",
+    });
+  }
 
   return {
     id,
@@ -60,12 +81,8 @@ function toRowData(doc: any): RowData {
       {
         variant: "tags",
         data: {
-          tags: [
-            {
-              tag: String(doc.quizType ?? ""),
-              color: doc.typeColorHex,
-            },
-          ],
+          tags,
+          stack: "row",
         },
       },
     ],

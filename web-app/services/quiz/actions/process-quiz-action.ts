@@ -111,14 +111,57 @@ function buildCrosswordPayload(formData: FormData) {
   return payload;
 }
 
+function buildCrosswordBankPayload(formData: FormData) {
+  const entriesBankJson =
+    parseJsonField(formData, "entriesBankJson") ??
+    parseJsonField(formData, "entriesJson");
+  const totalTimeLimit = parseNullableNumber(formData, "totalTimeLimit");
+  const wordsPerQuiz = parseOptionalNumber(formData, "wordsPerQuiz");
+
+  const payload: Record<string, any> = {};
+  if (entriesBankJson) payload.entriesBankJson = entriesBankJson;
+  if (typeof wordsPerQuiz === "number") payload.wordsPerQuiz = wordsPerQuiz;
+  if (totalTimeLimit !== null) payload.totalTimeLimit = totalTimeLimit;
+  return payload;
+}
+
+function buildRapidArithmeticPayload(formData: FormData) {
+  const questionCount = parseOptionalNumber(formData, "questionCount");
+  const timePerQuestion = parseOptionalNumber(formData, "timePerQuestion");
+  const choicesPerQuestion = parseOptionalNumber(formData, "choicesPerQuestion");
+  const operatorsJson = parseJsonField(formData, "operatorsJson");
+  const operationSettingsJson = parseJsonField(
+    formData,
+    "operationSettingsJson"
+  );
+
+  const payload: Record<string, any> = {};
+  if (typeof questionCount === "number") payload.questionCount = questionCount;
+  if (typeof timePerQuestion === "number")
+    payload.timePerQuestion = timePerQuestion;
+  if (typeof choicesPerQuestion === "number")
+    payload.choicesPerQuestion = choicesPerQuestion;
+  if (operatorsJson) payload.operatorsJson = operatorsJson;
+  if (operationSettingsJson) {
+    payload.operationSettingsJson = operationSettingsJson;
+  }
+  return payload;
+}
+
 function buildPayload(formData: FormData, quizType: QuizType) {
   switch (quizType) {
     case "basic":
       return buildBasicPayload(formData);
     case "rapid":
       return buildRapidPayload(formData);
+    case "true-false":
+      return buildRapidPayload(formData);
     case "crossword":
       return buildCrosswordPayload(formData);
+    case "crossword-bank":
+      return buildCrosswordBankPayload(formData);
+    case "rapid-arithmetic":
+      return buildRapidArithmeticPayload(formData);
     default:
       return {};
   }

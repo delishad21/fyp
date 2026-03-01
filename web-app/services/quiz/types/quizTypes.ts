@@ -1,6 +1,13 @@
 import { ImageMeta } from "@/services/images/types";
 
-export type QuizType = "basic" | "rapid" | "crossword" | "ai-generated";
+export type QuizType =
+  | "basic"
+  | "rapid"
+  | "crossword"
+  | "rapid-arithmetic"
+  | "crossword-bank"
+  | "true-false"
+  | "ai-generated";
 
 export type QuizTypeDef = {
   title: string;
@@ -100,6 +107,65 @@ export type RapidItem = MCItem;
 
 export type RapidTopFields = "name" | "subject" | "topic";
 
+/** ---------------- TRUE/FALSE ---------------- */
+export type TrueFalseItem = MCItem;
+export type TrueFalseTopFields = "name" | "subject" | "topic";
+
+/** ---------------- RAPID ARITHMETIC --------- */
+export type RapidArithmeticAddSubSettings = {
+  operandMin: number;
+  operandMax: number;
+  answerMin: number;
+  answerMax: number;
+  allowNegative: boolean;
+};
+
+export type RapidArithmeticMultiplicationSettings = {
+  mode: "times-table" | "range";
+  tables: number[];
+  multiplierMin: number;
+  multiplierMax: number;
+  operandMin: number;
+  operandMax: number;
+  answerMin: number;
+  answerMax: number;
+};
+
+export type RapidArithmeticDivisionSettings = {
+  divisorMin: number;
+  divisorMax: number;
+  quotientMin: number;
+  quotientMax: number;
+  answerMin: number;
+  answerMax: number;
+  allowNegative: boolean;
+};
+
+export type RapidArithmeticOperationSettings = {
+  addition: RapidArithmeticAddSubSettings;
+  subtraction: RapidArithmeticAddSubSettings;
+  multiplication: RapidArithmeticMultiplicationSettings;
+  division: RapidArithmeticDivisionSettings;
+};
+
+export type RapidArithmeticConfig = {
+  questionCount: number;
+  operators: Array<"+" | "-" | "*" | "/">;
+  timePerQuestion: number;
+  choicesPerQuestion: number;
+  operationSettings: RapidArithmeticOperationSettings;
+};
+
+export type RapidArithmeticTopFields =
+  | "name"
+  | "subject"
+  | "topic"
+  | "questionCount"
+  | "operators"
+  | "timePerQuestion"
+  | "choicesPerQuestion"
+  | "operationSettings";
+
 /** ---------------- CROSSWORD ------------- */
 export type CrosswordEntry = {
   id: string;
@@ -113,6 +179,21 @@ export type CrosswordTopFields =
   | "topic"
   | "totalTimeLimit"
   | "entries";
+
+/** ---------------- CROSSWORD BANK ------------ */
+export type CrosswordBankEntry = {
+  id: string;
+  answer: string;
+  clue: string;
+};
+
+export type CrosswordBankTopFields =
+  | "name"
+  | "subject"
+  | "topic"
+  | "totalTimeLimit"
+  | "wordsPerQuiz"
+  | "entriesBank";
 
 export type Cell = { letter: string | null; isBlocked: boolean };
 
@@ -145,16 +226,40 @@ export type RapidQuizPayload = CreateQuizBase & {
   items: RapidItem[]; // no File augmentation needed
 };
 
+export type TrueFalseQuizPayload = CreateQuizBase & {
+  quizType: "true-false";
+  items: TrueFalseItem[];
+};
+
+export type RapidArithmeticQuizPayload = CreateQuizBase & {
+  quizType: "rapid-arithmetic";
+  questionCount: number;
+  operators: Array<"+" | "-" | "*" | "/">;
+  timePerQuestion: number;
+  choicesPerQuestion: number;
+  operationSettings: RapidArithmeticOperationSettings;
+};
+
 export type CrosswordQuizPayload = CreateQuizBase & {
   quizType: "crossword";
   totalTimeLimit: number | null; // allow unlimited in types too
   entries: CrosswordEntry[];
 };
 
+export type CrosswordBankQuizPayload = CreateQuizBase & {
+  quizType: "crossword-bank";
+  totalTimeLimit: number | null;
+  wordsPerQuiz: number;
+  entriesBank: CrosswordBankEntry[];
+};
+
 export type CreateQuizPayload =
   | BasicQuizPayload
   | RapidQuizPayload
-  | CrosswordQuizPayload;
+  | CrosswordQuizPayload
+  | TrueFalseQuizPayload
+  | RapidArithmeticQuizPayload
+  | CrosswordBankQuizPayload;
 
 /** Server action UI state */
 export type CreateQuizState = {
@@ -168,6 +273,13 @@ export type CreateQuizState = {
     quizType?: string | string[];
     totalTimeLimit?: string | string[]; // used by crossword
     entries?: string | string[]; // used by crossword
+    wordsPerQuiz?: string | string[];
+    entriesBank?: string | string[];
+    questionCount?: string | string[];
+    operators?: string | string[];
+    timePerQuestion?: string | string[];
+    choicesPerQuestion?: string | string[];
+    operationSettings?: string | string[];
   };
   /** Aligned 1:1 with items/entries in questionsJson for highlighting */
   questionErrors: Array<string | string[] | undefined>;
@@ -205,6 +317,18 @@ export type RapidInitial = {
   items: BaseFormItemDraft[];
 };
 
+export type TrueFalseInitial = {
+  id: string;
+  version: number;
+  name: string;
+  subject: string;
+  subjectColorHex: string;
+  topic: string;
+  quizType: "true-false";
+  typeColorHex: string;
+  items: BaseFormItemDraft[];
+};
+
 export type CrosswordInitial = {
   id: string; // rootQuizId
   version: number;
@@ -231,4 +355,34 @@ export type BasicInitial = {
   typeColorHex: string;
   totalTimeLimit?: number | null;
   items: BaseFormItemDraft[];
+};
+
+export type RapidArithmeticInitial = {
+  id: string;
+  version: number;
+  name: string;
+  subject: string;
+  subjectColorHex: string;
+  topic: string;
+  quizType: "rapid-arithmetic";
+  typeColorHex: string;
+  questionCount: number;
+  operators: Array<"+" | "-" | "*" | "/">;
+  timePerQuestion: number;
+  choicesPerQuestion: number;
+  operationSettings: RapidArithmeticOperationSettings;
+};
+
+export type CrosswordBankInitial = {
+  id: string;
+  version: number;
+  name: string;
+  subject: string;
+  subjectColorHex: string;
+  topic: string;
+  quizType: "crossword-bank";
+  typeColorHex: string;
+  totalTimeLimit: number | null;
+  wordsPerQuiz: number;
+  entriesBank: CrosswordBankEntry[];
 };

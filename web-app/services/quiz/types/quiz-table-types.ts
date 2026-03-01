@@ -12,7 +12,10 @@ export type LabelCell = {
 
 export type TagsCell = {
   variant: "tags";
-  data: { tags: Array<{ tag: string; color?: string; bold?: boolean }> };
+  data: {
+    tags: Array<{ tag: string; color?: string; bold?: boolean }>;
+    stack?: "row" | "column";
+  };
 };
 
 export type ProgressBarCell = {

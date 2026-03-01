@@ -23,7 +23,15 @@ export function cloneFormData(src: FormData) {
 
 /** Ensure the right hidden JSON field exists for each quiz type. */
 export function normalizeItemsFieldForType(fd: FormData, quizType: QuizType) {
-  if (quizType === "crossword") {
+  if (quizType === "crossword" || quizType === "crossword-bank") {
+    if (quizType === "crossword-bank" && !fd.has("entriesBankJson")) {
+      const fallback =
+        (fd.get("entriesBankJson") as string | null) ??
+        (fd.get("entriesJson") as string | null) ??
+        (fd.get("itemsJson") as string | null) ??
+        (fd.get("questionsJson") as string | null);
+      if (fallback != null) fd.set("entriesBankJson", String(fallback));
+    }
     if (!fd.has("entriesJson")) {
       const fallback =
         (fd.get("entriesJson") as string | null) ??
