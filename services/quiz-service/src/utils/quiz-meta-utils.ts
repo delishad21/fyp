@@ -6,6 +6,26 @@ import {
 } from "../model/quiz-shared";
 import { stringToColorHex } from "../utils/color";
 
+export const DEFAULT_SUBJECTS: ReadonlyArray<{
+  label: string;
+  colorHex: string;
+}> = [
+  { label: "Math", colorHex: "#ef4444" },
+  { label: "English", colorHex: "#3b82f6" },
+  { label: "Science", colorHex: "#22c55e" },
+];
+
+export const DEFAULT_TOPICS: ReadonlyArray<{ label: string }> = [
+  { label: "Arithmetic" },
+];
+
+export function buildDefaultMetaSeed() {
+  return {
+    subjects: DEFAULT_SUBJECTS.map((s) => ({ ...s })),
+    topics: DEFAULT_TOPICS.map((t) => ({ ...t })),
+  };
+}
+
 /**
  * Build the static quiz-type payload for UI filters and badges.
  *
@@ -74,13 +94,14 @@ function normalizeHex(input?: string | null): string | undefined {
  * Resolve the effective subject color for a given user+subject pair.
  *
  * Priority:
- *  1) The user’s saved color for that subject label (case-sensitive label match),
+ *  1) The user’s saved color for that subject label (case-insensitive match),
  *     normalized to a valid `#rgb`/`#rrggbb` when possible.
  *     (For legacy records, we additionally accept a `value` field as an alias.)
- *  2) Deterministic fallback derived from the subject label (`stringToColorHex`).
+ *  2) Seeded default subject colors (Math/English/Science), if applicable.
+ *  3) Deterministic fallback derived from the subject label (`stringToColorHex`).
  *
  * @param userId - Owner id
- * @param subject - Subject label (any spacing/case; matching is exact on stored label)
+ * @param subject - Subject label (any spacing/case; matching is case-insensitive)
  * @returns {Promise<string>} A hex color string beginning with '#'
  *
  * @notes
@@ -109,10 +130,19 @@ export async function resolveSubjectColorHex(
       normalizeHex(subj?.colorHex) ||
       (subj?.label ? stringToColorHex(subj.label) : undefined);
     if (!normalized) return;
-    if (subj?.label) subjectColorMap.set(subj.label, normalized);
-    if (subj?.value) subjectColorMap.set(subj.value, normalized); // legacy safety
+    if (subj?.label) subjectColorMap.set(norm(subj.label), normalized);
+    if (subj?.value) subjectColorMap.set(norm(subj.value), normalized); // legacy safety
   });
 
-  // Use saved color if found; otherwise deterministic fallback
-  return subjectColorMap.get(s) || stringToColorHex(s);
+  const fromUserMeta = subjectColorMap.get(norm(s));
+  if (fromUserMeta) return fromUserMeta;
+
+  // Stable defaults for built-in seeded subjects.
+  const fromSeededDefaults = DEFAULT_SUBJECTS.find((d) =>
+    sameLabel(d.label, s)
+  )?.colorHex;
+  if (fromSeededDefaults) return fromSeededDefaults;
+
+  // Use deterministic fallback for non-seeded/custom subjects.
+  return stringToColorHex(s);
 }

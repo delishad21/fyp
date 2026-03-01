@@ -8,6 +8,49 @@ import { QuizBaseModel } from "../model/quiz-base-model";
 import { Types } from "mongoose";
 import { sharedSecret } from "../utils/class-svc-client";
 import { resolveSubjectColorHex } from "../utils/quiz-meta-utils";
+import { isQuizType } from "../model/quiz-shared";
+import { UserQuizMetaModel } from "../model/quiz-meta-model";
+import { buildDefaultMetaSeed, norm } from "../utils/quiz-meta-utils";
+
+async function upsertOwnerTopics(ownerId: string, topics: string[]) {
+  const cleaned = topics.map((t) => String(t || "").trim()).filter(Boolean);
+  if (cleaned.length === 0) return;
+
+  const doc = await UserQuizMetaModel.findOne({ owner: ownerId });
+  if (!doc) {
+    const seed = buildDefaultMetaSeed();
+    const existing = new Set(seed.topics.map((t) => norm(t.label)));
+    const mergedTopics = [...seed.topics];
+    for (const topic of cleaned) {
+      if (!existing.has(norm(topic))) {
+        mergedTopics.push({ label: topic });
+        existing.add(norm(topic));
+      }
+    }
+
+    await UserQuizMetaModel.create({
+      owner: ownerId,
+      subjects: seed.subjects,
+      topics: mergedTopics,
+    });
+    return;
+  }
+
+  const existing = new Set((doc.topics || []).map((t) => norm(t.label)));
+  let changed = false;
+
+  for (const topic of cleaned) {
+    if (!existing.has(norm(topic))) {
+      doc.topics.push({ label: topic });
+      existing.add(norm(topic));
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await doc.save();
+  }
+}
 
 /**
  * @route   POST /quiz/batch
@@ -72,6 +115,7 @@ export async function createQuizzesBatch(req: Request, res: Response) {
     const results: { quizId?: string; error?: string; index: number }[] = [];
     const savedQuizIds: string[] = [];
     const errors: any[] = [];
+    const savedTopics: string[] = [];
 
     // Process each quiz
     for (let i = 0; i < quizzes.length; i++) {
@@ -79,7 +123,7 @@ export async function createQuizzesBatch(req: Request, res: Response) {
         const quizData = quizzes[i];
 
         // Validate quiz type
-        if (!["basic", "rapid", "crossword"].includes(quizData.quizType)) {
+        if (!isQuizType(quizData.quizType)) {
           throw new Error(`Invalid quiz type: ${quizData.quizType}`);
         }
 
@@ -98,6 +142,13 @@ export async function createQuizzesBatch(req: Request, res: Response) {
           items: quizData.items || [],
           entries: quizData.entries || [],
           grid: quizData.grid || undefined,
+          wordsPerQuiz: quizData.wordsPerQuiz,
+          entriesBank: quizData.entriesBank || [],
+          questionCount: quizData.questionCount,
+          operators: quizData.operators || [],
+          timePerQuestion: quizData.timePerQuestion,
+          choicesPerQuestion: quizData.choicesPerQuestion,
+          operationSettings: quizData.operationSettings,
         });
 
         // Set rootQuizId to self for first version
@@ -105,6 +156,7 @@ export async function createQuizzesBatch(req: Request, res: Response) {
         await quizDoc.save();
 
         savedQuizIds.push(quizDoc._id.toString());
+        if (quizDoc.topic) savedTopics.push(String(quizDoc.topic));
         results.push({
           quizId: quizDoc._id.toString(),
           index: i,
@@ -124,6 +176,10 @@ export async function createQuizzesBatch(req: Request, res: Response) {
           index: i,
         });
       }
+    }
+
+    if (savedTopics.length > 0) {
+      await upsertOwnerTopics(userId, savedTopics);
     }
 
     // Return results
@@ -218,6 +274,7 @@ export async function createQuizzesBatchInternal(req: Request, res: Response) {
     const results: { quizId?: string; error?: string; index: number }[] = [];
     const savedQuizIds: string[] = [];
     const errors: any[] = [];
+    const savedTopics: string[] = [];
 
     // Process each quiz
     for (let i = 0; i < quizzes.length; i++) {
@@ -225,7 +282,7 @@ export async function createQuizzesBatchInternal(req: Request, res: Response) {
         const quizData = quizzes[i];
 
         // Validate quiz type
-        if (!["basic", "rapid", "crossword"].includes(quizData.quizType)) {
+        if (!isQuizType(quizData.quizType)) {
           throw new Error(`Invalid quiz type: ${quizData.quizType}`);
         }
 
@@ -248,6 +305,13 @@ export async function createQuizzesBatchInternal(req: Request, res: Response) {
           items: quizData.items || [],
           entries: quizData.entries || [],
           grid: quizData.grid || undefined,
+          wordsPerQuiz: quizData.wordsPerQuiz,
+          entriesBank: quizData.entriesBank || [],
+          questionCount: quizData.questionCount,
+          operators: quizData.operators || [],
+          timePerQuestion: quizData.timePerQuestion,
+          choicesPerQuestion: quizData.choicesPerQuestion,
+          operationSettings: quizData.operationSettings,
         });
 
         // Set rootQuizId to self for first version
@@ -255,6 +319,7 @@ export async function createQuizzesBatchInternal(req: Request, res: Response) {
         await quizDoc.save();
 
         savedQuizIds.push(quizDoc._id.toString());
+        if (quizDoc.topic) savedTopics.push(String(quizDoc.topic));
         results.push({
           quizId: quizDoc._id.toString(),
           index: i,
@@ -274,6 +339,10 @@ export async function createQuizzesBatchInternal(req: Request, res: Response) {
           index: i,
         });
       }
+    }
+
+    if (savedTopics.length > 0) {
+      await upsertOwnerTopics(userId, savedTopics);
     }
 
     // Return results

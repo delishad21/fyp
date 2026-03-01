@@ -5,6 +5,7 @@ import {
   addMeta,
   editMeta,
   deleteMeta,
+  bootstrapMetaInternal,
 } from "../controller/quiz-meta-controller";
 
 const router = Router();
@@ -20,5 +21,8 @@ router.patch("/:kind/:value", verifyAccessToken, editMeta);
 
 /** Delete a subject/topic by value (slug); blocked if in use */
 router.delete("/:kind/:value", verifyAccessToken, deleteMeta);
+
+/** Internal bootstrap: ensure defaults for an owner (S2S via x-quiz-secret) */
+router.post("/internal/bootstrap", bootstrapMetaInternal);
 
 export default router;

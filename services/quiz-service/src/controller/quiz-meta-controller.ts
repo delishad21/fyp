@@ -3,13 +3,22 @@ import { Response } from "express";
 import { UserQuizMetaModel } from "../model/quiz-meta-model";
 import { QuizBaseModel } from "../model/quiz-base-model";
 import { stringToColorHex } from "../utils/color";
-import { MetaDoc, toPayload, sameLabel } from "../utils/quiz-meta-utils";
+import {
+  MetaDoc,
+  toPayload,
+  sameLabel,
+  buildDefaultMetaSeed,
+  DEFAULT_SUBJECTS,
+  DEFAULT_TOPICS,
+  norm,
+} from "../utils/quiz-meta-utils";
+import { sharedSecret } from "../utils/class-svc-client";
 
 /**
  * @route  GET /quiz/meta
  * @auth   verifyAccessToken
  * @input  none (owner is derived from req.user.id)
- * @logic  Retrieve (or implicitly synthesize) the owner’s quiz metadata:
+ * @logic  Retrieve the owner’s quiz metadata:
  *         - subjects: [{ label, colorHex }]
  *         - topics:   [{ label }]
  *         - types:    static registry-derived { label, value, colorHex }
@@ -23,9 +32,7 @@ export async function getMyMeta(req: CustomRequest, res: Response) {
     if (!owner)
       return res.status(401).json({ ok: false, message: "Unauthorized" });
 
-    const doc = await UserQuizMetaModel.findOne({
-      owner,
-    }).lean<MetaDoc | null>();
+    const doc = await UserQuizMetaModel.findOne({ owner }).lean<MetaDoc | null>();
     return res.json({ ok: true, ...toPayload(doc) });
   } catch (e) {
     console.error("[getMyMeta] error", e);
@@ -45,7 +52,7 @@ export async function getMyMeta(req: CustomRequest, res: Response) {
  *           • Else insert with provided colorHex (normalizing "#" if missing) or hash color.
  *         - kind = "topic":
  *           • Insert if not present (case-insensitive); no additional fields.
- *         - If user has no meta doc, create it populated with the item.
+ *         - If user has no meta doc, create it with only the submitted item.
  * @returns 201 on first creation, 200 otherwise; payload { ok, subjects, topics, types }
  * @errors  400 if missing kind/label
  *          401 if unauthenticated
@@ -129,6 +136,83 @@ export async function addMeta(req: CustomRequest, res: Response) {
     return res.json({ ok: true, ...toPayload(doc.toObject() as any) });
   } catch (e) {
     console.error("[addMeta] error", e);
+    return res
+      .status(500)
+      .json({ ok: false, message: "Internal server error" });
+  }
+}
+
+/**
+ * @route  POST /quiz/meta/internal/bootstrap
+ * @auth   x-quiz-secret shared secret (service-to-service)
+ * @input  Body: { ownerId: string }
+ * @logic  Ensure owner's meta exists and includes default subjects/topics.
+ *         - Creates doc with defaults if missing.
+ *         - Adds only missing defaults for existing docs (no overwrite).
+ * @returns 200 { ok, created, updated, addedSubjects, addedTopics }
+ * @errors 400 missing ownerId
+ *         401 unauthorized
+ *         500 internal server error
+ */
+export async function bootstrapMetaInternal(req: CustomRequest, res: Response) {
+  try {
+    const secret = sharedSecret();
+    if (req.header("x-quiz-secret") !== secret) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
+
+    const ownerId = String(req.body?.ownerId ?? "").trim();
+    if (!ownerId) {
+      return res.status(400).json({ ok: false, message: "Missing ownerId" });
+    }
+
+    const existed = await UserQuizMetaModel.exists({ owner: ownerId });
+
+    const doc = await UserQuizMetaModel.findOneAndUpdate(
+      { owner: ownerId },
+      { $setOnInsert: buildDefaultMetaSeed() },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    if (!doc) {
+      return res
+        .status(500)
+        .json({ ok: false, message: "Failed to initialize metadata" });
+    }
+
+    const addedSubjects: string[] = [];
+    const addedTopics: string[] = [];
+
+    const subjectSet = new Set((doc.subjects ?? []).map((s) => norm(s.label)));
+    for (const subject of DEFAULT_SUBJECTS) {
+      if (!subjectSet.has(norm(subject.label))) {
+        doc.subjects.push({ label: subject.label, colorHex: subject.colorHex });
+        addedSubjects.push(subject.label);
+      }
+    }
+
+    const topicSet = new Set((doc.topics ?? []).map((t) => norm(t.label)));
+    for (const topic of DEFAULT_TOPICS) {
+      if (!topicSet.has(norm(topic.label))) {
+        doc.topics.push({ label: topic.label });
+        addedTopics.push(topic.label);
+      }
+    }
+
+    const updated = addedSubjects.length > 0 || addedTopics.length > 0;
+    if (updated) {
+      await doc.save();
+    }
+
+    return res.json({
+      ok: true,
+      created: !existed,
+      updated,
+      addedSubjects,
+      addedTopics,
+    });
+  } catch (e) {
+    console.error("[bootstrapMetaInternal] error", e);
     return res
       .status(500)
       .json({ ok: false, message: "Internal server error" });

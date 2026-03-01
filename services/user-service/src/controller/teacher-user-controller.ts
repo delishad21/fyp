@@ -28,6 +28,7 @@ import {
   VERIFY_TTL_SECONDS,
 } from "./helpers/email-resend-helpers";
 import { TeacherAuthTokenModel } from "../model/teacher-auth-token-model";
+import { ensureQuizMetaSeeded } from "../utils/quiz-meta-bootstrap";
 
 /**
  * @route   POST /teacher/users
@@ -96,6 +97,15 @@ export async function createUserRequest(req: CustomRequest, res: Response) {
       /* isVerified */ false,
       /* expireAt  */ accountExpiry
     );
+
+    try {
+      await ensureQuizMetaSeeded(createdUser.id);
+    } catch (seedErr: any) {
+      console.error(
+        `[USER] Quiz meta bootstrap failed at account creation for ${createdUser.id}:`,
+        seedErr?.message || seedErr
+      );
+    }
 
     // 5) Issue OTP (selector + hashed 6-digit code in DB)
     const { selector, code, expiresAt } = await issueOtpToken({

@@ -32,6 +32,7 @@ import {
   RESET_COOLDOWN_SECONDS,
   RESET_TTL_SECONDS,
 } from "../utils/teacher-auth-utils";
+import { ensureQuizMetaSeeded } from "../utils/quiz-meta-bootstrap";
 
 /**
  * @route   POST /teacher/auth/sign-in
@@ -118,6 +119,15 @@ export async function handleSignIn(req: CustomRequest, res: Response) {
         message:
           "Verification code has expired, please create your account again.",
       });
+    }
+
+    try {
+      await ensureQuizMetaSeeded(user.id);
+    } catch (seedErr: any) {
+      console.error(
+        `[AUTH] Quiz meta bootstrap failed during sign-in for ${user.id}:`,
+        seedErr?.message || seedErr
+      );
     }
 
     console.log(`[AUTH] Login successful: ${user.username} (${user.id})`);
@@ -349,6 +359,16 @@ export async function confirmEmail(req: CustomRequest, res: Response) {
       if ("status" in out) {
         return res.status(out.status).json({ message: out.message });
       }
+
+      try {
+        await ensureQuizMetaSeeded(out.user.id);
+      } catch (seedErr: any) {
+        console.error(
+          `[AUTH] Quiz meta bootstrap failed during email verify for ${out.user.id}:`,
+          seedErr?.message || seedErr
+        );
+      }
+
       return res.status(200).json({
         message: `${out.user.username} registered and logged in!`,
         data: {
@@ -594,25 +614,18 @@ export async function resendConfirmation(req: CustomRequest, res: Response) {
     // check is current token is already used
     if (ctx.token.usedAt) {
       console.log("[RESEND] Token already used");
-      return {
-        status: 400,
-        body: {
-          message:
-            "Token already used, unable to send new email. Please try again later",
-        },
-      };
+      return res.status(400).json({
+        message:
+          "Token already used, unable to send new email. Please try again later",
+      });
     }
 
     // check if current token is expired (defensive, expired token should auto remove itself from db
     if (ctx.token.expiresAt.getTime() <= Date.now()) {
       console.log("[RESEND] Token already expired");
-      return {
-        status: 410,
-        body: {
-          message:
-            "Token expired, unable to send new email. Please try again later.",
-        },
-      };
+      return res.status(410).json({
+        message: "Token expired, unable to send new email. Please try again later.",
+      });
     }
 
     if (ctx.token.purpose === "email_verify") {
