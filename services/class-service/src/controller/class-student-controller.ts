@@ -16,8 +16,6 @@ import {
 } from "../utils/quiz-svc-client";
 import {
   computeParticipationAndAvgScore,
-  projectedStreak,
-  computeRanks,
   computeBucketAvgPct,
 } from "../utils/stats-utils";
 import {
@@ -380,12 +378,11 @@ export async function removeStudent(req: CustomRequest, res: Response) {
  * @route  GET /classes/:id/students
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
  * @input  Params: { id }
- * @notes  - Populates each embedded student with their StudentClassStats row (virtual: students.statsDoc).
- *         - Computes participationPct and avgScorePct from populated stats.
- *         - Adds overallScore, bestStreakDays, and rank (standard competition ranking with gaps after ties).
- * @logic  1) Load class roster and populate per-student stats using { match: { classId: :id } }.
- *         2) Map to enriched rows and compute ranks from overallScore.
- *         3) Sort by rank before returning (tie-breakers: higher overallScore first, then name A→Z).
+ * @notes  - Class-service returns analytics-only roster data.
+ *         - Gamification fields (rank, streak, overall game score) are owned by game-service.
+ * @logic  1) Load class roster and populate per-student analytics stats using { match: { classId: :id } }.
+ *         2) Compute participationPct and avgScorePct from populated stats.
+ *         3) Sort rows by displayName before returning.
  * @returns 200 {
  *   ok,
  *   data: Array<{
@@ -394,11 +391,7 @@ export async function removeStudent(req: CustomRequest, res: Response) {
  *     photoUrl?,
  *     className,
  *     participationPct,
- *     avgScorePct,
- *     streakDays,
- *     bestStreakDays,
- *     overallScore,
- *     rank
+ *     avgScorePct
  *   }>
  * }
  * @errors  404 class not found
@@ -414,15 +407,13 @@ export async function getStudents(req: CustomRequest, res: Response) {
       .populate({
         path: "students.statsDoc",
         match: { classId: id },
-        select:
-          "participationCount sumScore sumMax streakDays bestStreakDays lastStreakDate overallScore",
+        select: "participationCount sumScore sumMax",
       })
       .lean({ virtuals: true });
 
     if (!klass)
       return res.status(404).json({ ok: false, message: "Class not found" });
 
-    const tz = klass.timezone || "Asia/Singapore";
     const now = new Date();
     const eligibleAssigned = (klass.schedule || []).filter(
       (s: any) => new Date(s.startDate) <= now
@@ -439,10 +430,6 @@ export async function getStudents(req: CustomRequest, res: Response) {
         }
       );
 
-      const streakDays = projectedStreak(st.lastStreakDate, tz)
-        ? st.streakDays ?? 0
-        : 0;
-
       return {
         userId: String(s.userId),
         displayName: s.displayName,
@@ -450,25 +437,18 @@ export async function getStudents(req: CustomRequest, res: Response) {
         className: s.className,
         participationPct,
         avgScorePct,
-        streakDays,
-        bestStreakDays: st.bestStreakDays ?? 0,
-        overallScore: st.overallScore ?? 0,
       };
     });
 
-    const getRank = computeRanks(rows);
-    const withRank = rows.map((r) => ({ ...r, rank: getRank(r.overallScore) }));
-
-    withRank.sort(
+    rows.sort(
       (a, b) =>
-        a.rank - b.rank ||
-        b.overallScore - a.overallScore ||
         a.displayName.localeCompare(b.displayName)
     );
 
-    const cleanedData = withRank.map((r) => ({
+    const cleanedData = rows.map((r) => ({
       ...r,
-      overallScore: Math.round((r.overallScore ?? 0) * 100) / 100,
+      participationPct: Math.round((Number(r.participationPct || 0) + Number.EPSILON) * 100) / 100,
+      avgScorePct: Math.round((Number(r.avgScorePct || 0) + Number.EPSILON) * 100) / 100,
     }));
 
     return res.json({ ok: true, data: cleanedData });
@@ -485,18 +465,17 @@ export async function getStudents(req: CustomRequest, res: Response) {
  * @auth   verifyAccessToken + verifyTeacherOfStudent
  * @input  Params: { id, studentId }
  * @notes  - Populates the student’s stats (virtual) and computes participation/grade percentages.
- *         - Adds overallScore and computes rank within the class (standard competition ranking).
+ *         - Returns analytics buckets only; gamification fields are read from game-service.
  *         - Enriches subjects with colorHex via quiz-svc `/quiz/meta`.
  * @logic  1) Load class roster with populated stats (scoped by classId).
- *         2) Resolve target studentId (honor "me"), compute derived fields + rank.
+ *         2) Resolve target studentId (honor "me"), compute derived analytics fields.
  *         3) Fetch subject palette from quiz-svc.
  *         4) Attach `color` to each entry in `stats.bySubject`.
  * @returns 200 {
  *   ok, data: {
- *     userId, displayName, photoUrl?, className, rank,
+ *     userId, displayName, photoUrl?, className,
  *     stats: {
  *       sumScore, sumMax, participationCount, participationPct, avgScorePct,
- *       streakDays, bestStreakDays, lastStreakDate, overallScore,
  *       canonicalBySchedule, attendanceDays,
  *       bySubject: { [subject]: { attempts, sumMax, sumScore, color? } },
  *       byTopic, subjectsAvgPct, topicsAvgPct, subjectColors, version, updatedAt
@@ -532,7 +511,6 @@ export async function getStudentById(req: CustomRequest, res: Response) {
       return res.status(404).json({ ok: false, message: "Student not found" });
 
     const st = s.statsDoc || {};
-    const tz = klass.timezone || "Asia/Singapore";
     const now = new Date();
     const eligibleAssigned = (klass.schedule || []).filter(
       (it: any) => new Date(it.startDate) <= now
@@ -544,17 +522,6 @@ export async function getStudentById(req: CustomRequest, res: Response) {
       sumScore: st.sumScore ?? 0,
       sumMax: st.sumMax ?? 0,
     });
-
-    const streakDays = projectedStreak(st.lastStreakDate, tz)
-      ? st.streakDays ?? 0
-      : 0;
-
-    const all = await StudentClassStatsModel.find({ classId: id })
-      .select({ overallScore: 1 })
-      .lean();
-
-    const getRank = computeRanks(all as any);
-    const rank = getRank(st.overallScore ?? 0);
 
     const bySubjectObj = toPlainObject(st.bySubject);
     const byTopicObj = toPlainObject(st.byTopic);
@@ -591,7 +558,6 @@ export async function getStudentById(req: CustomRequest, res: Response) {
         displayName: s.displayName,
         photoUrl: s.photoUrl ?? null,
         className: s.className ?? klass.name ?? "",
-        rank,
         stats: {
           classId: String(id),
           studentId: String(resolvedStudentId),
@@ -600,10 +566,6 @@ export async function getStudentById(req: CustomRequest, res: Response) {
           participationCount: st.participationCount ?? 0,
           participationPct,
           avgScorePct,
-          streakDays,
-          bestStreakDays: st.bestStreakDays ?? 0,
-          lastStreakDate: st.lastStreakDate ?? null,
-          overallScore: st.overallScore ?? 0,
           canonicalBySchedule: toPlainObject(st.canonicalBySchedule),
           attendanceDays: toPlainObject(st.attendanceDays),
           bySubject: bySubjectWithColor,

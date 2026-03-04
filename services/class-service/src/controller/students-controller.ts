@@ -9,8 +9,6 @@ import {
 import {
   computeParticipationAndAvgScore,
   computeBucketAvgPct,
-  computeRanks,
-  projectedStreak,
 } from "../utils/stats-utils";
 import { toPlainObject } from "../utils/utils";
 import {
@@ -36,11 +34,8 @@ import { escapeRegex, applyFilters } from "../utils/student-utils";
  *          2) Find the most recently updated class that contains this student
  *             (ClassModel.findOne({ "students.userId": studentId }).sort({ updatedAt: -1 })).
  *          3) Load the StudentClassStats row for (classId, studentId).
- *          4) Compute:
- *               - participationPct and avgScorePct from participationCount/sumScore/sumMax
- *               - projected streakDays using projectedStreak(lastStreakDate, class timezone)
- *               - rank within the class using overallScore (standard competition ranking).
- *          5) Return a class-scoped profile payload with display info + stats.
+ *          4) Compute participationPct and avgScorePct from participationCount/sumScore/sumMax.
+ *          5) Return a class-scoped profile payload with display info + analytics stats.
  *
  * @notes   - For now, we maintain the invariant that each student belongs to a single class.
  *            Under this invariant, this endpoint behaves "as if" it were class-agnostic,
@@ -60,7 +55,6 @@ import { escapeRegex, applyFilters } from "../utils/student-utils";
  *              displayName: string,
  *              photoUrl: string | null,
  *              className: string,
- *              rank: number,
  *              stats: {
  *                classId: string,
  *                studentId: string,
@@ -69,10 +63,6 @@ import { escapeRegex, applyFilters } from "../utils/student-utils";
  *                participationCount: number,
  *                participationPct: number,
  *                avgScorePct: number,
- *                streakDays: number,
- *                bestStreakDays: number,
- *                lastStreakDate: string | null,
- *                overallScore: number,
  *                version: number,
  *                updatedAt: string | null,
  *              },
@@ -128,7 +118,6 @@ export async function getStudentProfile(req: CustomRequest, res: Response) {
         studentId,
       }).lean()) || ({} as Partial<IStudentClassStats>);
 
-    const tz = klass.timezone || "Asia/Singapore";
     const now = new Date();
     const eligibleAssigned = (klass.schedule || []).filter(
       (it: any) => new Date(it.startDate) <= now
@@ -141,17 +130,6 @@ export async function getStudentProfile(req: CustomRequest, res: Response) {
       sumMax: st.sumMax ?? 0,
     });
 
-    const streakDays = projectedStreak(st.lastStreakDate, tz)
-      ? st.streakDays ?? 0
-      : 0;
-
-    // Rank within class (standard competition ranking)
-    const all = await StudentClassStatsModel.find({ classId })
-      .select({ overallScore: 1 })
-      .lean();
-    const getRank = computeRanks(all as any);
-    const rank = getRank(st.overallScore ?? 0);
-
     // ── 5) Respond with class-scoped profile (single class assumed)
     return res.json({
       ok: true,
@@ -160,7 +138,6 @@ export async function getStudentProfile(req: CustomRequest, res: Response) {
         displayName: s.displayName,
         photoUrl: s.photoUrl ?? null,
         className: s.className ?? klass.name ?? "",
-        rank,
         stats: {
           classId,
           studentId: String(studentId),
@@ -169,10 +146,6 @@ export async function getStudentProfile(req: CustomRequest, res: Response) {
           participationCount: st.participationCount ?? 0,
           participationPct,
           avgScorePct,
-          streakDays,
-          bestStreakDays: st.bestStreakDays ?? 0,
-          lastStreakDate: st.lastStreakDate ?? null,
-          overallScore: st.overallScore ?? 0,
           version: st.version ?? 0,
           updatedAt: st.updatedAt ?? null,
         },

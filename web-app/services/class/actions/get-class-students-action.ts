@@ -1,7 +1,7 @@
 "use server";
 
 import { getAuthHeader } from "@/services/user/session-definitions";
-import { classSvcUrl } from "@/utils/utils";
+import { classSvcUrl, gameSvcUrl } from "@/utils/utils";
 
 export type ClassStudent = {
   userId: string;
@@ -25,48 +25,83 @@ export async function getClassStudents(
   const auth = await getAuthHeader();
   if (!auth) return { ok: false, message: "Not authenticated" };
 
-  const url = classSvcUrl(`/classes/${encodeURIComponent(classId)}/students`);
+  const classUrl = classSvcUrl(`/classes/${encodeURIComponent(classId)}/students`);
+  const gameUrl = gameSvcUrl(`/classes/${encodeURIComponent(classId)}/leaderboard`);
 
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      Authorization: auth,
-    },
-    cache: "no-store",
-  });
+  const [classRes, gameRes] = await Promise.all([
+    fetch(classUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: auth,
+      },
+      cache: "no-store",
+    }),
+    fetch(gameUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: auth,
+      },
+      cache: "no-store",
+    }),
+  ]);
 
-  const isJson = (res.headers.get("content-type") || "").includes(
+  const classIsJson = (classRes.headers.get("content-type") || "").includes(
     "application/json"
   );
-  const body = isJson ? await res.json().catch(() => null) : null;
+  const classBody = classIsJson ? await classRes.json().catch(() => null) : null;
 
-  if (!res.ok || !body?.ok) {
+  if (!classRes.ok || !classBody?.ok) {
     const message =
-      (body && (body.message || body.error)) ||
-      (res.status === 401 || res.status === 403
+      (classBody && (classBody.message || classBody.error)) ||
+      (classRes.status === 401 || classRes.status === 403
         ? "Authentication failed"
-        : `Failed to fetch students (${res.status})`);
+        : `Failed to fetch students (${classRes.status})`);
     return { ok: false, message };
   }
 
-  const rows = Array.isArray(body.data) ? (body.data as any[]) : [];
+  const gameIsJson = (gameRes.headers.get("content-type") || "").includes(
+    "application/json"
+  );
+  const gameBody = gameIsJson ? await gameRes.json().catch(() => null) : null;
 
-  // Pass-through only; no heuristics or defaulting.
-  const data: ClassStudent[] = rows.map((s) => ({
-    userId: String(s.userId),
-    displayName: String(s.displayName),
-    photoUrl: typeof s.photoUrl === "string" ? s.photoUrl : null,
-    className: typeof s.className === "string" ? s.className : undefined,
-    participationPct:
-      typeof s.participationPct === "number" ? s.participationPct : null,
-    avgScorePct: typeof s.avgScorePct === "number" ? s.avgScorePct : null,
-    streakDays: typeof s.streakDays === "number" ? s.streakDays : null,
-    bestStreakDays:
-      typeof s.bestStreakDays === "number" ? s.bestStreakDays : null,
-    rank: typeof s.rank === "number" ? s.rank : null,
-    overallScore: typeof s.overallScore === "number" ? s.overallScore : null,
-  }));
+  if (!gameRes.ok || !gameBody?.ok) {
+    const message =
+      (gameBody && (gameBody.message || gameBody.error)) ||
+      (gameRes.status === 401 || gameRes.status === 403
+        ? "Authentication failed"
+        : `Failed to fetch class leaderboard (${gameRes.status})`);
+    return { ok: false, message };
+  }
+
+  const classRows = Array.isArray(classBody.data) ? (classBody.data as any[]) : [];
+  const leaderboardRows = Array.isArray(gameBody.data) ? (gameBody.data as any[]) : [];
+
+  const leaderboardByUserId = new Map<string, any>(
+    leaderboardRows.map((row) => [String(row.userId), row])
+  );
+
+  const data: ClassStudent[] = classRows.map((s) => {
+    const userId = String(s.userId);
+    const game = leaderboardByUserId.get(userId);
+
+    return {
+      userId,
+      displayName: String(s.displayName),
+      photoUrl: typeof s.photoUrl === "string" ? s.photoUrl : null,
+      className: typeof s.className === "string" ? s.className : undefined,
+      participationPct:
+        typeof s.participationPct === "number" ? s.participationPct : null,
+      avgScorePct: typeof s.avgScorePct === "number" ? s.avgScorePct : null,
+      streakDays: typeof game?.currentStreak === "number" ? game.currentStreak : 0,
+      bestStreakDays:
+        typeof game?.bestStreakDays === "number" ? game.bestStreakDays : 0,
+      rank: typeof game?.rank === "number" ? game.rank : null,
+      overallScore:
+        typeof game?.overallScore === "number" ? game.overallScore : 0,
+    };
+  });
 
   return { ok: true, data };
 }

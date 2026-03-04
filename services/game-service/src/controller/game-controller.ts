@@ -24,6 +24,7 @@ type LeaderboardRow = {
   participationCount: number;
   currentStreak: number;
   bestStreakDays: number;
+  lastStreakDate: Date | null;
 };
 
 function toPct(score: number, maxScore: number) {
@@ -130,8 +131,44 @@ async function buildLeaderboardRows(classId: string): Promise<LeaderboardRow[]> 
       participationCount,
       currentStreak,
       bestStreakDays: Number(row.bestStreakDays || 0),
+      lastStreakDate: row.lastStreakDate ? new Date(row.lastStreakDate) : null,
     };
   });
+}
+
+function leaderboardSort(a: LeaderboardRow, b: LeaderboardRow) {
+  if (b.overallScore !== a.overallScore) return b.overallScore - a.overallScore;
+  if (b.currentStreak !== a.currentStreak) return b.currentStreak - a.currentStreak;
+  return a.userId.localeCompare(b.userId);
+}
+
+function withRanks(rows: LeaderboardRow[]) {
+  const sorted = rows.slice().sort(leaderboardSort);
+  let seen = 0;
+  let rank = 0;
+  let prev: LeaderboardRow | null = null;
+
+  return sorted.map((row) => {
+    seen += 1;
+    if (
+      !prev ||
+      prev.overallScore !== row.overallScore ||
+      prev.currentStreak !== row.currentStreak
+    ) {
+      rank = seen;
+    }
+    prev = row;
+    return { rank, ...row };
+  });
+}
+
+function hasStudentInState(
+  students: Record<string, boolean> | Map<string, boolean> | undefined,
+  studentId: string
+) {
+  if (!students) return false;
+  if (students instanceof Map) return students.has(studentId);
+  return !!students[studentId];
 }
 
 export function getServiceHealth(_req: Request, res: Response) {
@@ -155,17 +192,7 @@ export async function getClassLeaderboard(req: Request, res: Response) {
 
     const rows = await buildLeaderboardRows(classId);
 
-    const sorted = rows
-      .slice()
-      .sort((a, b) => {
-        if (b.overallScore !== a.overallScore) return b.overallScore - a.overallScore;
-        if (b.currentStreak !== a.currentStreak) return b.currentStreak - a.currentStreak;
-        return a.userId.localeCompare(b.userId);
-      })
-      .map((row, idx) => ({
-        rank: idx + 1,
-        ...row,
-      }));
+    const sorted = withRanks(rows);
 
     return res.status(200).json({
       ok: true,
@@ -190,11 +217,7 @@ export async function getTopLeaderboardRows(req: Request, res: Response) {
 
     const topOverallScore = rows
       .slice()
-      .sort((a, b) => {
-        if (b.overallScore !== a.overallScore) return b.overallScore - a.overallScore;
-        if (b.currentStreak !== a.currentStreak) return b.currentStreak - a.currentStreak;
-        return a.userId.localeCompare(b.userId);
-      })
+      .sort(leaderboardSort)
       .slice(0, limit)
       .map((r) => ({
         userId: r.userId,
@@ -249,6 +272,110 @@ export async function getTopLeaderboardRows(req: Request, res: Response) {
         topOverallScore,
         topParticipation,
         topStreak,
+      },
+    });
+  } catch (e: any) {
+    const message = typeof e?.message === "string" ? e.message : "Internal error";
+    const status = message.includes("Invalid classId") ? 400 : 500;
+    return res.status(status).json({ ok: false, message });
+  }
+}
+
+export async function getClassStudentProfile(req: Request, res: Response) {
+  try {
+    const classId = String(req.params.classId || "");
+    const studentId = String(req.params.studentId || "");
+
+    if (!classId) {
+      return res.status(400).json({ ok: false, message: "Missing classId" });
+    }
+    if (!studentId) {
+      return res.status(400).json({ ok: false, message: "Missing studentId" });
+    }
+
+    const classObjId = toClassObjectId(classId);
+
+    const [classState, stats, rankedRows] = await Promise.all([
+      GameClassStateModel.findOne({ classId })
+        .select({ name: 1, timezone: 1, students: 1 })
+        .lean<{
+          name?: string;
+          timezone?: string;
+          students?: Record<string, boolean>;
+        } | null>(),
+      GameStudentStatsModel.findOne({ classId: classObjId, studentId })
+        .select({
+          overallScore: 1,
+          bestStreakDays: 1,
+          lastStreakDate: 1,
+          canonicalBySchedule: 1,
+        })
+        .lean<{
+          overallScore?: number;
+          bestStreakDays?: number;
+          lastStreakDate?: Date | null;
+          canonicalBySchedule?: Record<
+            string,
+            { score?: number; maxScore?: number; finishedAt?: Date }
+          >;
+        } | null>(),
+      buildLeaderboardRows(classId).then(withRanks),
+    ]);
+
+    if (!classState) {
+      return res.status(404).json({ ok: false, message: "Class not found" });
+    }
+
+    const onRoster = hasStudentInState(classState.students as any, studentId);
+    if (!onRoster) {
+      const hasProjectedData =
+        !!stats || rankedRows.some((r) => String(r.userId) === studentId);
+      if (!hasProjectedData) {
+        return res
+          .status(404)
+          .json({ ok: false, message: "Student not found in class" });
+      }
+    }
+
+    const row = rankedRows.find((r) => String(r.userId) === studentId);
+    const canonicalRows = Object.values(stats?.canonicalBySchedule || {});
+    const canonicalSums = canonicalRows.reduce(
+      (acc, can) => {
+        acc.sumScore += Number(can?.score || 0);
+        acc.sumMax += Number(can?.maxScore || 0);
+        return acc;
+      },
+      { sumScore: 0, sumMax: 0 }
+    );
+
+    const fallbackOverallScore = Number(stats?.overallScore || 0);
+    const fallbackParticipationCount = canonicalRows.length;
+    const fallbackAvgScorePct = toPct(canonicalSums.sumScore, canonicalSums.sumMax);
+
+    return res.status(200).json({
+      ok: true,
+      data: {
+        classId,
+        className: String(classState.name || ""),
+        timezone: String(classState.timezone || "Asia/Singapore"),
+        studentId,
+        rank: typeof row?.rank === "number" ? row.rank : null,
+        overallScore:
+          typeof row?.overallScore === "number" ? row.overallScore : fallbackOverallScore,
+        participationCount:
+          typeof row?.participationCount === "number"
+            ? row.participationCount
+            : fallbackParticipationCount,
+        participationPct:
+          typeof row?.participationPct === "number" ? row.participationPct : 0,
+        avgScorePct:
+          typeof row?.avgScorePct === "number" ? row.avgScorePct : fallbackAvgScorePct,
+        currentStreak: typeof row?.currentStreak === "number" ? row.currentStreak : 0,
+        bestStreakDays:
+          typeof row?.bestStreakDays === "number"
+            ? row.bestStreakDays
+            : Number(stats?.bestStreakDays || 0),
+        lastStreakDate: row?.lastStreakDate || stats?.lastStreakDate || null,
       },
     });
   } catch (e: any) {

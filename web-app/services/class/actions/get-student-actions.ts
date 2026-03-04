@@ -1,7 +1,7 @@
 "use server";
 
 import { getAuthHeader } from "@/services/user/session-definitions";
-import { classSvcUrl, quizSvcUrl } from "@/utils/utils";
+import { classSvcUrl, gameSvcUrl, quizSvcUrl } from "@/utils/utils";
 
 /** ---- Types ---- */
 
@@ -57,7 +57,7 @@ export type StudentInClass = {
   displayName: string;
   photoUrl?: string;
   className?: string;
-  rank?: number;
+  rank?: number | null;
   stats?: StudentStats | null; // includes streakDays, bestStreakDays, lastStreakDate
 };
 
@@ -77,42 +77,110 @@ export async function getStudentInClass(
   if (!auth) return { ok: false, message: "Not authenticated" };
 
   try {
-    const url = classSvcUrl(
+    const classUrl = classSvcUrl(
       `/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(
         studentId
       )}`
     );
+    const gameUrl = gameSvcUrl(
+      `/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(
+        studentId
+      )}/profile`
+    );
 
-    const resp = await fetch(url, {
-      method: "GET",
-      headers: { Authorization: auth, Accept: "application/json" },
-      cache: "no-store",
-    });
+    const [classResp, gameResp] = await Promise.all([
+      fetch(classUrl, {
+        method: "GET",
+        headers: { Authorization: auth, Accept: "application/json" },
+        cache: "no-store",
+      }),
+      fetch(gameUrl, {
+        method: "GET",
+        headers: { Authorization: auth, Accept: "application/json" },
+        cache: "no-store",
+      }),
+    ]);
 
-    const isJson = (resp.headers.get("content-type") || "").includes(
+    const classIsJson = (classResp.headers.get("content-type") || "").includes(
       "application/json"
     );
-    const json = isJson ? await resp.json().catch(() => null) : null;
+    const classJson = classIsJson
+      ? await classResp.json().catch(() => null)
+      : null;
 
-    if (!resp.ok || !json?.ok || !json.data) {
-      if (resp.status === 404) {
+    if (!classResp.ok || !classJson?.ok || !classJson.data) {
+      if (classResp.status === 404) {
         return {
           ok: false,
-          message: json?.message ?? "Student not found in class",
+          message: classJson?.message ?? "Student not found in class",
         };
       }
       return {
         ok: false,
         message:
-          json?.message ??
-          (resp.status === 401 || resp.status === 403
+          classJson?.message ??
+          (classResp.status === 401 || classResp.status === 403
             ? "Authentication failed"
             : "Failed to load student"),
       };
     }
 
-    // Payload already shaped by class-svc; pass through strongly-typed.
-    const data = json.data as StudentInClass;
+    const gameIsJson = (gameResp.headers.get("content-type") || "").includes(
+      "application/json"
+    );
+    const gameJson = gameIsJson ? await gameResp.json().catch(() => null) : null;
+
+    if (!gameResp.ok || !gameJson?.ok || !gameJson.data) {
+      return {
+        ok: false,
+        message:
+          gameJson?.message ??
+          (gameResp.status === 401 || gameResp.status === 403
+            ? "Authentication failed"
+            : "Failed to load game profile"),
+      };
+    }
+
+    const data = classJson.data as StudentInClass;
+    const gameProfile = gameJson.data as {
+      rank?: number | null;
+      overallScore?: number;
+      currentStreak?: number;
+      bestStreakDays?: number;
+      lastStreakDate?: string | Date | null;
+    };
+
+    if (!data.stats) {
+      data.stats = {
+        classId,
+        studentId,
+        sumScore: 0,
+        sumMax: 0,
+        participationCount: 0,
+        version: 0,
+        updatedAt: new Date().toISOString(),
+        streakDays: 0,
+        overallScore: 0,
+      };
+    }
+
+    data.rank =
+      typeof gameProfile.rank === "number" ? gameProfile.rank : data.rank ?? null;
+    data.stats.streakDays =
+      typeof gameProfile.currentStreak === "number"
+        ? gameProfile.currentStreak
+        : Number(data.stats.streakDays || 0);
+    data.stats.bestStreakDays =
+      typeof gameProfile.bestStreakDays === "number"
+        ? gameProfile.bestStreakDays
+        : Number(data.stats.bestStreakDays || 0);
+    data.stats.lastStreakDate =
+      gameProfile.lastStreakDate ?? data.stats.lastStreakDate ?? null;
+    data.stats.overallScore =
+      typeof gameProfile.overallScore === "number"
+        ? gameProfile.overallScore
+        : Number(data.stats.overallScore || 0);
+
     return { ok: true, data };
   } catch (e: any) {
     return { ok: false, message: e?.message ?? "Network error" };
