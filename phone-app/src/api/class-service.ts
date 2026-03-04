@@ -18,8 +18,17 @@ export type ProfileData = {
   displayName: string;
   photoUrl?: string | null;
   className: string;
-  rank: number;
-  stats: { streakDays: number };
+  stats: {
+    classId: string;
+    studentId: string;
+    sumScore: number;
+    sumMax: number;
+    participationCount: number;
+    participationPct?: number;
+    avgScorePct?: number;
+    version: number;
+    updatedAt?: string | null;
+  };
 };
 
 export type ProfileResponse = { ok: boolean; data?: ProfileData };

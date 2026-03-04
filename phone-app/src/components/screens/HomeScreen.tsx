@@ -4,6 +4,10 @@ import {
   type AttemptableRow,
   type ProfileData,
 } from "@/src/api/class-service";
+import {
+  getClassStudentGameProfile,
+  type GameStudentProfile,
+} from "@/src/api/game-service";
 import { useSession } from "@/src/auth/session";
 import { useTheme } from "@/src/theme";
 import { router, useFocusEffect } from "expo-router";
@@ -33,6 +37,9 @@ export default function HomeScreen() {
     null
   );
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [gameProfile, setGameProfile] = useState<GameStudentProfile | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,8 +59,17 @@ export default function HomeScreen() {
         getAttemptables(token),
         getMyProfile(token),
       ]);
+      let g: GameStudentProfile | null = null;
+      if (p?.stats?.classId && p?.userId) {
+        try {
+          g = await getClassStudentGameProfile(token, p.stats.classId, p.userId);
+        } catch (err) {
+          console.warn("[home] game profile load failed", err);
+        }
+      }
       setAttemptables(a);
       setProfile(p);
+      setGameProfile(g);
     } catch (e: any) {
       setError(e?.message || "Failed to load data");
     } finally {
@@ -77,8 +93,17 @@ export default function HomeScreen() {
         getAttemptables(token),
         getMyProfile(token),
       ]);
+      let g: GameStudentProfile | null = null;
+      if (p?.stats?.classId && p?.userId) {
+        try {
+          g = await getClassStudentGameProfile(token, p.stats.classId, p.userId);
+        } catch (err) {
+          console.warn("[home] game profile refresh failed", err);
+        }
+      }
       setAttemptables(a);
       setProfile(p);
+      setGameProfile(g);
       setError(null);
     } catch (e: any) {
       setError(e?.message || "Failed to refresh");
@@ -88,9 +113,11 @@ export default function HomeScreen() {
   }, [token]);
 
   const displayName = profile?.displayName || account?.name || "Student";
-  const streakDays = Math.max(0, Math.min(7, profile?.stats?.streakDays ?? 0));
-  const streakPct = streakDays / 7;
-  const streakMsg = streakDays > 3 ? "Keep it up!" : "Let’s build your streak!";
+  const streakRawDays = Math.max(0, Number(gameProfile?.currentStreak || 0));
+  const streakProgressDays = Math.min(7, streakRawDays);
+  const streakPct = streakProgressDays / 7;
+  const streakMsg =
+    streakRawDays > 3 ? "Keep it up!" : "Let’s build your streak!";
 
   const styles = getStyles(colors);
 
@@ -167,7 +194,8 @@ export default function HomeScreen() {
             <Text
               style={[styles.streakSubtitle, { color: colors.textSecondary }]}
             >
-              {streakDays} {streakDays === 1 ? "Day" : "Days"} • {streakMsg}
+              {streakRawDays} {streakRawDays === 1 ? "Day" : "Days"} •{" "}
+              {streakMsg}
             </Text>
 
             <View
