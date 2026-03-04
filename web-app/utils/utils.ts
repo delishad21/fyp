@@ -26,6 +26,12 @@ export function classSvcUrl(path: string) {
   return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+/** Build the game backend URL once. */
+export function gameSvcUrl(path: string) {
+  const base = (process.env.GAME_SVC_URL || "").replace(/\/+$/, "");
+  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 /** Build the backend URL once. */
 export function quizSvcUrl(path: string) {
   const base = (process.env.QUIZ_SVC_URL || "").replace(/\/+$/, "");
