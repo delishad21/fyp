@@ -7,6 +7,10 @@ import {
   isThisAttemptValidFinalize,
   upsertAttemptRow,
 } from "./quiz-event-utils";
+import {
+  game_onAttemptFinalized,
+  game_onAttemptInvalidated,
+} from "./projection-controller";
 
 export type HandleQuizAttemptEventResult = {
   handled: boolean;
@@ -39,7 +43,42 @@ async function applyAttemptEvent(evt: any): Promise<boolean> {
   const upsertAttempt = buildUpsertAttemptDoc(evt, prev, thisValidNow);
   await upsertAttemptRow(evt.attemptId, upsertAttempt);
 
-  // Projection updates (streak/leaderboard/score) will be added in next commit.
+  const classId = String(evt.classId);
+  const studentId = String(evt.studentId);
+  const scheduleId = String(evt.scheduleId);
+  const attemptId = String(evt.attemptId);
+
+  if (evt.type === "AttemptFinalized" && thisValidNow) {
+    const score = Number(evt.payload?.score);
+    const maxScore = Number(evt.payload?.maxScore);
+    const finishedAt = evt.payload?.finishedAt
+      ? new Date(evt.payload.finishedAt)
+      : new Date();
+    const subject =
+      typeof evt.payload?.subject === "string" ? evt.payload.subject : undefined;
+    const topic =
+      typeof evt.payload?.topic === "string" ? evt.payload.topic : undefined;
+
+    await game_onAttemptFinalized({
+      classId,
+      studentId,
+      scheduleId,
+      attemptId,
+      score,
+      maxScore,
+      finishedAt,
+      subject,
+      topic,
+    });
+  } else if (evt.type === "AttemptInvalidated") {
+    await game_onAttemptInvalidated({
+      classId,
+      studentId,
+      scheduleId,
+      attemptId,
+    });
+  }
+
   return true;
 }
 
