@@ -1,6 +1,7 @@
-import mongoose, { ClientSession, Types } from "mongoose";
+import mongoose, { ClientSession } from "mongoose";
 import { GameAttemptModel } from "../model/events/game-attempt-model";
 import { GameStudentStatsModel } from "../model/stats/game-student-stats-model";
+import { GameClassStateModel } from "../model/class/game-class-state-model";
 import {
   getDefaultScheduleContribution,
   getDefaultTimezone,
@@ -11,6 +12,16 @@ import {
   stableNoonUTCFromDayKey,
   ymdInTZ,
 } from "../utils/date-utils";
+import { toClassObjectId } from "../utils/mongo-utils";
+
+type CanonicalSnapshot = {
+  attemptId: string;
+  score: number;
+  maxScore: number;
+  finishedAt: Date;
+  subject?: string;
+  topic?: string;
+};
 
 type FinalizedPayload = {
   classId: string;
@@ -31,21 +42,131 @@ type InvalidatedPayload = {
   attemptId: string;
 };
 
-function toClassObjectId(classId: string) {
-  if (!Types.ObjectId.isValid(classId)) {
-    throw new Error(`Invalid classId for game projection: ${classId}`);
+type CanonicalUpsertPayload = {
+  classId: string;
+  studentId: string;
+  scheduleId: string;
+  canonical: CanonicalSnapshot;
+};
+
+type CanonicalRemovedPayload = {
+  classId: string;
+  studentId: string;
+  scheduleId: string;
+};
+
+async function getClassTimezone(classId: string, session: ClientSession) {
+  const row = await GameClassStateModel.findOne(
+    { classId },
+    { timezone: 1 }
+  )
+    .session(session)
+    .lean<{ timezone?: string } | null>();
+
+  if (typeof row?.timezone === "string" && row.timezone.trim()) {
+    return row.timezone;
   }
-  return new Types.ObjectId(classId);
+  return getDefaultTimezone();
 }
 
 async function getScheduleContribution(
-  _classId: string,
-  _scheduleId: string,
-  _session: ClientSession
+  classId: string,
+  scheduleId: string,
+  session: ClientSession
 ) {
-  // For now we apply default contribution only.
-  // Class lifecycle/schedule event consumers will provide class-specific values.
+  const row = await GameClassStateModel.findOne(
+    { classId },
+    { [`schedules.${scheduleId}.contribution`]: 1 }
+  )
+    .session(session)
+    .lean<{ schedules?: Record<string, { contribution?: number }> } | null>();
+
+  const contribution = Number(row?.schedules?.[scheduleId]?.contribution);
+  if (Number.isFinite(contribution) && contribution >= 0) {
+    return contribution;
+  }
   return getDefaultScheduleContribution();
+}
+
+function canonicalEquals(
+  a: CanonicalSnapshot | undefined,
+  b: CanonicalSnapshot | null
+) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+
+  return (
+    String(a.attemptId) === String(b.attemptId) &&
+    Number(a.score) === Number(b.score) &&
+    Number(a.maxScore) === Number(b.maxScore) &&
+    new Date(a.finishedAt).getTime() === new Date(b.finishedAt).getTime() &&
+    (a.subject || "") === (b.subject || "") &&
+    (a.topic || "") === (b.topic || "")
+  );
+}
+
+async function applyCanonicalState(
+  classId: string,
+  studentId: string,
+  scheduleId: string,
+  next: CanonicalSnapshot | null,
+  session: ClientSession
+) {
+  const classObjId = toClassObjectId(classId);
+
+  const row = await GameStudentStatsModel.findOne(
+    { classId: classObjId, studentId },
+    null,
+    { session, lean: false }
+  );
+
+  const prev = row?.canonicalBySchedule?.get(scheduleId) as
+    | CanonicalSnapshot
+    | undefined;
+
+  if (canonicalEquals(prev, next)) {
+    return;
+  }
+
+  const contribution = await getScheduleContribution(classId, scheduleId, session);
+  const prevPct = prev ? toPct(prev.score, prev.maxScore) : 0;
+  const nextPct = next ? toPct(next.score, next.maxScore) : 0;
+  const deltaOverall = (nextPct - prevPct) * contribution;
+
+  const update: any = {
+    $setOnInsert: {
+      classId: classObjId,
+      studentId,
+      streakDays: 0,
+      bestStreakDays: 0,
+      lastStreakDate: null,
+    },
+    $set: { updatedAt: new Date() },
+    $inc: { version: 1 } as Record<string, number>,
+  };
+
+  if (deltaOverall) {
+    update.$inc.overallScore = (update.$inc.overallScore || 0) + deltaOverall;
+  }
+
+  if (next) {
+    update.$set[`canonicalBySchedule.${scheduleId}`] = {
+      attemptId: next.attemptId,
+      score: next.score,
+      maxScore: next.maxScore,
+      finishedAt: next.finishedAt,
+      ...(next.subject ? { subject: next.subject } : {}),
+      ...(next.topic ? { topic: next.topic } : {}),
+    };
+  } else {
+    update.$unset = { [`canonicalBySchedule.${scheduleId}`]: "" };
+  }
+
+  await GameStudentStatsModel.updateOne(
+    { classId: classObjId, studentId },
+    update,
+    { session, upsert: !!next }
+  );
 }
 
 async function recomputeStreakFromAttendance(
@@ -129,7 +250,8 @@ async function ensureAttendanceForDay(
   session: ClientSession
 ) {
   const classObjId = toClassObjectId(classId);
-  const dayKey = ymdInTZ(finishedAt, getDefaultTimezone());
+  const timezone = await getClassTimezone(classId, session);
+  const dayKey = ymdInTZ(finishedAt, timezone);
   const path = `attendanceDays.${dayKey}`;
 
   const already = await GameStudentStatsModel.exists({
@@ -161,6 +283,114 @@ async function ensureAttendanceForDay(
   await recomputeStreakFromAttendance(classId, studentId, session);
 }
 
+export async function game_onScheduleContributionChanged(payload: {
+  classId: string;
+  scheduleId: string;
+  oldContribution: number;
+  newContribution: number;
+  session?: ClientSession;
+}) {
+  const deltaC = Number(payload.newContribution) - Number(payload.oldContribution);
+  if (!deltaC) return;
+
+  const run = async (session: ClientSession) => {
+    const filter = {
+      classId: toClassObjectId(payload.classId),
+      [`canonicalBySchedule.${payload.scheduleId}`]: { $exists: true },
+    } as const;
+
+    const pipeline = [
+      {
+        $set: {
+          overallScore: {
+            $add: [
+              "$overallScore",
+              {
+                $let: {
+                  vars: {
+                    can: {
+                      $getField: {
+                        field: payload.scheduleId,
+                        input: "$canonicalBySchedule",
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: [
+                      { $gt: ["$$can.maxScore", 0] },
+                      {
+                        $multiply: [
+                          { $divide: ["$$can.score", "$$can.maxScore"] },
+                          deltaC,
+                        ],
+                      },
+                      0,
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+          version: { $add: ["$version", 1] },
+          updatedAt: new Date(),
+        },
+      },
+    ] as any;
+
+    await GameStudentStatsModel.updateMany(filter, pipeline, { session });
+  };
+
+  if (payload.session) {
+    await run(payload.session);
+    return;
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await run(session);
+    });
+  } finally {
+    session.endSession();
+  }
+}
+
+export async function game_onCanonicalUpserted(payload: CanonicalUpsertPayload) {
+  const session = await mongoose.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      await applyCanonicalState(
+        payload.classId,
+        payload.studentId,
+        payload.scheduleId,
+        payload.canonical,
+        session
+      );
+    });
+  } finally {
+    session.endSession();
+  }
+}
+
+export async function game_onCanonicalRemoved(payload: CanonicalRemovedPayload) {
+  const session = await mongoose.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      await applyCanonicalState(
+        payload.classId,
+        payload.studentId,
+        payload.scheduleId,
+        null,
+        session
+      );
+    });
+  } finally {
+    session.endSession();
+  }
+}
+
 export async function game_onAttemptFinalized(payload: FinalizedPayload) {
   const session = await mongoose.startSession();
 
@@ -187,14 +417,7 @@ export async function game_onAttemptFinalized(payload: FinalizedPayload) {
       );
 
       const prev = row?.canonicalBySchedule?.get(scheduleId) as
-        | {
-            attemptId: string;
-            score: number;
-            maxScore: number;
-            finishedAt: Date;
-            subject?: string;
-            topic?: string;
-          }
+        | CanonicalSnapshot
         | undefined;
 
       let shouldReplaceCanonical = false;
@@ -207,48 +430,22 @@ export async function game_onAttemptFinalized(payload: FinalizedPayload) {
         shouldReplaceCanonical = false;
       }
 
-      const contribution = await getScheduleContribution(
-        classId,
-        scheduleId,
-        session
-      );
-
-      const prevPct = prev ? toPct(prev.score, prev.maxScore) : 0;
-      const nextPct = shouldReplaceCanonical ? toPct(score, maxScore) : prevPct;
-      const deltaOverall = (nextPct - prevPct) * contribution;
-
-      const update: any = {
-        $setOnInsert: {
-          classId: classObjId,
-          studentId,
-          streakDays: 0,
-          bestStreakDays: 0,
-          lastStreakDate: null,
-        },
-        $set: { updatedAt: new Date() },
-        $inc: { version: 1 } as Record<string, number>,
-      };
-
       if (shouldReplaceCanonical) {
-        update.$set[`canonicalBySchedule.${scheduleId}`] = {
-          attemptId,
-          score,
-          maxScore,
-          finishedAt,
-          ...(subject ? { subject } : {}),
-          ...(topic ? { topic } : {}),
-        };
+        await applyCanonicalState(
+          classId,
+          studentId,
+          scheduleId,
+          {
+            attemptId,
+            score,
+            maxScore,
+            finishedAt,
+            ...(subject ? { subject } : {}),
+            ...(topic ? { topic } : {}),
+          },
+          session
+        );
       }
-
-      if (deltaOverall) {
-        update.$inc.overallScore = (update.$inc.overallScore || 0) + deltaOverall;
-      }
-
-      await GameStudentStatsModel.updateOne(
-        { classId: classObjId, studentId },
-        update,
-        { session, upsert: true }
-      );
 
       await ensureAttendanceForDay(classId, studentId, finishedAt, session);
     });
@@ -272,14 +469,7 @@ export async function game_onAttemptInvalidated(payload: InvalidatedPayload) {
       );
 
       const prev = row?.canonicalBySchedule?.get(scheduleId) as
-        | {
-            attemptId: string;
-            score: number;
-            maxScore: number;
-            finishedAt: Date;
-            subject?: string;
-            topic?: string;
-          }
+        | CanonicalSnapshot
         | undefined;
 
       if (!prev) return;
@@ -316,43 +506,7 @@ export async function game_onAttemptInvalidated(payload: InvalidatedPayload) {
           }
         : null;
 
-      const contribution = await getScheduleContribution(
-        classId,
-        scheduleId,
-        session
-      );
-
-      const prevPct = toPct(prev.score, prev.maxScore);
-      const nextPct = next ? toPct(next.score, next.maxScore) : 0;
-      const deltaOverall = (nextPct - prevPct) * contribution;
-
-      const update: any = {
-        $set: { updatedAt: new Date() },
-        $inc: { version: 1 } as Record<string, number>,
-      };
-
-      if (deltaOverall) {
-        update.$inc.overallScore = (update.$inc.overallScore || 0) + deltaOverall;
-      }
-
-      if (next) {
-        update.$set[`canonicalBySchedule.${scheduleId}`] = {
-          attemptId: next.attemptId,
-          score: next.score,
-          maxScore: next.maxScore,
-          finishedAt: next.finishedAt,
-          ...(next.subject ? { subject: next.subject } : {}),
-          ...(next.topic ? { topic: next.topic } : {}),
-        };
-      } else {
-        update.$unset = { [`canonicalBySchedule.${scheduleId}`]: "" };
-      }
-
-      await GameStudentStatsModel.updateOne(
-        { classId: classObjId, studentId },
-        update,
-        { session }
-      );
+      await applyCanonicalState(classId, studentId, scheduleId, next, session);
 
       // Attendance/streak are sticky and not revoked on invalidation.
     });

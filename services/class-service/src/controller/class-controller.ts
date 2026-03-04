@@ -10,12 +10,14 @@ import {
 } from "../utils/user-svc-client";
 import "dotenv/config";
 import { ScheduleStatsModel } from "../model/stats/scheduled-quiz-stats-model";
-import {
-  IStudentClassStats,
-  StudentClassStatsModel,
-} from "../model/stats/student-stats-model";
+import { StudentClassStatsModel } from "../model/stats/student-stats-model";
 import { deriveClassStats } from "../model/stats/derive-class-stats";
 import { ClassAttemptModel } from "../model/events/class-attempt-model";
+import {
+  emitClassCreated,
+  emitClassDeleted,
+  emitClassUpdated,
+} from "../utils/events/class-lifecycle-events";
 
 /**
  * @route  POST /classes
@@ -173,6 +175,16 @@ export async function createClass(req: CustomRequest, res: Response) {
           { session, ordered: false }
         );
       }
+
+      await emitClassCreated(
+        {
+          classId: String(doc._id),
+          name: String(doc.name),
+          timezone: String(doc.timezone || "Asia/Singapore"),
+          studentIds: studentDocs.map((s) => String(s.userId)),
+        },
+        { session }
+      );
     });
 
     const lean = await ClassModel.findById(createdClassId!).lean();
@@ -267,6 +279,15 @@ export async function updateClass(req: CustomRequest, res: Response) {
           { session }
         );
       }
+
+      await emitClassUpdated(
+        {
+          classId: String(updated._id),
+          name: String((updated as any).name || before.name),
+          timezone: String((updated as any).timezone || before.timezone || "Asia/Singapore"),
+        },
+        { session }
+      );
     });
 
     const fresh = await ClassModel.findById(updated._id).lean();
@@ -366,6 +387,8 @@ export async function deleteClass(req: CustomRequest, res: Response) {
       await ScheduleStatsModel.deleteMany({ classId: cls._id }, { session });
       await ClassAttemptModel.deleteMany({ classId: id }, { session });
 
+      await emitClassDeleted({ classId: String(id) }, { session });
+
       deleted = await ClassModel.findByIdAndDelete(id, { session }).lean();
       if (!deleted) throw new Error("Class not found at delete");
     });
@@ -385,14 +408,11 @@ export async function deleteClass(req: CustomRequest, res: Response) {
  * @route  GET /classes/:id
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
  * @input  Params: { id }
- * @notes  - Builds leaderboard from StudentClassStats.
- *         - **Adds data.statsDoc** with the same shape as IClassStats by deriving it
- *           from StudentClassStats + Class (roster & schedule).
+ * @notes  - **Adds data.statsDoc** by deriving class analytics from StudentClassStats + Class.
+ *         - Leaderboard/streak/game-score ownership is in game-service.
  * @logic  1) Load class
- *         2) Load StudentClassStats rows
- *         3) Compute derived class stats (totals, bySubject, participants[])
- *         4) Build leaderboard
- * @returns 200 { ok, data (with statsDoc), meta: { leaderboard[] } }
+ *         2) Compute derived class stats (totals, bySubject, participants[])
+ * @returns 200 { ok, data (with statsDoc) }
  * @errors  404 class not found
  *          500 internal server error
  */
@@ -403,87 +423,11 @@ export async function getClassById(req: CustomRequest, res: Response) {
     if (!c)
       return res.status(404).json({ ok: false, message: "Class not found" });
 
-    const tz = c.timezone || "Asia/Singapore";
-    const ymdInTZ = (d: Date) =>
-      new Intl.DateTimeFormat("en-CA", {
-        timeZone: tz,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(d);
-    const addDaysUTC = (d: Date, n: number) => {
-      const x = new Date(d);
-      x.setUTCDate(x.getUTCDate() + n);
-      return x;
-    };
-    const today = ymdInTZ(new Date());
-    const yesterday = ymdInTZ(addDaysUTC(new Date(), -1));
-
-    // Use lastStreakDate to project current streak
-    const rows = await StudentClassStatsModel.find({ classId: id })
-      .select({
-        studentId: 1,
-        overallScore: 1,
-        streakDays: 1,
-        bestStreakDays: 1,
-        lastStreakDate: 1,
-      })
-      .lean();
-
-    const infoById = new Map<
-      string,
-      { displayName?: string; photoUrl?: string | null }
-    >();
-    for (const s of c.students || []) {
-      const userId = String((s as any).userId);
-      infoById.set(userId, {
-        displayName: (s as any).displayName,
-        photoUrl: (s as any).photoUrl ?? null,
-      });
-    }
-
-    const enriched = rows
-      .map((r) => {
-        const last = r.lastStreakDate
-          ? ymdInTZ(new Date(r.lastStreakDate))
-          : "";
-        const projectedStreak =
-          last === today || last === yesterday ? Number(r.streakDays || 0) : 0;
-
-        return {
-          studentId: String(r.studentId),
-          overallScore: Number(r.overallScore || 0),
-          // use projected value for ranking tie-break
-          streakDays: projectedStreak,
-          bestStreakDays: Number(r.bestStreakDays || 0),
-          displayName: infoById.get(String(r.studentId))?.displayName,
-          photoUrl: infoById.get(String(r.studentId))?.photoUrl ?? null,
-        };
-      })
-      .sort((a, b) =>
-        b.overallScore !== a.overallScore
-          ? b.overallScore - a.overallScore
-          : b.streakDays - a.streakDays
-      );
-
-    let lastScore = Infinity,
-      lastStreak = Infinity,
-      lastRank = 0;
-    const leaderboard = enriched.map((r, idx) => {
-      const isTie = r.overallScore === lastScore && r.streakDays === lastStreak;
-      const rank = isTie ? lastRank : idx + 1;
-      lastRank = rank;
-      lastScore = r.overallScore;
-      lastStreak = r.streakDays;
-      return { ...r, rank };
-    });
-
     const statsDoc = await deriveClassStats(id);
 
     return res.json({
       ok: true,
       data: { ...c, statsDoc },
-      meta: { leaderboard },
     });
   } catch (e) {
     console.error("[getClassById] error", e);
@@ -666,212 +610,6 @@ export async function getClassCalculatedStats(
     });
   } catch (e) {
     console.error("[getClassCalculatedStats] error", e);
-    return res
-      .status(500)
-      .json({ ok: false, message: "Internal server error" });
-  }
-}
-
-/**
- * @route  GET /classes/:id/top
- * @query  limit?=3
- * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
- * @notes  - participationPct = participationCount / eligibleAssigned (capped at 100)
- *         - avgScorePct = sumScore / sumMax
- *         - "eligibleAssigned" counts schedule items that have started (startDate <= now)
- *         - "current streak" is projected to 0 if lastStreakDate is neither today nor yesterday in class TZ
- * @returns 200 {
- *   ok,
- *   data: {
- *     topOverallScore: Array<{ userId, displayName, photoUrl?, className, overallScore, avgScorePct, participationPct }>,
- *     topParticipation: Array<{ userId, displayName, photoUrl?, className, participationPct, participationCount }>,
- *     topStreak:       Array<{ userId, displayName, photoUrl?, className, currentStreak }>
- *   }
- * }
- * @errors  404 class not found
- *          500 internal server error
- */
-export async function getTopStudents(req: CustomRequest, res: Response) {
-  try {
-    const { id } = req.params;
-    const limit =
-      (Number(req.query?.limit) &&
-        Math.max(1, Math.min(10, Number(req.query.limit)))) ||
-      3;
-
-    // Load roster + schedule + timezone; populate stats for this class only
-    const klass = await ClassModel.findById(id)
-      .select({ students: 1, schedule: 1, timezone: 1, name: 1 })
-      .populate({
-        path: "students.statsDoc",
-        match: { classId: id },
-        select:
-          "participationCount sumScore sumMax overallScore lastStreakDate streakDays bestStreakDays",
-      })
-      .lean({ virtuals: true });
-
-    if (!klass) {
-      return res.status(404).json({ ok: false, message: "Class not found" });
-    }
-
-    // Helper for class-local YYYY-MM-DD
-    const tz = klass.timezone || "Asia/Singapore";
-    const ymdInTZ = (d: Date) =>
-      new Intl.DateTimeFormat("en-CA", {
-        timeZone: tz,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(d);
-    const addDaysUTC = (d: Date, n: number) => {
-      const x = new Date(d);
-      x.setUTCDate(x.getUTCDate() + n);
-      return x;
-    };
-    const today = ymdInTZ(new Date());
-    const yesterday = ymdInTZ(addDaysUTC(new Date(), -1));
-
-    // Eligible assigned = items whose startDate <= now
-    const now = new Date();
-    const eligibleAssigned = Array.isArray(klass.schedule)
-      ? klass.schedule.filter((s: any) => new Date(s.startDate) <= now).length
-      : 0;
-
-    // Build rows with derived fields
-    const rows = (klass.students || []).map((s: any) => {
-      const st = (s?.statsDoc || {}) as Partial<IStudentClassStats>;
-      const participationCount = Number(st.participationCount || 0);
-      const sumScore = Number(st.sumScore || 0);
-      const sumMax = Number(st.sumMax || 0);
-      const overallScore = Number(st.overallScore || 0);
-
-      const participationPct =
-        eligibleAssigned > 0
-          ? Math.round(
-              (Math.min(participationCount, eligibleAssigned) /
-                eligibleAssigned) *
-                100
-            )
-          : 0;
-
-      const avgScorePct =
-        sumMax > 0 ? Math.round((sumScore / sumMax) * 100) : 0;
-
-      const last = st.lastStreakDate
-        ? ymdInTZ(new Date(st.lastStreakDate))
-        : "";
-      const currentStreak =
-        last === today || last === yesterday ? Number(st.streakDays || 0) : 0;
-
-      return {
-        userId: String(s.userId),
-        displayName: String(s.displayName),
-        photoUrl: s.photoUrl ?? null,
-        className: String(s.className ?? klass.name ?? ""),
-
-        // derived
-        participationPct,
-        participationCount,
-        avgScorePct,
-        overallScore,
-        currentStreak,
-      };
-    });
-
-    // ---- Leaderboards ----
-
-    // 1) Overall score: higher overallScore first,
-    //    tie-breakers: higher avgScorePct → higher participationPct → name A→Z
-    const topOverallScore = rows
-      .slice()
-      .sort((a, b) => {
-        if (a.overallScore !== b.overallScore)
-          return b.overallScore - a.overallScore;
-        if (a.avgScorePct !== b.avgScorePct)
-          return b.avgScorePct - a.avgScorePct;
-        if (a.participationPct !== b.participationPct)
-          return b.participationPct - a.participationPct;
-        return a.displayName.localeCompare(b.displayName);
-      })
-      .slice(0, limit)
-      .map(
-        ({
-          userId,
-          displayName,
-          photoUrl,
-          className,
-          overallScore,
-          avgScorePct,
-          participationPct,
-        }) => ({
-          userId,
-          displayName,
-          photoUrl,
-          className,
-          overallScore,
-          avgScorePct,
-          participationPct,
-        })
-      );
-
-    // 2) Participation: higher participationPct first,
-    //    tie-breakers: higher participationCount → higher avgScorePct → name A→Z
-    const topParticipation = rows
-      .slice()
-      .sort((a, b) => {
-        if (a.participationPct !== b.participationPct)
-          return b.participationPct - a.participationPct;
-        if (a.participationCount !== b.participationCount)
-          return b.participationCount - a.participationCount;
-        if (a.avgScorePct !== b.avgScorePct)
-          return b.avgScorePct - a.avgScorePct;
-        return a.displayName.localeCompare(b.displayName);
-      })
-      .slice(0, limit)
-      .map(
-        ({
-          userId,
-          displayName,
-          photoUrl,
-          className,
-          participationPct,
-          participationCount,
-        }) => ({
-          userId,
-          displayName,
-          photoUrl,
-          className,
-          participationPct,
-          participationCount,
-        })
-      );
-
-    // 3) Current streak: higher currentStreak first,
-    //    tie-breakers: higher overallScore → name A→Z
-    const topStreak = rows
-      .slice()
-      .sort((a, b) => {
-        if (a.currentStreak !== b.currentStreak)
-          return b.currentStreak - a.currentStreak;
-        if (a.overallScore !== b.overallScore)
-          return b.overallScore - a.overallScore;
-        return a.displayName.localeCompare(b.displayName);
-      })
-      .slice(0, limit)
-      .map(({ userId, displayName, photoUrl, className, currentStreak }) => ({
-        userId,
-        displayName,
-        photoUrl,
-        className,
-        currentStreak,
-      }));
-
-    return res.json({
-      ok: true,
-      data: { topOverallScore, topParticipation, topStreak },
-    });
-  } catch (e: any) {
-    console.error("[getTopStudents] error", e);
     return res
       .status(500)
       .json({ ok: false, message: "Internal server error" });

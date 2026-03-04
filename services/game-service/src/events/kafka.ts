@@ -17,4 +17,12 @@ export async function startKafkaConsumer() {
     topic: Topics.Attempt,
     fromBeginning: false,
   });
+  await consumer.subscribe({
+    topic: Topics.ClassLifecycle,
+    fromBeginning: false,
+  });
+  await consumer.subscribe({
+    topic: Topics.Canonical,
+    fromBeginning: false,
+  });
 }

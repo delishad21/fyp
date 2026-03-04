@@ -72,6 +72,124 @@ export type ScheduleUpdatedEvent = {
   occurredAt: string; // ISO
 };
 
+// ---- Outbound to game-svc (class lifecycle) ----
+
+export type ClassCreatedEvent = {
+  eventId: string;
+  type: "ClassCreated";
+  occurredAt: string;
+  classId: string;
+  name: string;
+  timezone: string;
+  studentIds: string[];
+};
+
+export type ClassUpdatedEvent = {
+  eventId: string;
+  type: "ClassUpdated";
+  occurredAt: string;
+  classId: string;
+  name: string;
+  timezone: string;
+};
+
+export type ClassDeletedEvent = {
+  eventId: string;
+  type: "ClassDeleted";
+  occurredAt: string;
+  classId: string;
+};
+
+export type StudentAddedToClassEvent = {
+  eventId: string;
+  type: "StudentAddedToClass";
+  occurredAt: string;
+  classId: string;
+  studentId: string;
+};
+
+export type StudentRemovedFromClassEvent = {
+  eventId: string;
+  type: "StudentRemovedFromClass";
+  occurredAt: string;
+  classId: string;
+  studentId: string;
+};
+
+export type ScheduleCreatedEvent = {
+  eventId: string;
+  type: "ScheduleCreated";
+  occurredAt: string;
+  classId: string;
+  scheduleId: string;
+  quizRootId: string;
+  quizVersion: number;
+  contribution: number;
+  startDate: string;
+  endDate: string;
+};
+
+export type ScheduleLifecycleUpdatedEvent = {
+  eventId: string;
+  type: "ScheduleUpdated";
+  occurredAt: string;
+  classId: string;
+  scheduleId: string;
+  quizRootId: string;
+  quizVersion: number;
+  contribution: number;
+  startDate: string;
+  endDate: string;
+};
+
+export type ScheduleDeletedEvent = {
+  eventId: string;
+  type: "ScheduleDeleted";
+  occurredAt: string;
+  classId: string;
+  scheduleId: string;
+};
+
+export type ClassLifecycleEvent =
+  | ClassCreatedEvent
+  | ClassUpdatedEvent
+  | ClassDeletedEvent
+  | StudentAddedToClassEvent
+  | StudentRemovedFromClassEvent
+  | ScheduleCreatedEvent
+  | ScheduleLifecycleUpdatedEvent
+  | ScheduleDeletedEvent;
+
+// ---- Outbound to game-svc (canonical reconciliation) ----
+
+export type CanonicalUpsertedEvent = {
+  eventId: string;
+  type: "CanonicalUpserted";
+  occurredAt: string;
+  classId: string;
+  studentId: string;
+  scheduleId: string;
+  canonical: {
+    attemptId: string;
+    score: number;
+    maxScore: number;
+    finishedAt: string;
+    subject?: string;
+    topic?: string;
+  };
+};
+
+export type CanonicalRemovedEvent = {
+  eventId: string;
+  type: "CanonicalRemoved";
+  occurredAt: string;
+  classId: string;
+  studentId: string;
+  scheduleId: string;
+};
+
+export type CanonicalEvent = CanonicalUpsertedEvent | CanonicalRemovedEvent;
+
 // ---- Unions / topics ----
 
 export type LifecycleEvent =
@@ -82,10 +200,14 @@ export type LifecycleEvent =
 export type AnyQuizOutboundEvent =
   | AttemptEvent
   | LifecycleEvent
-  | ScheduleUpdatedEvent;
+  | ScheduleUpdatedEvent
+  | ClassLifecycleEvent
+  | CanonicalEvent;
 
 export const Topics = {
   Attempt: "quiz.attempt.v1",
   QuizLifecycle: "quiz.lifecycle.v1",
   ScheduleLifecycle: "class.schedule.v1",
+  ClassLifecycle: "class.lifecycle.v1",
+  Canonical: "class.canonical.v1",
 } as const;

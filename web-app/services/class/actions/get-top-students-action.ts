@@ -1,7 +1,7 @@
 "use server";
 
 import { getAuthHeader } from "@/services/user/session-definitions";
-import { classSvcUrl } from "@/utils/utils";
+import { gameSvcUrl } from "@/utils/utils";
 
 /** ---------- Types ---------- */
 
@@ -49,8 +49,8 @@ async function fetchTopStudents(
   limit: number,
   authHeader: string
 ) {
-  const url = classSvcUrl(
-    `/classes/${encodeURIComponent(classId)}/top?limit=${encodeURIComponent(
+  const url = gameSvcUrl(
+    `/classes/${encodeURIComponent(classId)}/leaderboard/top?limit=${encodeURIComponent(
       String(limit)
     )}`
   );

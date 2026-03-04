@@ -39,10 +39,13 @@ import {
   isScheduleOnDayInTZ,
 } from "../utils/schedule-utils";
 import {
-  buildScheduleUpdatedEvent,
   emitScheduleUpdated,
 } from "../utils/events/schedule-events";
-import { enqueueEvent } from "../utils/events/outbox-enqeue";
+import {
+  emitScheduleCreated,
+  emitScheduleDeleted,
+  emitScheduleUpdatedLifecycle,
+} from "../utils/events/class-lifecycle-events";
 
 const RANDOMIZED_QUIZ_TYPES = new Set(["rapid-arithmetic", "crossword-bank"]);
 
@@ -190,6 +193,14 @@ export async function addScheduleItem(req: CustomRequest, res: Response) {
       c.schedule.push(newEntry);
       await c.save({ session });
       savedEntry = c.schedule[c.schedule.length - 1];
+
+      await emitScheduleCreated(
+        {
+          classId: String(c._id),
+          schedule: savedEntry as any,
+        },
+        { session }
+      );
     });
 
     return res
@@ -442,16 +453,26 @@ export async function editScheduleItem(req: CustomRequest, res: Response) {
       }
 
       if (quizVersionChanged) {
-        const evt = buildScheduleUpdatedEvent({
+        await emitScheduleUpdated(
+          {
           classId: String(c._id),
           scheduleId: String(target._id),
           quizRootId: nextQuizRootId,
           previousVersion: currentVersion,
           newVersion: nextQuizVersion,
           action: "version_bumped",
-        });
-        await enqueueEvent("ScheduleUpdated", evt);
+          },
+          { session }
+        );
       }
+
+      await emitScheduleUpdatedLifecycle(
+        {
+          classId: String(c._id),
+          schedule: target as any,
+        },
+        { session }
+      );
 
       updatedItem = target;
     });
@@ -817,22 +838,35 @@ export async function removeAllForQuizId(req: CustomRequest, res: Response) {
       );
       await c.save({ session });
       outSchedule = scheduleOut(c);
+
+      for (const r of removed) {
+        await emitScheduleDeleted(
+          {
+            classId: String(id),
+            scheduleId: r.id,
+          },
+          { session }
+        );
+
+        if (r.quizRootId) {
+          await emitScheduleUpdated(
+            {
+              classId: String(id),
+              scheduleId: r.id,
+              quizRootId: r.quizRootId,
+              action: "deleted",
+            },
+            { session }
+          );
+        }
+      }
     });
 
     if (res.headersSent) return;
 
-    // Stats + ScheduleUpdated events after commit
+    // Stats rollback after commit
     for (const r of removed) {
       await stats_onScheduleRemoved(String(id), r.id, r.contribution);
-
-      if (r.quizRootId) {
-        await emitScheduleUpdated({
-          classId: String(id),
-          scheduleId: r.id,
-          quizRootId: r.quizRootId,
-          action: "deleted",
-        });
-      }
     }
 
     return res.json({ ok: true, data: outSchedule });
@@ -903,21 +937,32 @@ export async function removeScheduleItem(req: CustomRequest, res: Response) {
       c.schedule = c.schedule.filter((s: any) => String(s._id) !== scheduleId);
       await c.save({ session });
       outSchedule = scheduleOut(c);
+
+      await emitScheduleDeleted(
+        {
+          classId: String(id),
+          scheduleId,
+        },
+        { session }
+      );
+
+      if (removedRootQuizId) {
+        await emitScheduleUpdated(
+          {
+            classId: String(id),
+            scheduleId,
+            quizRootId: removedRootQuizId,
+            action: "deleted",
+          },
+          { session }
+        );
+      }
     });
 
     if (res.headersSent) return;
 
     if (removedId && typeof removedContribution === "number") {
       await stats_onScheduleRemoved(String(id), removedId, removedContribution);
-    }
-
-    if (removedId && removedRootQuizId) {
-      await emitScheduleUpdated({
-        classId: String(id),
-        scheduleId: removedId,
-        quizRootId: removedRootQuizId,
-        action: "deleted",
-      });
     }
 
     return res.json({ ok: true, data: outSchedule });

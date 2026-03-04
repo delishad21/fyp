@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { enqueueEvent } from "./outbox-enqeue";
+import { ClientSession } from "mongoose";
 
 export type ScheduleUpdatedAction = "version_bumped" | "deleted";
 
@@ -65,8 +66,9 @@ export function buildScheduleUpdatedEvent(
 }
 
 export async function emitScheduleUpdated(
-  args: BuildScheduleUpdatedArgs
+  args: BuildScheduleUpdatedArgs,
+  opts?: { session?: ClientSession }
 ): Promise<void> {
   const evt = buildScheduleUpdatedEvent(args);
-  await enqueueEvent("ScheduleUpdated", evt);
+  await enqueueEvent("ScheduleUpdated", evt, opts);
 }

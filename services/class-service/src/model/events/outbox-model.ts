@@ -15,7 +15,17 @@ export type OutboxEventType =
   | "QuizDeleted"
   | "QuizVersionUpdated"
   | "QuizMetaUpdated"
-  | "ScheduleUpdated";
+  | "ScheduleUpdated"
+  | "ClassCreated"
+  | "ClassUpdated"
+  | "ClassDeleted"
+  | "StudentAddedToClass"
+  | "StudentRemovedFromClass"
+  | "ScheduleCreated"
+  | "ScheduleUpdatedLifecycle"
+  | "ScheduleDeleted"
+  | "CanonicalUpserted"
+  | "CanonicalRemoved";
 
 export interface IOutboxEvent {
   _id: string; // eventId (uuid)

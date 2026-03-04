@@ -11,10 +11,31 @@ function mapTopic(row: OutboxLean) {
   if (row.type === "AttemptFinalized" || row.type === "AttemptInvalidated") {
     return process.env.TOPIC_QUIZ_ATTEMPT || Topics.Attempt;
   }
+
+  // Canonical reconciliation stream
+  if (row.type === "CanonicalUpserted" || row.type === "CanonicalRemoved") {
+    return process.env.TOPIC_CLASS_CANONICAL || Topics.Canonical;
+  }
+
+  // Class lifecycle stream
+  if (
+    row.type === "ClassCreated" ||
+    row.type === "ClassUpdated" ||
+    row.type === "ClassDeleted" ||
+    row.type === "StudentAddedToClass" ||
+    row.type === "StudentRemovedFromClass" ||
+    row.type === "ScheduleCreated" ||
+    row.type === "ScheduleUpdatedLifecycle" ||
+    row.type === "ScheduleDeleted"
+  ) {
+    return process.env.TOPIC_CLASS_LIFECYCLE || Topics.ClassLifecycle;
+  }
+
   // Schedule lifecycle stream
   if (row.type === "ScheduleUpdated") {
     return process.env.TOPIC_SCHEDULE_LIFECYCLE || Topics.ScheduleLifecycle;
   }
+
   // Quiz lifecycle stream
   return process.env.TOPIC_QUIZ_LIFECYCLE || Topics.QuizLifecycle;
 }
@@ -23,6 +44,14 @@ function eventKey(row: OutboxLean) {
   // Preserve per-key ordering deterministically
   if (row.type.startsWith("Attempt")) return row.payload.attemptId;
   if (row.type.startsWith("Quiz")) return row.payload.quizId;
+  if (row.type.startsWith("Class")) return row.payload.classId;
+  if (row.type.startsWith("Student")) {
+    return `${row.payload.classId}:${row.payload.studentId}`;
+  }
+  if (row.type.startsWith("Schedule")) return row.payload.scheduleId;
+  if (row.type.startsWith("Canonical")) {
+    return `${row.payload.classId}:${row.payload.studentId}:${row.payload.scheduleId}`;
+  }
   return row._id; // fallback
 }
 

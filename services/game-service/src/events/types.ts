@@ -22,6 +22,102 @@ export type AttemptEvent = {
   };
 };
 
+export type ClassLifecycleEvent =
+  | {
+      eventId: string;
+      type: "ClassCreated";
+      occurredAt: string;
+      classId: string;
+      name: string;
+      timezone: string;
+      studentIds: string[];
+    }
+  | {
+      eventId: string;
+      type: "ClassUpdated";
+      occurredAt: string;
+      classId: string;
+      name: string;
+      timezone: string;
+    }
+  | {
+      eventId: string;
+      type: "ClassDeleted";
+      occurredAt: string;
+      classId: string;
+    }
+  | {
+      eventId: string;
+      type: "StudentAddedToClass";
+      occurredAt: string;
+      classId: string;
+      studentId: string;
+    }
+  | {
+      eventId: string;
+      type: "StudentRemovedFromClass";
+      occurredAt: string;
+      classId: string;
+      studentId: string;
+    }
+  | {
+      eventId: string;
+      type: "ScheduleCreated";
+      occurredAt: string;
+      classId: string;
+      scheduleId: string;
+      quizRootId: string;
+      quizVersion: number;
+      contribution: number;
+      startDate: string;
+      endDate: string;
+    }
+  | {
+      eventId: string;
+      type: "ScheduleUpdated";
+      occurredAt: string;
+      classId: string;
+      scheduleId: string;
+      quizRootId: string;
+      quizVersion: number;
+      contribution: number;
+      startDate: string;
+      endDate: string;
+    }
+  | {
+      eventId: string;
+      type: "ScheduleDeleted";
+      occurredAt: string;
+      classId: string;
+      scheduleId: string;
+    };
+
+export type CanonicalEvent =
+  | {
+      eventId: string;
+      type: "CanonicalUpserted";
+      occurredAt: string;
+      classId: string;
+      studentId: string;
+      scheduleId: string;
+      canonical: {
+        attemptId: string;
+        score: number;
+        maxScore: number;
+        finishedAt: string;
+        subject?: string;
+        topic?: string;
+      };
+    }
+  | {
+      eventId: string;
+      type: "CanonicalRemoved";
+      occurredAt: string;
+      classId: string;
+      studentId: string;
+      scheduleId: string;
+    };
+
 export const Topics = {
   Attempt: "quiz.attempt.v1",
   QuizLifecycle: "quiz.lifecycle.v1",

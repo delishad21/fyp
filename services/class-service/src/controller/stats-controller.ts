@@ -4,6 +4,10 @@ import { StudentClassStatsModel } from "../model/stats/student-stats-model";
 import { ClassModel } from "../model/class/class-model";
 import { ClassAttemptModel } from "../model/events/class-attempt-model";
 import { toId, pct, getClassTimezone, ymdInTZ } from "../utils/utils";
+import {
+  emitCanonicalRemoved,
+  emitCanonicalUpserted,
+} from "../utils/events/canonical-events";
 
 /**
  * These are all internal functions. No routes are exposed here.
@@ -492,6 +496,23 @@ export async function stats_onAttemptFinalized(payload: {
         { session, upsert: true }
       );
 
+      if (shouldReplaceCanonical) {
+        await emitCanonicalUpserted(
+          {
+            classId: String(classId),
+            studentId: String(studentId),
+            scheduleId: String(scheduleId),
+            attemptId: String(attemptId),
+            score: Number(score),
+            maxScore: Number(maxScore),
+            finishedAt,
+            ...(subject ? { subject: String(subject) } : {}),
+            ...(topic ? { topic: String(topic) } : {}),
+          },
+          { session }
+        );
+      }
+
       // --- Per-schedule aggregates ---
       const schedUpdate: any = {
         $setOnInsert: { classId: toId(classId), scheduleId: sid, quizId },
@@ -774,6 +795,32 @@ export async function stats_onAttemptInvalidated(payload: {
         { session }
       );
 
+      if (next) {
+        await emitCanonicalUpserted(
+          {
+            classId: String(classId),
+            studentId: String(studentId),
+            scheduleId: String(scheduleId),
+            attemptId: String(next.attemptId),
+            score: Number(next.score),
+            maxScore: Number(next.maxScore),
+            finishedAt: next.finishedAt,
+            ...(next.subject ? { subject: String(next.subject) } : {}),
+            ...(next.topic ? { topic: String(next.topic) } : {}),
+          },
+          { session }
+        );
+      } else {
+        await emitCanonicalRemoved(
+          {
+            classId: String(classId),
+            studentId: String(studentId),
+            scheduleId: String(scheduleId),
+          },
+          { session }
+        );
+      }
+
       // --- Per-schedule aggregates ---
       await ScheduleStatsModel.updateOne(
         { scheduleId: sid },
@@ -898,6 +945,15 @@ export async function stats_onScheduleRemoved(
         await StudentClassStatsModel.updateOne(
           { classId: toId(classId), studentId: row.studentId },
           studentUpd,
+          { session }
+        );
+
+        await emitCanonicalRemoved(
+          {
+            classId: String(classId),
+            studentId: String(row.studentId),
+            scheduleId: String(scheduleId),
+          },
           { session }
         );
 

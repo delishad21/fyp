@@ -30,6 +30,10 @@ import {
   toClassStudent,
 } from "../utils/student-utils";
 import { pct, toPlainObject } from "../utils/utils";
+import {
+  emitStudentAddedToClass,
+  emitStudentRemovedFromClass,
+} from "../utils/events/class-lifecycle-events";
 
 /**
  * @route  POST /classes/:id/students
@@ -217,6 +221,16 @@ export async function addStudents(req: CustomRequest, res: Response) {
       );
 
       addedIds = toAddDocs.map((d) => String(d.userId));
+
+      for (const studentId of addedIds) {
+        await emitStudentAddedToClass(
+          {
+            classId: String(c._id),
+            studentId,
+          },
+          { session }
+        );
+      }
     });
 
     // Step 5: After TX success — delete any created-but-not-added (orphans)
@@ -291,6 +305,7 @@ export async function addStudents(req: CustomRequest, res: Response) {
  *          500 internal server error
  */
 export async function removeStudent(req: CustomRequest, res: Response) {
+  const session = await mongoose.startSession();
   try {
     // Step 1: Load class + check membership
     const { id: classId, studentId } = req.params;
@@ -321,17 +336,31 @@ export async function removeStudent(req: CustomRequest, res: Response) {
     }
 
     // Step 3: Remove from roster + delete per-student stats
-    await ClassModel.updateOne(
-      { _id: classId },
-      {
-        $pull: { students: { userId: String(studentId) } },
-        $set: { updatedAt: new Date() },
-      }
-    );
+    await session.withTransaction(async () => {
+      await ClassModel.updateOne(
+        { _id: classId },
+        {
+          $pull: { students: { userId: String(studentId) } },
+          $set: { updatedAt: new Date() },
+        },
+        { session }
+      );
 
-    await StudentClassStatsModel.deleteOne({
-      classId,
-      studentId: String(studentId),
+      await StudentClassStatsModel.deleteOne(
+        {
+          classId,
+          studentId: String(studentId),
+        },
+        { session }
+      );
+
+      await emitStudentRemovedFromClass(
+        {
+          classId: String(classId),
+          studentId: String(studentId),
+        },
+        { session }
+      );
     });
 
     // Step 4: Respond
@@ -342,6 +371,8 @@ export async function removeStudent(req: CustomRequest, res: Response) {
     return res
       .status(500)
       .json({ ok: false, message: "Internal server error" });
+  } finally {
+    session.endSession();
   }
 }
 

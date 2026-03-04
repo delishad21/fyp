@@ -22,6 +22,10 @@ import {
   stats_onScheduleRemoved,
 } from "../../controller/stats-controller";
 import { emitScheduleUpdated } from "./schedule-events";
+import {
+  emitScheduleDeleted,
+  emitScheduleUpdatedLifecycle,
+} from "./class-lifecycle-events";
 import { fetchQuizVersionsForRoot, QuizSvcBatchRow } from "../quiz-svc-client";
 
 export async function handleQuizEvent(req: Request, res: Response) {
@@ -194,6 +198,10 @@ async function applyQuizDeleted(quizRootId: string): Promise<boolean> {
   for (const classId of Object.keys(removedByClass)) {
     for (const scheduleId of removedByClass[classId]) {
       await stats_onScheduleRemoved(String(classId), String(scheduleId));
+      await emitScheduleDeleted({
+        classId: String(classId),
+        scheduleId: String(scheduleId),
+      });
     }
   }
 
@@ -297,6 +305,15 @@ async function applyQuizVersionUpdated(
         action: "version_bumped",
         previousVersion,
         newVersion,
+        occurredAt: updatedAtISO,
+      });
+
+      await emitScheduleUpdatedLifecycle({
+        classId: String(klass._id),
+        schedule: {
+          ...s,
+          quizVersion: newVersion,
+        },
         occurredAt: updatedAtISO,
       });
     }
