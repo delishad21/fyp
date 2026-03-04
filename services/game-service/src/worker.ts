@@ -1,15 +1,21 @@
+import "dotenv/config";
+import { startKafkaConsumer } from "./events/kafka";
+import { runQuizEventsConsumer } from "./events/quiz-events-consumer";
 import { connectToDB } from "./model/registry";
 
 async function bootstrapWorker() {
   try {
     await connectToDB();
     console.log("[game-svc worker] MongoDB Connected!");
-    console.log("[game-svc worker] Worker is bootstrapped (event consumers pending).");
+    await startKafkaConsumer();
+    console.log("[game-svc worker] Kafka consumer connected & subscribed");
 
-    // Keep worker process alive until consumers are wired in subsequent commits.
-    setInterval(() => {
-      // no-op heartbeat
-    }, 60_000);
+    runQuizEventsConsumer().catch((err) => {
+      console.error("[game-svc worker] quiz-events consumer crashed", err);
+      process.exit(1);
+    });
+
+    console.log("[game-svc worker] Worker up and running");
   } catch (err) {
     console.error("[game-svc worker] Fatal worker startup error", err);
     process.exit(1);

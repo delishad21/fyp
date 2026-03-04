@@ -292,9 +292,12 @@ services:
       GAME_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-game:27017/game?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
       CLASS_SVC_URL: http://class-service:7303
       ENV: ${ENV:-PROD}
+      KAFKA_CLIENT_ID: ${GAME_KAFKA_CLIENT_ID:-game-service}
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_GROUP: ${GAME_KAFKA_GROUP:-game-svc.v1}
     ports:
       - "7305:7305"
-    depends_on: [mongo-game]
+    depends_on: [mongo-game, redpanda]
 
   web-app:
     image: ${REGISTRY:-delishad21}/web-app:${IMAGE_TAG:-latest}
