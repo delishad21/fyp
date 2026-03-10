@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const classTabs = [
   { slug: "overview", label: "Overview" },
@@ -19,11 +19,16 @@ export type NavTab = {
 export default function TabsNav({
   id,
   tabs,
+  listClassName,
+  tabClassName,
 }: {
   id?: string;
   tabs?: NavTab[];
+  listClassName?: string;
+  tabClassName?: string;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const resolvedTabs: NavTab[] = tabs
     ? tabs
@@ -35,15 +40,32 @@ export default function TabsNav({
       : [];
 
   const isActive = (tab: NavTab) => {
-    if (tab.exact) return pathname === tab.href;
-    return pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+    const [tabPath, tabQueryString] = tab.href.split("?");
+
+    const pathMatches = tab.exact
+      ? pathname === tabPath
+      : pathname === tabPath || pathname.startsWith(`${tabPath}/`);
+    if (!pathMatches) return false;
+
+    if (!tabQueryString) return true;
+
+    const requiredParams = new URLSearchParams(tabQueryString);
+    for (const [key, value] of requiredParams.entries()) {
+      if (searchParams.get(key) !== value) return false;
+    }
+    return true;
   };
 
   if (!resolvedTabs.length) return null;
 
   return (
     <nav>
-      <ul className="flex flex-wrap gap-2 bg-[var(--color-bg2)] p-1 ring-1 ring-black/5 py-2 px-3">
+      <ul
+        className={
+          listClassName ??
+          "flex flex-wrap gap-2 bg-[var(--color-bg2)] p-1 ring-1 ring-black/5 py-2 px-3"
+        }
+      >
         {resolvedTabs.map((t) => {
           const active = isActive(t);
           return (
@@ -51,7 +73,8 @@ export default function TabsNav({
               <Link
                 href={t.href}
                 className={[
-                  "inline-flex items-center rounded-sm px-3 py-1.5 text-md transition",
+                  tabClassName ??
+                    "inline-flex items-center rounded-sm px-3 py-1.5 text-md transition",
                   active
                     ? "bg-[var(--color-primary)] text-white"
                     : "text-[var(--color-text-primary)] hover:bg-[var(--color-bg3)]",
