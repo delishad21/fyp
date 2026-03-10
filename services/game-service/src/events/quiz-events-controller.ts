@@ -49,6 +49,8 @@ async function applyAttemptEvent(evt: any): Promise<boolean> {
   const attemptId = String(evt.attemptId);
 
   if (evt.type === "AttemptFinalized" && thisValidNow) {
+    const attemptVersion =
+      typeof evt.attemptVersion === "number" ? evt.attemptVersion : 1;
     const score = Number(evt.payload?.score);
     const maxScore = Number(evt.payload?.maxScore);
     const finishedAt = evt.payload?.finishedAt
@@ -64,6 +66,7 @@ async function applyAttemptEvent(evt: any): Promise<boolean> {
       studentId,
       scheduleId,
       attemptId,
+      attemptVersion,
       score,
       maxScore,
       finishedAt,

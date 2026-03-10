@@ -1,5 +1,6 @@
 import mongoose, { ClientSession } from "mongoose";
 import { GameAttemptModel } from "../model/events/game-attempt-model";
+import { GameAttemptOutcomeModel } from "../model/events/game-attempt-outcome-model";
 import { GameStudentStatsModel } from "../model/stats/game-student-stats-model";
 import { GameClassStateModel } from "../model/class/game-class-state-model";
 import {
@@ -13,6 +14,14 @@ import {
   ymdInTZ,
 } from "../utils/date-utils";
 import { toClassObjectId } from "../utils/mongo-utils";
+import {
+  evaluateScoreThresholdRewards,
+  evaluateStudentRewardRules,
+} from "../rewards/reward-engine";
+import {
+  finalizeHighScoreBadgesForClass,
+  syncThresholdBadgesForStudent,
+} from "../rewards/badge-engine";
 
 type CanonicalSnapshot = {
   attemptId: string;
@@ -28,6 +37,7 @@ type FinalizedPayload = {
   studentId: string;
   scheduleId: string;
   attemptId: string;
+  attemptVersion: number;
   score: number;
   maxScore: number;
   finishedAt: Date;
@@ -54,6 +64,99 @@ type CanonicalRemovedPayload = {
   studentId: string;
   scheduleId: string;
 };
+
+type RankSnapshot = {
+  overallScore: number;
+  rank: number | null;
+};
+
+function computeCurrentStreak(
+  lastStreakDate: Date | null | undefined,
+  streakDays: number,
+  timezone: string
+) {
+  if (!lastStreakDate) return 0;
+
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+  const todayKey = ymdInTZ(now, timezone);
+  const yesterdayKey = ymdInTZ(yesterday, timezone);
+  const lastKey = ymdInTZ(new Date(lastStreakDate), timezone);
+
+  if (lastKey === todayKey || lastKey === yesterdayKey) {
+    return Number(streakDays || 0);
+  }
+  return 0;
+}
+
+function leaderboardSort(
+  a: { studentId: string; overallScore: number; currentStreak: number },
+  b: { studentId: string; overallScore: number; currentStreak: number }
+) {
+  if (b.overallScore !== a.overallScore) return b.overallScore - a.overallScore;
+  if (b.currentStreak !== a.currentStreak) return b.currentStreak - a.currentStreak;
+  return a.studentId.localeCompare(b.studentId);
+}
+
+async function getStudentRankSnapshot(
+  classId: string,
+  studentId: string,
+  session: ClientSession
+): Promise<RankSnapshot> {
+  const classObjId = toClassObjectId(classId);
+  const timezone = await getClassTimezone(classId, session);
+
+  const rows = await GameStudentStatsModel.find({ classId: classObjId })
+    .select({ studentId: 1, overallScore: 1, streakDays: 1, lastStreakDate: 1 })
+    .session(session)
+    .lean<
+      Array<{
+        studentId: string;
+        overallScore?: number;
+        streakDays?: number;
+        lastStreakDate?: Date | null;
+      }>
+    >();
+
+  if (!rows.length) {
+    return { overallScore: 0, rank: null };
+  }
+
+  const scoredRows = rows.map((row) => ({
+    studentId: String(row.studentId),
+    overallScore: Number(row.overallScore || 0),
+    currentStreak: computeCurrentStreak(
+      row.lastStreakDate,
+      Number(row.streakDays || 0),
+      timezone
+    ),
+  }));
+
+  const sorted = scoredRows.sort(leaderboardSort);
+  let rank = 0;
+  let seen = 0;
+  let prev: (typeof sorted)[number] | null = null;
+
+  for (const row of sorted) {
+    seen += 1;
+    if (
+      !prev ||
+      prev.overallScore !== row.overallScore ||
+      prev.currentStreak !== row.currentStreak
+    ) {
+      rank = seen;
+    }
+
+    if (row.studentId === String(studentId)) {
+      return { overallScore: row.overallScore, rank };
+    }
+    prev = row;
+  }
+
+  return { overallScore: 0, rank: null };
+}
 
 async function getClassTimezone(classId: string, session: ClientSession) {
   const row = await GameClassStateModel.findOne(
@@ -299,6 +402,19 @@ export async function game_onScheduleContributionChanged(payload: {
       [`canonicalBySchedule.${payload.scheduleId}`]: { $exists: true },
     } as const;
 
+    const affectedRows = await GameStudentStatsModel.find(filter)
+      .select({ studentId: 1 })
+      .session(session)
+      .lean<Array<{ studentId?: string }>>();
+    const affectedStudentIds = Array.from(
+      new Set(
+        affectedRows
+          .map((row) => String(row?.studentId || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (!affectedStudentIds.length) return;
+
     const pipeline = [
       {
         $set: {
@@ -338,6 +454,29 @@ export async function game_onScheduleContributionChanged(payload: {
     ] as any;
 
     await GameStudentStatsModel.updateMany(filter, pipeline, { session });
+
+    for (const studentId of affectedStudentIds) {
+      await evaluateStudentRewardRules({
+        classId: payload.classId,
+        studentId,
+        session,
+      });
+      await evaluateScoreThresholdRewards({
+        classId: payload.classId,
+        studentId,
+        session,
+      });
+      await syncThresholdBadgesForStudent({
+        classId: payload.classId,
+        studentId,
+        session,
+      });
+    }
+
+    await finalizeHighScoreBadgesForClass({
+      classId: payload.classId,
+      session,
+    });
   };
 
   if (payload.session) {
@@ -367,6 +506,26 @@ export async function game_onCanonicalUpserted(payload: CanonicalUpsertPayload) 
         payload.canonical,
         session
       );
+
+      await evaluateStudentRewardRules({
+        classId: payload.classId,
+        studentId: payload.studentId,
+        session,
+      });
+      await evaluateScoreThresholdRewards({
+        classId: payload.classId,
+        studentId: payload.studentId,
+        session,
+      });
+      await syncThresholdBadgesForStudent({
+        classId: payload.classId,
+        studentId: payload.studentId,
+        session,
+      });
+      await finalizeHighScoreBadgesForClass({
+        classId: payload.classId,
+        session,
+      });
     });
   } finally {
     session.endSession();
@@ -385,6 +544,26 @@ export async function game_onCanonicalRemoved(payload: CanonicalRemovedPayload) 
         null,
         session
       );
+
+      await evaluateStudentRewardRules({
+        classId: payload.classId,
+        studentId: payload.studentId,
+        session,
+      });
+      await evaluateScoreThresholdRewards({
+        classId: payload.classId,
+        studentId: payload.studentId,
+        session,
+      });
+      await syncThresholdBadgesForStudent({
+        classId: payload.classId,
+        studentId: payload.studentId,
+        session,
+      });
+      await finalizeHighScoreBadgesForClass({
+        classId: payload.classId,
+        session,
+      });
     });
   } finally {
     session.endSession();
@@ -401,6 +580,7 @@ export async function game_onAttemptFinalized(payload: FinalizedPayload) {
         studentId,
         scheduleId,
         attemptId,
+        attemptVersion,
         score,
         maxScore,
         finishedAt,
@@ -409,6 +589,7 @@ export async function game_onAttemptFinalized(payload: FinalizedPayload) {
       } = payload;
 
       const classObjId = toClassObjectId(classId);
+      const before = await getStudentRankSnapshot(classId, studentId, session);
 
       const row = await GameStudentStatsModel.findOne(
         { classId: classObjId, studentId },
@@ -448,6 +629,54 @@ export async function game_onAttemptFinalized(payload: FinalizedPayload) {
       }
 
       await ensureAttendanceForDay(classId, studentId, finishedAt, session);
+
+      await evaluateStudentRewardRules({
+        classId,
+        studentId,
+        triggerAttemptId: attemptId,
+        session,
+      });
+      await evaluateScoreThresholdRewards({
+        classId,
+        studentId,
+        triggerAttemptId: attemptId,
+        session,
+      });
+      await syncThresholdBadgesForStudent({
+        classId,
+        studentId,
+        triggerAttemptId: attemptId,
+        session,
+      });
+      await finalizeHighScoreBadgesForClass({
+        classId,
+        session,
+      });
+
+      const after = await getStudentRankSnapshot(classId, studentId, session);
+
+      await GameAttemptOutcomeModel.updateOne(
+        {
+          attemptId,
+        },
+        {
+          $set: {
+            classId,
+            studentId,
+            scheduleId,
+            attemptVersion: Number(attemptVersion || 1),
+            quizScore: Number(score || 0),
+            quizMaxScore: Number(maxScore || 0),
+            overallScoreBefore: Number(before.overallScore || 0),
+            overallScoreAfter: Number(after.overallScore || 0),
+            rankBefore: typeof before.rank === "number" ? before.rank : null,
+            rankAfter: typeof after.rank === "number" ? after.rank : null,
+            processedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+        { session, upsert: true }
+      );
     });
   } finally {
     session.endSession();
@@ -509,6 +738,25 @@ export async function game_onAttemptInvalidated(payload: InvalidatedPayload) {
       await applyCanonicalState(classId, studentId, scheduleId, next, session);
 
       // Attendance/streak are sticky and not revoked on invalidation.
+      await evaluateStudentRewardRules({
+        classId,
+        studentId,
+        session,
+      });
+      await evaluateScoreThresholdRewards({
+        classId,
+        studentId,
+        session,
+      });
+      await syncThresholdBadgesForStudent({
+        classId,
+        studentId,
+        session,
+      });
+      await finalizeHighScoreBadgesForClass({
+        classId,
+        session,
+      });
     });
   } finally {
     session.endSession();
