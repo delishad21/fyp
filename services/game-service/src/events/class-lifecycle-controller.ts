@@ -6,6 +6,20 @@ import { GameStudentStatsModel } from "../model/stats/game-student-stats-model";
 import { GameAttemptModel } from "../model/events/game-attempt-model";
 import { toClassObjectId } from "../utils/mongo-utils";
 import { game_onScheduleContributionChanged } from "./projection-controller";
+import { GameStudentInventoryModel } from "../model/rewards/game-student-inventory-model";
+import { GameRewardRuleModel } from "../model/rewards/game-reward-rule-model";
+import { GameRewardGrantModel } from "../model/rewards/game-reward-grant-model";
+import { GameScoreRewardConfigModel } from "../model/rewards/game-score-reward-config-model";
+import { GameStudentNotificationModel } from "../model/rewards/game-student-notification-model";
+import { GameBadgeConfigModel } from "../model/rewards/game-badge-config-model";
+import { GameBadgePeriodAwardModel } from "../model/rewards/game-badge-period-award-model";
+import {
+  ensureDefaultRewardRules,
+  ensureScoreThresholdConfig,
+  ensureStudentInventory,
+} from "../rewards/reward-engine";
+import { ensureBadgeConfig } from "../rewards/badge-engine";
+import { getDefaultScheduleContribution } from "../utils/game-stats-utils";
 
 export type HandleClassLifecycleEventResult = {
   handled: boolean;
@@ -119,6 +133,14 @@ async function applyClassLifecycleEvent(payload: ClassLifecycleEvent): Promise<b
         );
 
         await seedStudentsInClass(payload.classId, payload.studentIds, session);
+        await ensureDefaultRewardRules(payload.classId, session);
+        await ensureScoreThresholdConfig(payload.classId, session);
+        await ensureBadgeConfig(payload.classId, session);
+        await Promise.all(
+          payload.studentIds.map((studentId) =>
+            ensureStudentInventory(payload.classId, String(studentId), session)
+          )
+        );
         return true;
       }
 
@@ -150,6 +172,28 @@ async function applyClassLifecycleEvent(payload: ClassLifecycleEvent): Promise<b
           { session }
         );
         await GameAttemptModel.deleteMany({ classId: payload.classId }, { session });
+        await GameStudentInventoryModel.deleteMany(
+          { classId: payload.classId },
+          { session }
+        );
+        await GameRewardRuleModel.deleteMany({ classId: payload.classId }, { session });
+        await GameRewardGrantModel.deleteMany({ classId: payload.classId }, { session });
+        await GameStudentNotificationModel.deleteMany(
+          { classId: payload.classId },
+          { session }
+        );
+        await GameScoreRewardConfigModel.deleteMany(
+          { classId: payload.classId },
+          { session }
+        );
+        await GameBadgeConfigModel.deleteMany(
+          { classId: payload.classId },
+          { session }
+        );
+        await GameBadgePeriodAwardModel.deleteMany(
+          { classId: payload.classId },
+          { session }
+        );
         return true;
       }
 
@@ -182,6 +226,7 @@ async function applyClassLifecycleEvent(payload: ClassLifecycleEvent): Promise<b
           },
           { upsert: true, session }
         );
+        await ensureStudentInventory(payload.classId, payload.studentId, session);
         return true;
       }
 
@@ -210,10 +255,45 @@ async function applyClassLifecycleEvent(payload: ClassLifecycleEvent): Promise<b
           },
           { session }
         );
+        await GameStudentInventoryModel.deleteOne(
+          {
+            classId: payload.classId,
+            studentId: payload.studentId,
+          },
+          { session }
+        );
+        await GameRewardGrantModel.deleteMany(
+          {
+            classId: payload.classId,
+            studentId: payload.studentId,
+          },
+          { session }
+        );
+        await GameStudentNotificationModel.deleteMany(
+          {
+            classId: payload.classId,
+            studentId: payload.studentId,
+          },
+          { session }
+        );
         return true;
       }
 
       if (payload.type === "ScheduleCreated") {
+        const prev = await GameClassStateModel.findOne(
+          { classId: payload.classId },
+          { [`schedules.${payload.scheduleId}.contribution`]: 1 }
+        )
+          .session(session)
+          .lean<{ schedules?: Record<string, { contribution?: number }> } | null>();
+
+        const prevContributionRaw = Number(
+          prev?.schedules?.[payload.scheduleId]?.contribution
+        );
+        const oldContribution = Number.isFinite(prevContributionRaw)
+          ? prevContributionRaw
+          : getDefaultScheduleContribution();
+
         await GameClassStateModel.updateOne(
           { classId: payload.classId },
           {
@@ -237,6 +317,16 @@ async function applyClassLifecycleEvent(payload: ClassLifecycleEvent): Promise<b
           },
           { upsert: true, session }
         );
+
+        if (oldContribution !== payload.contribution) {
+          await game_onScheduleContributionChanged({
+            classId: payload.classId,
+            scheduleId: payload.scheduleId,
+            oldContribution,
+            newContribution: payload.contribution,
+            session,
+          });
+        }
         return true;
       }
 
@@ -248,9 +338,12 @@ async function applyClassLifecycleEvent(payload: ClassLifecycleEvent): Promise<b
           .session(session)
           .lean<{ schedules?: Record<string, { contribution?: number }> } | null>();
 
-        const oldContribution = Number(
+        const oldContributionRaw = Number(
           prev?.schedules?.[payload.scheduleId]?.contribution
         );
+        const oldContribution = Number.isFinite(oldContributionRaw)
+          ? oldContributionRaw
+          : getDefaultScheduleContribution();
 
         await GameClassStateModel.updateOne(
           { classId: payload.classId },
@@ -276,7 +369,7 @@ async function applyClassLifecycleEvent(payload: ClassLifecycleEvent): Promise<b
           { upsert: true, session }
         );
 
-        if (Number.isFinite(oldContribution) && oldContribution !== payload.contribution) {
+        if (oldContribution !== payload.contribution) {
           await game_onScheduleContributionChanged({
             classId: payload.classId,
             scheduleId: payload.scheduleId,
