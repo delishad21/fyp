@@ -6,6 +6,7 @@ import {
 } from "@/src/api/class-service";
 import {
   getClassStudentGameProfile,
+  getStudentNotifications,
   type GameStudentProfile,
 } from "@/src/api/game-service";
 import { useSession } from "@/src/auth/session";
@@ -16,12 +17,14 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { Iconify } from "react-native-iconify";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { QuizCard } from "../quiz-components/QuizCard";
 import AvatarOrInitials from "../ui/AvatarOrInitials";
@@ -40,6 +43,7 @@ export default function HomeScreen() {
   const [gameProfile, setGameProfile] = useState<GameStudentProfile | null>(
     null
   );
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,16 +64,32 @@ export default function HomeScreen() {
         getMyProfile(token),
       ]);
       let g: GameStudentProfile | null = null;
+      let unreadCount = 0;
       if (p?.stats?.classId && p?.userId) {
-        try {
-          g = await getClassStudentGameProfile(token, p.stats.classId, p.userId);
-        } catch (err) {
-          console.warn("[home] game profile load failed", err);
+        const [gameResult, inboxResult] = await Promise.allSettled([
+          getClassStudentGameProfile(token, p.stats.classId, p.userId),
+          getStudentNotifications(token, p.stats.classId, p.userId, {
+            unreadOnly: true,
+            limit: 1,
+          }),
+        ]);
+
+        if (gameResult.status === "fulfilled") {
+          g = gameResult.value;
+        } else {
+          console.warn("[home] game profile load failed", gameResult.reason);
+        }
+
+        if (inboxResult.status === "fulfilled") {
+          unreadCount = Number(inboxResult.value.unreadCount || 0);
+        } else {
+          console.warn("[home] notifications load failed", inboxResult.reason);
         }
       }
       setAttemptables(a);
       setProfile(p);
       setGameProfile(g);
+      setNotificationUnreadCount(unreadCount);
     } catch (e: any) {
       setError(e?.message || "Failed to load data");
     } finally {
@@ -94,16 +114,32 @@ export default function HomeScreen() {
         getMyProfile(token),
       ]);
       let g: GameStudentProfile | null = null;
+      let unreadCount = 0;
       if (p?.stats?.classId && p?.userId) {
-        try {
-          g = await getClassStudentGameProfile(token, p.stats.classId, p.userId);
-        } catch (err) {
-          console.warn("[home] game profile refresh failed", err);
+        const [gameResult, inboxResult] = await Promise.allSettled([
+          getClassStudentGameProfile(token, p.stats.classId, p.userId),
+          getStudentNotifications(token, p.stats.classId, p.userId, {
+            unreadOnly: true,
+            limit: 1,
+          }),
+        ]);
+
+        if (gameResult.status === "fulfilled") {
+          g = gameResult.value;
+        } else {
+          console.warn("[home] game profile refresh failed", gameResult.reason);
+        }
+
+        if (inboxResult.status === "fulfilled") {
+          unreadCount = Number(inboxResult.value.unreadCount || 0);
+        } else {
+          console.warn("[home] notifications refresh failed", inboxResult.reason);
         }
       }
       setAttemptables(a);
       setProfile(p);
       setGameProfile(g);
+      setNotificationUnreadCount(unreadCount);
       setError(null);
     } catch (e: any) {
       setError(e?.message || "Failed to refresh");
@@ -113,11 +149,30 @@ export default function HomeScreen() {
   }, [token]);
 
   const displayName = profile?.displayName || account?.name || "Student";
-  const streakRawDays = Math.max(0, Number(gameProfile?.currentStreak || 0));
-  const streakProgressDays = Math.min(7, streakRawDays);
-  const streakPct = streakProgressDays / 7;
-  const streakMsg =
-    streakRawDays > 3 ? "Keep it up!" : "Let’s build your streak!";
+  const overallScore = Math.max(0, Number(gameProfile?.overallScore || 0));
+  const pointsPerReward = Math.max(
+    1,
+    Number(gameProfile?.scoreThresholdProgress?.pointsPerReward || 500)
+  );
+  const configuredNextThreshold = Number(
+    gameProfile?.scoreThresholdProgress?.nextThresholdPoints || 0
+  );
+  const computedNextThreshold =
+    (Math.floor(overallScore / pointsPerReward) + 1) * pointsPerReward;
+  const nextThresholdPoints =
+    Number.isFinite(configuredNextThreshold) && configuredNextThreshold > 0
+      ? configuredNextThreshold
+      : computedNextThreshold;
+  const previousThresholdPoints = Math.max(
+    0,
+    nextThresholdPoints - pointsPerReward
+  );
+  const pointsRemaining = Math.max(0, nextThresholdPoints - overallScore);
+  const pointsInCurrentBand = Math.max(
+    0,
+    Math.min(pointsPerReward, overallScore - previousThresholdPoints)
+  );
+  const nextItemPct = pointsPerReward > 0 ? pointsInCurrentBand / pointsPerReward : 0;
 
   const styles = getStyles(colors);
 
@@ -163,17 +218,51 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <AvatarOrInitials
-              uri={profile?.photoUrl}
-              name={displayName}
-              size={44}
-              bgFallback={colors.bg3}
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor={colors.bg4}
-            />
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push("/(main)/notifications")}
+                style={({ pressed }) => [
+                  styles.notificationBtn,
+                  {
+                    backgroundColor: colors.bg2,
+                    borderColor: colors.bg4,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <Iconify icon="tabler:bell" size={20} color={colors.icon} />
+                {notificationUnreadCount > 0 ? (
+                  <View
+                    style={[
+                      styles.notificationBadge,
+                      {
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.notificationBadgeText}>
+                      {notificationUnreadCount > 99 ? "99+" : String(notificationUnreadCount)}
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
+
+              <AvatarOrInitials
+                uri={
+                  gameProfile?.avatarProfileUrl ||
+                  gameProfile?.avatarUrl ||
+                  profile?.photoUrl
+                }
+                name={displayName}
+                size={44}
+                bgFallback={colors.bg3}
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor={colors.bg4}
+              />
+            </View>
           </View>
 
-          {/* Streak Card */}
+          {/* Progress Card */}
           <View
             style={[
               styles.streakCard,
@@ -189,13 +278,13 @@ export default function HomeScreen() {
             }}
           >
             <Text style={[styles.streakTitle, { color: colors.textPrimary }]}>
-              🔥 Weekly Streak
+              🎁 Progress to Next Item
             </Text>
             <Text
               style={[styles.streakSubtitle, { color: colors.textSecondary }]}
             >
-              {streakRawDays} {streakRawDays === 1 ? "Day" : "Days"} •{" "}
-              {streakMsg}
+              {Math.floor(overallScore)} / {Math.floor(nextThresholdPoints)}{" "}
+              points • {Math.ceil(pointsRemaining)} to go
             </Text>
 
             <View
@@ -205,7 +294,7 @@ export default function HomeScreen() {
                 style={[
                   styles.progressFill,
                   {
-                    width: `${streakPct * 100}%`,
+                    width: `${nextItemPct * 100}%`,
                     backgroundColor: colors.primary,
                   },
                 ]}
@@ -300,6 +389,36 @@ const getStyles = (colors: any) =>
       alignItems: "center",
       justifyContent: "space-between",
       marginBottom: 12,
+    },
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    notificationBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 5,
+      borderWidth: StyleSheet.hairlineWidth,
+      alignItems: "center",
+      justifyContent: "center",
+      position: "relative",
+    },
+    notificationBadge: {
+      position: "absolute",
+      top: -4,
+      right: -6,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 3,
+    },
+    notificationBadgeText: {
+      color: "#fff",
+      fontSize: 9,
+      fontWeight: "900",
     },
 
     hi: { fontSize: 28, fontWeight: "900" },

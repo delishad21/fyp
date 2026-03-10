@@ -50,7 +50,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.bottomArea}>
-          <Text style={styles.sectionTitle}>Appearance</Text>
+          <Text style={styles.sectionTitle}>Preferences</Text>
 
           <Pressable
             onPress={() => setScheme(next)}
@@ -66,6 +66,31 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <ThemeToggle variant="inline" />
+          </Pressable>
+
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/(main)/change-password",
+                params: { requireCurrent: "1" },
+              })
+            }
+            style={({ pressed }) => [
+              styles.tile,
+              { opacity: pressed ? 0.92 : 1 },
+            ]}
+          >
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.tileTitle}>Change password</Text>
+              <Text numberOfLines={1} style={styles.tileSubtitle}>
+                Update your account password
+              </Text>
+            </View>
+            <Iconify
+              icon="mingcute:right-line"
+              size={18}
+              color={colors.textSecondary}
+            />
           </Pressable>
         </View>
       </ScrollView>

@@ -26,6 +26,7 @@ export default function LeaderboardScreen() {
   const account = useSession((s) => s.account);
 
   const [rows, setRows] = useState<GameLeaderboardRow[]>([]);
+  const [period, setPeriod] = useState<"overall" | "week" | "month">("overall");
   const [meProfile, setMeProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,14 +49,14 @@ export default function LeaderboardScreen() {
         return;
       }
 
-      const leaderboard = await getClassLeaderboard(token, resolvedClassId);
+      const leaderboard = await getClassLeaderboard(token, resolvedClassId, period);
       setRows(leaderboard);
     } catch (e: any) {
       setError(e?.message || "Failed to load leaderboard");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, period]);
 
   useFocusEffect(
     useCallback(() => {
@@ -75,7 +76,7 @@ export default function LeaderboardScreen() {
         setRows([]);
         return;
       }
-      const leaderboard = await getClassLeaderboard(token, resolvedClassId);
+      const leaderboard = await getClassLeaderboard(token, resolvedClassId, period);
       setRows(leaderboard);
       setError(null);
     } catch (e: any) {
@@ -83,7 +84,7 @@ export default function LeaderboardScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [token]);
+  }, [token, period]);
 
   const openStudent = useCallback(
     (row: GameLeaderboardRow) => {
@@ -121,6 +122,48 @@ export default function LeaderboardScreen() {
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         See how you stack up against your classmates
       </Text>
+
+      <View
+        style={[
+          styles.tabWrap,
+          {
+            backgroundColor: colors.bg2,
+            borderColor: colors.bg4,
+          },
+        ]}
+      >
+        {[
+          { id: "overall", label: "Overall" },
+          { id: "week", label: "Weekly" },
+          { id: "month", label: "Monthly" },
+        ].map((tab) => {
+          const active = period === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => setPeriod(tab.id as typeof period)}
+              style={({ pressed }) => [
+                styles.tabBtn,
+                {
+                  backgroundColor: active ? colors.primary : colors.bg1,
+                  borderColor: active ? colors.primary : colors.bg4,
+                  opacity: pressed ? 0.9 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: active ? "#fff" : colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: "800",
+                }}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       {loading ? (
         <View style={styles.center}>
@@ -198,8 +241,13 @@ export default function LeaderboardScreen() {
                     numberOfLines={1}
                     style={[styles.sub, { color: colors.textSecondary }]}
                   >
-                    Streak {item.currentStreak} • Avg {Math.round(item.avgScorePct)}
-                    %
+                    {period === "overall"
+                      ? `Streak ${item.currentStreak} • Avg ${Math.round(
+                          item.avgScorePct
+                        )}%`
+                      : `Attempts ${item.participationCount} • Avg ${Math.round(
+                          item.avgScorePct
+                        )}%`}
                   </Text>
                 </View>
 
@@ -250,7 +298,25 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+
+  tabWrap: {
+    borderRadius: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 6,
+    marginBottom: 14,
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  tabBtn: {
+    flex: 1,
+    borderRadius: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   center: {
