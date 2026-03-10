@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 
 type Props = {
   variant: "avatar";
@@ -27,14 +26,17 @@ export default function AvatarCell({ data }: Props) {
       title={name}
     >
       {!err && src ? (
-        <Image
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={src}
           alt={name ? `${name} avatar` : "avatar"}
           width={size}
           height={size}
           className="h-full w-full rounded-full object-cover"
           onError={() => setErr(true)}
-          unoptimized
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
         />
       ) : (
         <span className="text-xs font-semibold text-[var(--color-text-primary)]">

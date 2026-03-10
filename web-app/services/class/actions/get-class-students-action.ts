@@ -19,6 +19,30 @@ export type ClassStudent = {
 type ApiSuccess = { ok: true; data: ClassStudent[] };
 type ApiError = { ok: false; message?: string };
 
+type ClassStudentRow = {
+  userId: string;
+  displayName: string;
+  photoUrl?: string | null;
+  className?: string;
+  participationPct?: number | null;
+  avgScorePct?: number | null;
+};
+
+type GameLeaderboardRow = {
+  userId: string;
+  photoUrl?: string | null;
+  currentStreak?: number | null;
+  bestStreakDays?: number | null;
+  rank?: number | null;
+  overallScore?: number | null;
+};
+
+function buildStudentProfileAvatarUrl(classId: string, studentId: string) {
+  return `/api/game/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(
+    studentId
+  )}/avatar-profile.svg?v=2`;
+}
+
 export async function getClassStudents(
   classId: string
 ): Promise<ApiSuccess | ApiError> {
@@ -75,10 +99,13 @@ export async function getClassStudents(
     return { ok: false, message };
   }
 
-  const classRows = Array.isArray(classBody.data) ? (classBody.data as any[]) : [];
-  const leaderboardRows = Array.isArray(gameBody.data) ? (gameBody.data as any[]) : [];
+  const classRows = Array.isArray(classBody.data)
+    ? (classBody.data as ClassStudentRow[])
+    : [];
+  const leaderboardRows =
+    Array.isArray(gameBody.data) ? (gameBody.data as GameLeaderboardRow[]) : [];
 
-  const leaderboardByUserId = new Map<string, any>(
+  const leaderboardByUserId = new Map<string, GameLeaderboardRow>(
     leaderboardRows.map((row) => [String(row.userId), row])
   );
 
@@ -89,7 +116,7 @@ export async function getClassStudents(
     return {
       userId,
       displayName: String(s.displayName),
-      photoUrl: typeof s.photoUrl === "string" ? s.photoUrl : null,
+      photoUrl: buildStudentProfileAvatarUrl(classId, userId),
       className: typeof s.className === "string" ? s.className : undefined,
       participationPct:
         typeof s.participationPct === "number" ? s.participationPct : null,

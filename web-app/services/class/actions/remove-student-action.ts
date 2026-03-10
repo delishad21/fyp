@@ -13,6 +13,28 @@ export type ClassStudent = {
   streakDays?: number;
 };
 
+function buildStudentProfileAvatarUrl(classId: string, studentId: string) {
+  return `/api/game/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(
+    studentId
+  )}/avatar-profile.svg?v=2`;
+}
+
+type RemoveStudentBody = {
+  ok?: boolean;
+  message?: string;
+  data?: {
+    students?: Array<{
+      userId?: string;
+      displayName?: string;
+      photoUrl?: string | null;
+      rank?: number;
+      participationPct?: number;
+      avgScorePct?: number;
+      streakDays?: number;
+    }>;
+  };
+};
+
 export async function removeStudentAction(
   classId: string,
   studentId: string
@@ -37,9 +59,9 @@ export async function removeStudentAction(
     }
   );
 
-  let json: any = null;
+  let json: RemoveStudentBody | null = null;
   try {
-    json = await resp.json();
+    json = (await resp.json()) as RemoveStudentBody;
   } catch {
     return { ok: false, message: "Invalid server response" };
   }
@@ -58,10 +80,10 @@ export async function removeStudentAction(
   // Backend currently returns { ok:true, data: <whole class doc> }.
   // Normalize to just students for the frontend:
   const students: ClassStudent[] = Array.isArray(json?.data?.students)
-    ? json.data.students.map((s: any) => ({
+    ? json.data.students.map((s) => ({
         userId: String(s.userId),
         displayName: String(s.displayName ?? ""),
-        photoUrl: s.photoUrl ?? null,
+        photoUrl: buildStudentProfileAvatarUrl(classId, String(s.userId)),
         rank: typeof s.rank === "number" ? s.rank : 0,
         participationPct:
           typeof s.participationPct === "number" ? s.participationPct : 0,

@@ -43,7 +43,7 @@ export default async function StudentsPage({
   const rows: RowData[] = students.map((s) => {
     const avatarCell: Cell = {
       variant: "avatar",
-      data: { src: undefined, name: s.displayName, size: 55 },
+      data: { src: s.photoUrl || undefined, name: s.displayName, size: 55 },
     };
     const nameCell: Cell = { variant: "normal", data: { text: s.displayName } };
     const rankCell: Cell = {

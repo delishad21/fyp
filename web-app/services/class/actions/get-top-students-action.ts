@@ -42,6 +42,23 @@ export type GetTopStudentsResult = {
   };
 };
 
+function buildStudentProfileAvatarUrl(classId: string, studentId: string) {
+  return `/api/game/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(
+    studentId
+  )}/avatar-profile.svg?v=2`;
+}
+
+function withProfileAvatars<T extends { userId: string; photoUrl?: string | null }>(
+  rows: T[] | undefined,
+  classId: string
+): T[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => ({
+    ...row,
+    photoUrl: buildStudentProfileAvatarUrl(classId, String(row.userId)),
+  }));
+}
+
 /** ---------- Internal fetch helper ---------- */
 
 async function fetchTopStudents(
@@ -105,19 +122,25 @@ export async function getTopStudentsAction(
     return {
       ok: true,
       data: {
-        topOverallScore: Array.isArray(json.data?.topOverallScore)
-          ? (json.data.topOverallScore as TopOverallScoreItem[])
-          : [],
-        topParticipation: Array.isArray(json.data?.topParticipation)
-          ? (json.data.topParticipation as TopParticipationItem[])
-          : [],
-        topStreak: Array.isArray(json.data?.topStreak)
-          ? (json.data.topStreak as TopStreakItem[])
-          : [],
+        topOverallScore: withProfileAvatars(
+          json.data?.topOverallScore as TopOverallScoreItem[] | undefined,
+          id
+        ),
+        topParticipation: withProfileAvatars(
+          json.data?.topParticipation as TopParticipationItem[] | undefined,
+          id
+        ),
+        topStreak: withProfileAvatars(
+          json.data?.topStreak as TopStreakItem[] | undefined,
+          id
+        ),
       },
     };
-  } catch (e: any) {
-    console.error("[getTopStudents] error:", e?.message || e);
+  } catch (e: unknown) {
+    console.error(
+      "[getTopStudents] error:",
+      e instanceof Error ? e.message : e
+    );
     return { ok: false, message: "Network error. Please try again." };
   }
 }

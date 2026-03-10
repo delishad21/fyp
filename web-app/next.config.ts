@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "120mb",
     },
   },
+  async rewrites() {
+    const gameBase = String(process.env.GAME_SVC_URL || "").replace(/\/+$/, "");
+    if (!gameBase) return [];
+    return [
+      {
+        source: "/api/game/:path*",
+        destination: `${gameBase}/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

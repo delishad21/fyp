@@ -52,12 +52,21 @@ export type StudentStats = {
   updatedAt: string | Date;
 };
 
+export type StudentBadgeSummary = {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string | null;
+  engraving?: string | null;
+};
+
 export type StudentInClass = {
   userId: string;
   displayName: string;
   photoUrl?: string;
   className?: string;
   rank?: number | null;
+  badges?: StudentBadgeSummary[];
   stats?: StudentStats | null; // includes streakDays, bestStreakDays, lastStreakDate
 };
 
@@ -142,12 +151,24 @@ export async function getStudentInClass(
     }
 
     const data = classJson.data as StudentInClass;
+    const profilePhotoUrl = `/api/game/classes/${encodeURIComponent(
+      classId
+    )}/students/${encodeURIComponent(studentId)}/avatar-profile.svg?v=2`;
     const gameProfile = gameJson.data as {
       rank?: number | null;
       overallScore?: number;
       currentStreak?: number;
       bestStreakDays?: number;
       lastStreakDate?: string | Date | null;
+      avatarUrl?: string | null;
+      badges?: string[];
+      displayBadges?: Array<{
+        id?: string;
+        name?: string;
+        description?: string;
+        imageUrl?: string | null;
+        engraving?: string | null;
+      }>;
     };
 
     if (!data.stats) {
@@ -180,10 +201,42 @@ export async function getStudentInClass(
       typeof gameProfile.overallScore === "number"
         ? gameProfile.overallScore
         : Number(data.stats.overallScore || 0);
+    data.photoUrl = profilePhotoUrl;
+    data.badges =
+      Array.isArray(gameProfile.displayBadges) && gameProfile.displayBadges.length
+        ? gameProfile.displayBadges.map((badge) => {
+            const badgeId = String(badge?.id || "").trim();
+            const fallbackImage = badgeId
+              ? `/api/game/classes/${encodeURIComponent(
+                  classId
+                )}/badges/${encodeURIComponent(badgeId)}/image.svg?v=1`
+              : null;
+            return {
+              id: badgeId || String(badge?.name || "badge"),
+              name: String(badge?.name || badgeId || "Badge"),
+              description: String(badge?.description || "Badge reward"),
+              imageUrl: String(badge?.imageUrl || "").trim() || fallbackImage,
+              engraving: badge?.engraving ? String(badge.engraving) : null,
+            };
+          })
+        : Array.isArray(gameProfile.badges)
+        ? gameProfile.badges.map((badgeId) => ({
+            id: String(badgeId),
+            name: String(badgeId),
+            description: "Badge reward",
+            imageUrl: `/api/game/classes/${encodeURIComponent(
+              classId
+            )}/badges/${encodeURIComponent(String(badgeId))}/image.svg?v=1`,
+            engraving: null,
+          }))
+        : [];
 
     return { ok: true, data };
-  } catch (e: any) {
-    return { ok: false, message: e?.message ?? "Network error" };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "Network error",
+    };
   }
 }
 
@@ -327,8 +380,11 @@ export async function getStudentScheduleSummary(
     }
 
     return json as GetStudentScheduleSummaryResult;
-  } catch (e: any) {
-    return { ok: false, message: e?.message ?? "Network error" };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "Network error",
+    };
   }
 }
 

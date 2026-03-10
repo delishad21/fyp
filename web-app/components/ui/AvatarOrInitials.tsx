@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 
 export function nameInitials(fullName?: string) {
@@ -44,14 +43,17 @@ export default function AvatarOrInitials({
       title={name}
     >
       {src && !imgFailed ? (
-        <Image
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={src}
           alt={name}
           width={size}
           height={size}
           className="h-full w-full rounded-full object-cover"
           onError={() => setImgFailed(true)}
-          unoptimized
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
         />
       ) : (
         <div
