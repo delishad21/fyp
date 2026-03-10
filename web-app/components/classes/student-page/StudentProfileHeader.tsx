@@ -4,13 +4,21 @@ import { KpiStat } from "@/components/ui/StatDisplays";
 import Image from "next/image";
 import type { ReactNode } from "react";
 
+type StudentProfileBadge = {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string | null;
+  engraving?: string | null;
+};
+
 type Props = {
   name: string;
   avatarUrl?: string;
   currentStreakDays: number;
   overallScore: number;
   rank: number | null;
-  badges?: string[];
+  badges?: StudentProfileBadge[];
   actions?: ReactNode;
 };
 
@@ -23,6 +31,15 @@ export default function StudentProfileHeader({
   badges = [],
   actions,
 }: Props) {
+  const initials = (value: string) =>
+    String(value || "")
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+
   return (
     <div className="w-full rounded-xl bg-[var(--color-bg3)] py-5 pr-5 text-[var(--color-text-primary)]">
       {actions ? (
@@ -33,13 +50,14 @@ export default function StudentProfileHeader({
         <div className="flex flex-col items-center gap-4">
           <div className="mx-10 h-30 w-30 overflow-hidden rounded-full bg-[var(--color-bg4)] relative">
             {avatarUrl ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={avatarUrl}
                 alt={`${name} avatar`}
-                fill
-                className="object-cover"
-                sizes="120px"
-                unoptimized
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-[var(--color-text-secondary)]">
@@ -54,19 +72,33 @@ export default function StudentProfileHeader({
         </div>
 
         {/* MIDDLE: Badges */}
-        <div className="flex min-h-24 flex-1 items-center justify-center rounded-md bg-[var(--color-bg2)]/40 px-4 py-3">
+        <div className="flex min-h-24 flex-1 items-start justify-start rounded-md bg-[var(--color-bg2)]/40 px-4 py-3">
           {badges.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              {badges.map((src, i) => (
-                <Image
-                  key={src + i}
-                  src={src}
-                  alt="Badge"
-                  width={40}
-                  height={40}
-                  className="rounded-md object-cover"
-                  unoptimized
-                />
+            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+              {badges.map((badge, i) => (
+                <article
+                  key={`${badge.id}-${i}`}
+                  className="rounded-md border border-[var(--color-bg4)] bg-transparent p-3"
+                >
+                  <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-md bg-transparent">
+                    {badge.imageUrl ? (
+                      <Image
+                        src={badge.imageUrl}
+                        alt={badge.name}
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xl font-bold text-[var(--color-text-secondary)]">
+                        {initials(badge.name)}
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-2 text-center text-sm font-semibold text-[var(--color-text-primary)]">
+                    {badge.name}
+                  </p>
+                </article>
               ))}
             </div>
           ) : (

@@ -63,24 +63,33 @@ export default function StudentProfileSwitcher({
   studentId,
   attemptsProps,
   statsProps,
+  inventoryPanel,
+  badgesPanel,
   actions,
 }: {
   classId: string;
   studentId: string;
   attemptsProps: AttemptsProps;
   statsProps: StatsProps;
+  inventoryPanel?: ReactNode;
+  badgesPanel?: ReactNode;
   actions?: ReactNode;
 }) {
-  const [tab, setTab] = useState<"attempts" | "statistics">("attempts");
+  const [tab, setTab] = useState<
+    "attempts" | "statistics" | "inventory" | "badges"
+  >(
+    "attempts"
+  );
 
   return (
     <div className="space-y-4">
-      {/* Tabs-like nav without background */}
       <nav className="flex items-center justify-between gap-3">
-        <ul className="flex gap-2">
+        <ul className="flex flex-wrap gap-2 bg-[var(--color-bg2)] p-1 px-3 py-2 ring-1 ring-black/5">
           {[
             { key: "attempts", label: "Attempts" },
             { key: "statistics", label: "Statistics" },
+            { key: "inventory", label: "Inventory" },
+            { key: "badges", label: "Badges" },
           ].map((t) => {
             const active = tab === (t.key as typeof tab);
             return (
@@ -91,7 +100,7 @@ export default function StudentProfileSwitcher({
                   className={[
                     "inline-flex items-center rounded-sm px-3 py-1.5 text-md transition",
                     active
-                      ? "bg-[var(--color-primary)] text-[var(--color-text-primary)]"
+                      ? "bg-[var(--color-primary)] text-white"
                       : "text-[var(--color-text-primary)] hover:bg-[var(--color-bg3)]",
                   ].join(" ")}
                 >
@@ -115,8 +124,16 @@ export default function StudentProfileSwitcher({
           total={attemptsProps.total}
           pageSize={attemptsProps.pageSize}
         />
-      ) : (
+      ) : tab === "statistics" ? (
         <StudentStatsDisplay rank={statsProps.rank} stats={statsProps.stats} />
+      ) : tab === "inventory" && inventoryPanel ? (
+        inventoryPanel
+      ) : tab === "badges" && badgesPanel ? (
+        badgesPanel
+      ) : (
+        <div className="rounded-md bg-[var(--color-bg3)] p-4 text-[var(--color-text-secondary)]">
+          No data available.
+        </div>
       )}
     </div>
   );

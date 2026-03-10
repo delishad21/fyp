@@ -1,12 +1,22 @@
 import StudentProfileHeader from "@/components/classes/student-page/StudentProfileHeader";
 import StudentProfileSwitcher from "@/components/classes/student-page/StudentProfileSwitcher";
 import ResetStudentPasswordButton from "@/components/classes/student-page/ResetStudentPasswordButton";
+import CosmeticCatalogGallery from "@/components/game/CosmeticCatalogGallery";
+import BadgeCatalogGallery from "@/components/game/BadgeCatalogGallery";
 import {
   getStudentInClass,
   getStudentScheduleSummary,
 } from "@/services/class/actions/get-student-actions";
+import {
+  getRewardsCatalogAction,
+  getStudentBadgesAction,
+  getStudentInventoryAction,
+  updateStudentInventoryAction,
+} from "@/services/game/actions/rewards-actions";
 import { Cell, RowData } from "@/services/quiz/types/quiz-table-types";
+import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
+import { CardShell } from "@/components/ui/ui";
 
 export default async function StudentProfilePage({
   params,
@@ -21,9 +31,143 @@ export default async function StudentProfilePage({
   const student = sRes?.data;
   if (!sRes?.ok || !student) return notFound();
 
-  // 2) Schedule-level summary (one row per schedule)
-  const sumRes = await getStudentScheduleSummary(classId, studentId);
-  if (!sumRes.ok || !sumRes.data) return notFound();
+  // 2) Schedule-level summary + rewards inventory
+  const [sumRes, catalogRes, invRes, badgeRes] = await Promise.all([
+    getStudentScheduleSummary(classId, studentId),
+    getRewardsCatalogAction(classId),
+    getStudentInventoryAction(classId, studentId),
+    getStudentBadgesAction(classId, studentId),
+  ]);
+  if (!sumRes.ok || !sumRes.data || !catalogRes.ok || !invRes.ok) {
+    return notFound();
+  }
+
+  const pagePath = `/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(
+    studentId,
+  )}`;
+  async function toggleInventoryCosmetic(formData: FormData) {
+    "use server";
+
+    const itemId = String(formData.get("itemId") || "").trim();
+    if (!itemId) return;
+    const catalog = await getRewardsCatalogAction(classId);
+    if (!catalog.ok) return;
+
+    const cosmeticById = new Map(
+      catalog.data.cosmetics.map((item) => [item.id, item]),
+    );
+    const cosmetic = cosmeticById.get(itemId);
+    if (!cosmetic) return;
+
+    const current = await getStudentInventoryAction(classId, studentId);
+    if (!current.ok) return;
+
+    const compulsorySlots = new Set([
+      "avatar",
+      "eyes",
+      "mouth",
+      "upperwear",
+      "lowerwear",
+    ]);
+
+    const ownedSet = new Set(
+      current.data.ownedCosmeticIds.map((id) => String(id)),
+    );
+    const currentlyOwned = ownedSet.has(itemId);
+
+    if (currentlyOwned) {
+      if (cosmetic.defaultOwned !== false) {
+        return;
+      }
+      if (compulsorySlots.has(cosmetic.slot)) {
+        const alternatives = current.data.ownedCosmeticIds.filter((id) => {
+          if (id === itemId) return false;
+          return cosmeticById.get(id)?.slot === cosmetic.slot;
+        });
+        if (!alternatives.length) {
+          return;
+        }
+      }
+      ownedSet.delete(itemId);
+    } else {
+      ownedSet.add(itemId);
+    }
+
+    const nextEquipped = {
+      ...(current.data.equipped || {}),
+    } as Record<string, string | null>;
+    if (currentlyOwned && nextEquipped[cosmetic.slot] === itemId) {
+      nextEquipped[cosmetic.slot] = null;
+    }
+
+    await updateStudentInventoryAction(classId, studentId, {
+      ownedCosmeticIds: Array.from(ownedSet),
+      ownedBadgeIds: current.data.ownedBadgeIds || [],
+      equipped: nextEquipped,
+    });
+
+    revalidatePath(pagePath);
+  }
+
+  async function toggleStudentBadge(formData: FormData) {
+    "use server";
+
+    const badgeId = String(formData.get("badgeId") || "").trim();
+    if (!badgeId) return;
+
+    const current = await getStudentInventoryAction(classId, studentId);
+    if (!current.ok) return;
+
+    const ownedSet = new Set(
+      (current.data.ownedBadgeIds || []).map((id) => String(id)),
+    );
+    const isOwned = ownedSet.has(badgeId);
+    if (!isOwned) return;
+
+    ownedSet.delete(badgeId);
+
+    await updateStudentInventoryAction(classId, studentId, {
+      ownedCosmeticIds: current.data.ownedCosmeticIds || [],
+      ownedBadgeIds: Array.from(ownedSet),
+      displayBadgeIds: (current.data.displayBadgeIds || [])
+        .map((id) => String(id))
+        .filter((id) => id !== badgeId),
+      equipped: current.data.equipped || {},
+    });
+
+    revalidatePath(pagePath);
+  }
+
+  const badgeItemsById = new Map<string, any>();
+  for (const badge of catalogRes.data.badges || []) {
+    const id = String((badge as any).id || "").trim();
+    if (!id) continue;
+    badgeItemsById.set(id, {
+      id,
+      name: String((badge as any).name || id),
+      description: String((badge as any).description || ""),
+      color: String((badge as any).color || "#64748B"),
+      imageUrl: `/api/game/classes/${encodeURIComponent(
+        classId,
+      )}/badges/${encodeURIComponent(id)}/image.svg?v=1`,
+      engraving: null,
+      kind: "static",
+    });
+  }
+  if (badgeRes.ok) {
+    for (const badge of badgeRes.data.ownedBadges || []) {
+      const id = String(badge.id || "").trim();
+      if (!id) continue;
+      badgeItemsById.set(id, badge);
+    }
+  }
+  const mergedBadgeItems = Array.from(badgeItemsById.values());
+  const ownedBadgeIdSet = new Set(
+    (badgeRes.ok ? badgeRes.data.ownedBadgeIds : []).map((id) => String(id)),
+  );
+  const ownedBadgeItems = mergedBadgeItems.filter((badge) =>
+    ownedBadgeIdSet.has(String((badge as any).id || "")),
+  );
 
   // Table columns
   const columns = [
@@ -89,6 +233,7 @@ export default async function StudentProfilePage({
         currentStreakDays={student.stats?.streakDays ?? 0}
         overallScore={student.stats?.overallScore ?? 0}
         rank={student.rank ?? null}
+        badges={Array.isArray(student.badges) ? student.badges : []}
       />
 
       <StudentProfileSwitcher
@@ -107,6 +252,33 @@ export default async function StudentProfilePage({
           rank: student.rank ?? null,
           stats: student.stats ?? null,
         }}
+        inventoryPanel={
+          <div className="space-y-4">
+            <CosmeticCatalogGallery
+              cosmetics={catalogRes.data.cosmetics}
+              ownedCosmeticIds={invRes.data.ownedCosmeticIds}
+              nonRevocableOwnedIds={catalogRes.data.cosmetics
+                .filter((item) => item.defaultOwned !== false)
+                .map((item) => item.id)}
+              toggleAction={toggleInventoryCosmetic}
+              compactCards
+            />
+          </div>
+        }
+        badgesPanel={
+          <div className="space-y-4">
+            <BadgeCatalogGallery
+              badges={ownedBadgeItems}
+              ownedBadgeIds={badgeRes.ok ? badgeRes.data.ownedBadgeIds : []}
+              displayedBadgeIds={
+                badgeRes.ok ? badgeRes.data.displayBadgeIds : []
+              }
+              toggleAction={toggleStudentBadge}
+              allowGrant={false}
+              emptyMessage="This student has no badges."
+            />
+          </div>
+        }
         actions={
           <ResetStudentPasswordButton classId={classId} studentId={studentId} />
         }

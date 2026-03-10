@@ -133,6 +133,7 @@ type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> & {
 export default function Select({
   id,
   name,
+  form: formId,
   label,
   labelClassName,
   value: controlledValue,
@@ -353,20 +354,28 @@ export default function Select({
       )}
 
       {/* keep forms working */}
-      {name && <input type="hidden" name={name} value={currentValue ?? ""} />}
+      {name && (
+        <input type="hidden" name={name} value={currentValue ?? ""} form={formId} />
+      )}
 
       {name && currentValue && (
         <>
-          <input type="hidden" name={`${name}__label`} value={currentLabel} />
+          <input
+            type="hidden"
+            name={`${name}__label`}
+            value={currentLabel}
+            form={formId}
+          />
           {colorEnabled && (
             <input
               type="hidden"
               name={`${name}__color`}
               value={currentColor ?? "#ffffff"}
+              form={formId}
             />
           )}
           {isNewSelection && (
-            <input type="hidden" name={`${name}__isNew`} value="1" />
+            <input type="hidden" name={`${name}__isNew`} value="1" form={formId} />
           )}
         </>
       )}
