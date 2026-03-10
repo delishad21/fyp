@@ -1,0 +1,86 @@
+{
+  "baseAssets": {
+    "weekly_top": "base/weekly-top.png",
+    "monthly_top": "base/monthly-top.png",
+    "static": "base/static.png",
+    "fallback": "base/fallback.png"
+  },
+  "layerAssets": {
+    "overall_threshold": {
+      "mask": "layers/overall/mask.png",
+      "line": "layers/overall/line.png",
+      "shade": "layers/overall/shade.png"
+    },
+    "streak_threshold": {
+      "mask": "layers/streak/mask.png",
+      "line": "layers/streak/line.png",
+      "shade": "layers/streak/shade.png"
+    }
+  },
+  "tierPalette": [
+    {
+      "fillStart": "#A16207",
+      "fillEnd": "#713F12",
+      "ringOuter": "#FCD34D",
+      "ringInner": "#78350F",
+      "plaqueFill": "#451A03",
+      "plaqueText": "#FEF3C7"
+    },
+    {
+      "fillStart": "#B45309",
+      "fillEnd": "#7C2D12",
+      "ringOuter": "#FDBA74",
+      "ringInner": "#7C2D12",
+      "plaqueFill": "#4A1D0A",
+      "plaqueText": "#FFEDD5"
+    },
+    {
+      "fillStart": "#9CA3AF",
+      "fillEnd": "#4B5563",
+      "ringOuter": "#E5E7EB",
+      "ringInner": "#374151",
+      "plaqueFill": "#111827",
+      "plaqueText": "#F3F4F6"
+    },
+    {
+      "fillStart": "#60A5FA",
+      "fillEnd": "#1D4ED8",
+      "ringOuter": "#BFDBFE",
+      "ringInner": "#1E3A8A",
+      "plaqueFill": "#172554",
+      "plaqueText": "#DBEAFE"
+    },
+    {
+      "fillStart": "#22C55E",
+      "fillEnd": "#166534",
+      "ringOuter": "#BBF7D0",
+      "ringInner": "#14532D",
+      "plaqueFill": "#052E16",
+      "plaqueText": "#DCFCE7"
+    },
+    {
+      "fillStart": "#EAB308",
+      "fillEnd": "#B45309",
+      "ringOuter": "#FDE68A",
+      "ringInner": "#92400E",
+      "plaqueFill": "#451A03",
+      "plaqueText": "#FEF9C3"
+    },
+    {
+      "fillStart": "#A855F7",
+      "fillEnd": "#6D28D9",
+      "ringOuter": "#DDD6FE",
+      "ringInner": "#4C1D95",
+      "plaqueFill": "#2E1065",
+      "plaqueText": "#EDE9FE"
+    },
+    {
+      "fillStart": "#F43F5E",
+      "fillEnd": "#7C3AED",
+      "ringOuter": "#FBCFE8",
+      "ringInner": "#581C87",
+      "plaqueFill": "#4A044E",
+      "plaqueText": "#FCE7F3"
+    }
+  ]
+}
