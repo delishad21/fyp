@@ -183,6 +183,54 @@ export async function verifyClassOwnerOrAdmin(
     .json({ message: "Not authorized to access this resource" });
 }
 
+/**
+ * verifyClassMemberOrAdmin
+ * Allows:
+ *  - admin
+ *  - class owner
+ *  - class teacher
+ *  - student on the class roster
+ *
+ * Use AFTER verifyAccessToken.
+ */
+export async function verifyClassMemberOrAdmin(
+  req: CustomRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const u = req.user;
+  if (!u) return res.status(401).json({ message: "Authentication required" });
+
+  if (u.isAdmin) return next();
+
+  const classId = req.params.id;
+  if (!classId) return res.status(400).json({ message: "Missing class id" });
+
+  const c = await ClassModel.findById(classId)
+    .select("owner teachers students.userId")
+    .lean<{
+      owner?: string;
+      teachers?: string[];
+      students?: Array<{ userId?: string }>;
+    } | null>();
+  if (!c) return res.status(404).json({ message: "Resource not found" });
+
+  const uid = String(u.id);
+  const isOwner = String(c.owner || "") === uid;
+  const isTeacher =
+    Array.isArray(c.teachers) &&
+    c.teachers.some((t) => String(t) === uid);
+  const isStudent =
+    Array.isArray(c.students) &&
+    c.students.some((s) => String(s?.userId || "") === uid);
+
+  if (isOwner || isTeacher || isStudent) return next();
+
+  return res
+    .status(403)
+    .json({ message: "Not authorized to access this resource" });
+}
+
 /** Middleware: verify x-quiz-secret header for S2S auth */
 export function verifySharedSecret(
   req: Request,

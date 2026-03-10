@@ -375,6 +375,54 @@ export async function removeStudent(req: CustomRequest, res: Response) {
 }
 
 /**
+ * @route  GET /classes/:id/students-roster
+ * @auth   verifyAccessToken + verifyClassMemberOrAdmin
+ * @input  Params: { id }
+ * @returns 200 {
+ *   ok,
+ *   data: Array<{
+ *     userId,
+ *     displayName,
+ *     photoUrl
+ *   }>
+ * }
+ * @errors  404 class not found
+ *          500 internal server error
+ */
+export async function getStudentsRosterLite(req: CustomRequest, res: Response) {
+  try {
+    const { id } = req.params;
+
+    const klass = await ClassModel.findById(id)
+      .select({ students: 1 })
+      .lean<{ students?: Array<{ userId?: string; displayName?: string; photoUrl?: string | null }> } | null>();
+
+    if (!klass) {
+      return res.status(404).json({ ok: false, message: "Class not found" });
+    }
+
+    const rows = (klass.students || []).map((s) => {
+      const userId = String(s?.userId || "");
+      const displayName = String(s?.displayName || userId);
+      return {
+        userId,
+        displayName,
+        photoUrl: s?.photoUrl ?? null,
+      };
+    });
+
+    rows.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+    return res.json({ ok: true, data: rows });
+  } catch (e) {
+    console.error("[getStudentsRosterLite] error", e);
+    return res
+      .status(500)
+      .json({ ok: false, message: "Internal server error" });
+  }
+}
+
+/**
  * @route  GET /classes/:id/students
  * @auth   verifyAccessToken + verifyClassOwnerOrAdmin
  * @input  Params: { id }

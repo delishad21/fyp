@@ -3,11 +3,13 @@ import {
   addStudents,
   getStudentById,
   getStudents,
+  getStudentsRosterLite,
   removeStudent,
   getStudentAttemptsScheduleSummaryforClass,
 } from "../controller/class-student-controller";
 import {
   verifyAccessToken,
+  verifyClassMemberOrAdmin,
   verifyClassOwnerOrAdmin,
   verifyTeacherOfStudent,
   verifyTeacherOfStudentOrSelf, // ⬅️ add this
@@ -33,6 +35,14 @@ router.get(
   verifyAccessToken,
   verifyClassOwnerOrAdmin,
   getStudents
+);
+
+/** GET /classes/:id/students-roster — List class roster names/photos for members */
+router.get(
+  "/:id/students-roster",
+  verifyAccessToken,
+  verifyClassMemberOrAdmin,
+  getStudentsRosterLite
 );
 
 /** GET /classes/:id/students/:studentId — Teacher-only (or admin) */
