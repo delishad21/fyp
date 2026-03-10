@@ -1,5 +1,6 @@
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
+import path from "path";
 import gameRoutes from "./routes/game-routes";
 
 const app = express();
@@ -8,7 +9,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors());
 
+const avatarAssetDir =
+  String(process.env.GAME_AVATAR_ASSET_DIR || "").trim() ||
+  path.resolve(__dirname, "../assets/avatar");
+app.use("/avatar-assets", express.static(avatarAssetDir, { maxAge: "1h" }));
+app.use("/api/game/avatar-assets", express.static(avatarAssetDir, { maxAge: "1h" }));
+
 app.use("/", gameRoutes);
+app.use("/api/game", gameRoutes);
 
 app.get("/", (_req, res) => {
   res.json({ message: "Hello from game-service" });
