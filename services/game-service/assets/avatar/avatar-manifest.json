@@ -1,0 +1,71 @@
+{
+  "baseModels": {
+    "avatar-1": {
+      "name": "Avatar 1"
+    },
+    "avatar-2": {
+      "name": "Avatar 2"
+    },
+    "avatar-3": {
+      "name": "Avatar 3",
+      "default": true
+    },
+    "avatar-4": {
+      "name": "Avatar 4"
+    },
+    "avatar-5": {
+      "name": "Avatar 5"
+    }
+  },
+  "defaults": {
+    "baseModel": "avatar-3"
+  },
+  "startingItems": {
+    "avatar": ["*"],
+    "eyes": ["Eye 1.png", "Eye 3.png", "Eye 8.png", "Eye 15.png"],
+    "hair": ["*"],
+    "lowerwear": ["Pants 5.png", "Skirt 2.png"],
+    "mouth": ["Mouth 1.png", "Mouth 4.png", "Mouth 12.png", "Mouth 13.png"],
+    "upperwear": ["Shirt 7.png", "Shirt 1.png"],
+    "shoes": ["Shoe 2.png"]
+  },
+  "items": {
+    "base/Avatar 1.png": {
+      "displayName": "Avatar 1",
+      "baseModel": "avatar-1"
+    },
+    "base/Avatar 2.png": {
+      "displayName": "Avatar 2",
+      "baseModel": "avatar-2"
+    },
+    "base/Avatar 3.png": {
+      "displayName": "Avatar 3",
+      "baseModel": "avatar-3",
+      "defaultEquipped": true
+    },
+    "base/Avatar 4.png": {
+      "displayName": "Avatar 4",
+      "baseModel": "avatar-4"
+    },
+    "base/Avatar 5.png": {
+      "displayName": "Avatar 5",
+      "baseModel": "avatar-5"
+    },
+    "eyes/Eye 15.png": {
+      "defaultEquipped": true,
+      "baseModel": "any"
+    },
+    "mouth/Mouth 1.png": {
+      "defaultEquipped": true,
+      "baseModel": "any"
+    },
+    "lowerwear/Pants 5.png": {
+      "defaultEquipped": true,
+      "baseModel": "any"
+    },
+    "upperwear/Shirt 7.png": {
+      "defaultEquipped": true,
+      "baseModel": "any"
+    }
+  }
+}
