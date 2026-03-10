@@ -19,11 +19,13 @@ export function navigateToQuizResults(
   const score = Number(finalizeRes?.score ?? 0);
   const maxScore = Number(finalizeRes?.maxScore ?? 0);
   const scheduleId = finalizeRes?.scheduleId ?? "";
+  const classId = finalizeRes?.classId ?? "";
 
   router.replace({
     pathname: "/(main)/quiz/results",
     params: {
       attemptId,
+      classId,
       scheduleId,
       score: String(Number.isFinite(score) ? score : 0),
       maxScore: String(Number.isFinite(maxScore) ? maxScore : 0),

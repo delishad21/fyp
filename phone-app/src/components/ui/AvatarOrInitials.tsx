@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Image, Text, View } from "react-native";
+import { SvgUri } from "react-native-svg";
 
 function nameInitials(fullName?: string) {
   if (!fullName) return "?";
@@ -31,6 +32,10 @@ export default function AvatarOrInitials({
   const dim = { width: size, height: size, borderRadius: size / 2 };
 
   const fontSize = Math.round(Math.max(14, Math.round(size * 0.48)));
+  const safeUri = uri || "";
+  const isSvgUri =
+    !!uri &&
+    (uri.startsWith("data:image/svg+xml") || /\.svg(?:\?|$)/i.test(uri));
 
   if (!uri || failed) {
     return (
@@ -54,10 +59,33 @@ export default function AvatarOrInitials({
   }
 
   return (
-    <Image
-      source={{ uri }}
-      style={[dim, { backgroundColor: bgFallback, borderWidth, borderColor }]}
-      onError={() => setFailed(true)}
-    />
+    <View
+      style={[
+        {
+          backgroundColor: bgFallback,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth,
+          borderColor: borderColor ?? "transparent",
+          overflow: "hidden",
+        },
+        dim,
+      ]}
+    >
+      {isSvgUri ? (
+        <SvgUri
+          uri={safeUri}
+          width={size}
+          height={size}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <Image
+          source={{ uri: safeUri }}
+          style={{ width: size, height: size }}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </View>
   );
 }
