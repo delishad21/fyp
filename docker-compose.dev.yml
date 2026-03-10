@@ -287,7 +287,11 @@ services:
     environment:
       GAME_PORT: ${GAME_PORT:-7305}
       GAME_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-game:27017/game?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
+      GAME_REDIS_URL: redis://default:${REDIS_PASSWORD:-supersecret_please_change}@redis:6379/0
+      USER_SVC_URL: http://user-service:7301
       CLASS_SVC_URL: http://class-service:7303
+      QUIZ_WEBHOOK_SECRET: ${QUIZ_WEBHOOK_SECRET}
+      CLASS_SHARED_SECRET: ${CLASS_SHARED_SECRET}
       ENV: ${ENV:-PROD}
       KAFKA_CLIENT_ID: ${GAME_KAFKA_CLIENT_ID:-game-service}
       KAFKA_BROKERS: redpanda:9092
@@ -297,7 +301,7 @@ services:
     volumes:
       - ./services/game-service:/app
       - /app/node_modules
-    depends_on: [mongo-game, redpanda]
+    depends_on: [mongo-game, redpanda, redis]
 
   web-app:
     build:
