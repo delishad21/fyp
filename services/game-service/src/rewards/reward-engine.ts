@@ -772,6 +772,11 @@ export async function evaluateScoreThresholdRewards(payload: {
     const progress = inv.scoreThresholdProgress || null;
     const progressStep = Number(progress?.pointsPerReward);
     const progressNext = Number(progress?.nextThresholdPoints);
+    const latestGranted = await getLatestScoreThresholdGrantPoint(
+      payload.classId,
+      payload.studentId,
+      session
+    );
 
     const progressInitialized =
       Number.isFinite(progressStep) &&
@@ -782,12 +787,6 @@ export async function evaluateScoreThresholdRewards(payload: {
     let nextThresholdPoints = 0;
 
     if (!progressInitialized) {
-      const latestGranted = await getLatestScoreThresholdGrantPoint(
-        payload.classId,
-        payload.studentId,
-        session
-      );
-
       if (Number.isFinite(latestGranted)) {
         nextThresholdPoints = Math.max(
           nextThresholdAfterScore(currentScore, pointsPerReward),
@@ -805,7 +804,26 @@ export async function evaluateScoreThresholdRewards(payload: {
       nextThresholdPoints = progressNext;
     }
 
-    let progressChanged = !progressInitialized || progressStep !== pointsPerReward;
+    if (!Number.isFinite(nextThresholdPoints) || nextThresholdPoints <= 0) {
+      nextThresholdPoints = pointsPerReward;
+    }
+
+    // Healing guard: if historical grants are ahead of persisted progress,
+    // force progress forward so "next threshold" is never behind already-granted tiers.
+    if (Number.isFinite(latestGranted)) {
+      nextThresholdPoints = Math.max(
+        nextThresholdPoints,
+        Number(latestGranted) + pointsPerReward
+      );
+    }
+
+    const persistedNext =
+      Number.isFinite(progressNext) && progressNext > 0 ? progressNext : null;
+    let progressChanged =
+      !progressInitialized ||
+      progressStep !== pointsPerReward ||
+      persistedNext !== nextThresholdPoints;
+
     const localOwned = new Set<string>(
       (inv.ownedCosmeticIds || []).map((id: unknown) => String(id))
     );

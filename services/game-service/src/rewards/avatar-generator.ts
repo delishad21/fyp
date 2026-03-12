@@ -47,6 +47,7 @@ type AvatarSvgBuildOptions = {
     width: number;
     height: number;
   };
+  backgroundColor?: string | null;
   hrefForLayer?: (layer: AvatarLayerSpec) => string;
 };
 
@@ -119,6 +120,8 @@ export function buildAvatarSvg(
     width: viewBox.width,
     height: viewBox.height,
   };
+  const backgroundColor =
+    options.backgroundColor === undefined ? "#F8FAFC" : options.backgroundColor;
 
   const layers = composition.layers
     .slice()
@@ -135,7 +138,11 @@ export function buildAvatarSvg(
 
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${outputSize.width}" height="${outputSize.height}" viewBox="${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}">
-  <rect x="${viewBox.x}" y="${viewBox.y}" width="${viewBox.width}" height="${viewBox.height}" fill="#F8FAFC"/>
+  ${
+    backgroundColor
+      ? `<rect x="${viewBox.x}" y="${viewBox.y}" width="${viewBox.width}" height="${viewBox.height}" fill="${esc(backgroundColor)}"/>`
+      : ""
+  }
   ${layers}
 </svg>`.trim();
 }
