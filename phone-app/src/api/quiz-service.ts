@@ -1,3 +1,5 @@
+import { useSession } from "@/src/auth/session";
+
 // Client for Quiz Attempt Service (RN / Expo)
 
 export type QuizType =
@@ -96,6 +98,7 @@ export type BaseAttemptSpec<TSpec> = {
     name: string;
     subject: string;
     subjectColorHex?: string;
+    typeColorHex?: string;
     topic?: string;
     owner: string;
   };
@@ -326,6 +329,10 @@ async function authedJson<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      void useSession.getState().logout();
+      throw new Error("Session expired. Please sign in again.");
+    }
     const msg =
       (parsed && parsed.message) ||
       rawText ||

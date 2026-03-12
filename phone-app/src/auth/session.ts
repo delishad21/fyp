@@ -40,6 +40,7 @@ type AuthState = {
 };
 
 const KEY = { SESSION: "session.v1" };
+const AUTH_REQUIRED_MSG = "Session expired. Please sign in again.";
 
 export const useSession = create<AuthState>((set, get) => ({
   status: "loading",
@@ -50,7 +51,7 @@ export const useSession = create<AuthState>((set, get) => ({
 
   async bootstrap() {
     const saved = await getJSON<SessionData>(KEY.SESSION);
-    if (saved) {
+    if (saved && typeof saved.accessToken === "string" && saved.accessToken.trim()) {
       set({
         account: saved,
         status: saved.mustChangePassword ? "mustChangePassword" : "auth",
@@ -58,7 +59,14 @@ export const useSession = create<AuthState>((set, get) => ({
         errors: null,
       });
     } else {
-      set({ status: "unauth", error: null, errors: null });
+      await del(KEY.SESSION);
+      set({
+        status: "unauth",
+        account: null,
+        error: saved ? AUTH_REQUIRED_MSG : null,
+        errors: null,
+        lastAuthPassword: null,
+      });
     }
   },
 
@@ -67,6 +75,21 @@ export const useSession = create<AuthState>((set, get) => ({
       set({ error: null, errors: null });
       const res = await signInReq(username, password);
       const acc = res.data;
+      if (
+        !acc ||
+        typeof acc.accessToken !== "string" ||
+        !acc.accessToken.trim()
+      ) {
+        set({
+          account: null,
+          status: "unauth",
+          error: AUTH_REQUIRED_MSG,
+          errors: null,
+          lastAuthPassword: null,
+        });
+        await del(KEY.SESSION);
+        throw new Error(AUTH_REQUIRED_MSG);
+      }
       await setJSON(KEY.SESSION, acc);
       set({
         account: acc,

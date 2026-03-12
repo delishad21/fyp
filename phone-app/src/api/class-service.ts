@@ -1,3 +1,5 @@
+import { useSession } from "@/src/auth/session";
+
 export type AttemptableRow = {
   classId: string;
   scheduleId: string;
@@ -46,6 +48,10 @@ export async function authedGet<T>(url: string, token: string): Promise<T> {
   );
   const body = (isJson ? await res.json().catch(() => null) : null) as T | null;
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      void useSession.getState().logout();
+      throw new Error("Session expired. Please sign in again.");
+    }
     const msg = (body as any)?.message || `HTTP ${res.status}`;
     throw new Error(msg);
   }

@@ -1,3 +1,5 @@
+import { useSession } from "@/src/auth/session";
+
 export type AvatarSlot =
   | "avatar"
   | "eyes"
@@ -17,6 +19,7 @@ export type GameLeaderboardRow = {
   userId: string;
   displayName: string;
   photoUrl?: string | null;
+  avatarUrl?: string | null;
   className: string;
   overallScore: number;
   avgScorePct: number;
@@ -355,6 +358,10 @@ async function authedRequest<T>(
   const isJson = (res.headers.get("content-type") || "").includes("application/json");
   const body = (isJson ? await res.json().catch(() => null) : null) as T | null;
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      void useSession.getState().logout();
+      throw new Error("Session expired. Please sign in again.");
+    }
     const msg = (body as any)?.message || `HTTP ${res.status}`;
     throw new Error(msg);
   }
@@ -380,6 +387,7 @@ export async function getClassLeaderboard(
     ? res.data.map((row) => ({
         ...row,
         photoUrl: buildStudentProfileAvatarUrl(id, String(row.userId)),
+        avatarUrl: buildStudentAvatarUrl(id, String(row.userId)),
       }))
     : [];
 }
