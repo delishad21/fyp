@@ -83,6 +83,7 @@ export default function AvatarOrInitials({
         <Image
           source={{ uri: safeUri }}
           style={{ width: size, height: size }}
+          resizeMode="cover"
           onError={() => setFailed(true)}
         />
       )}

@@ -18,7 +18,9 @@ import {
   touchCentroid,
   touchDistance,
 } from "@/src/lib/attempt-helpers";
+import { hexToRgba } from "@/src/lib/color-utils";
 import { navigateToQuizResults } from "@/src/lib/quiz-navigation";
+import { googlePalette } from "@/src/theme/google-palette";
 import { useTheme } from "@/src/theme";
 import { useRouter } from "expo-router";
 import React, {
@@ -42,6 +44,7 @@ import {
   View,
 } from "react-native";
 import { Iconify } from "react-native-iconify";
+import { Line, Svg } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLatest } from "@/src/hooks/useLatest";
 import { useKeyboardHeight } from "@/src/hooks/useKeyboardHeight";
@@ -50,6 +53,7 @@ import { useQuizTimer } from "@/src/hooks/useQuizTimer";
 import { useQuizFinish } from "@/src/hooks/useQuizFinish";
 import {
   QuizHeader,
+  TimePill,
   TimerBar,
   SaveStatusBadge,
 } from "@/src/components/quiz-components/shared";
@@ -72,8 +76,15 @@ export default function QuizPlayCrosswordScreen({
   const panSpeed = Platform.OS === "web" ? 2 : 1;
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const token = useSession((s) => s.token());
+  const accent = {
+    blue: googlePalette.blue,
+    red: googlePalette.red,
+    green: googlePalette.green,
+  } as const;
+  const baseCellBorderColor = scheme === "dark" ? "#5B647A" : "#B8C0D4";
+  const gridLineWidth = 1.35;
 
   // ----- validate spec -----
   const spec = rawSpec as CrosswordAttemptSpec;
@@ -216,6 +227,33 @@ export default function QuizPlayCrosswordScreen({
     (r: number, c: number) => gridLetters[r]?.[c] || "",
     [gridLetters]
   );
+  const gridLines = useMemo(() => {
+    const lines: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const key = `${r}:${c}`;
+        if (blocked.has(key)) continue;
+
+        const x = c * CELL;
+        const y = r * CELL;
+        const topBlocked = r > 0 && blocked.has(`${r - 1}:${c}`);
+        const leftBlocked = c > 0 && blocked.has(`${r}:${c - 1}`);
+
+        if (r === 0 || topBlocked) {
+          lines.push({ x1: x, y1: y, x2: x + CELL, y2: y });
+        }
+        if (c === 0 || leftBlocked) {
+          lines.push({ x1: x, y1: y, x2: x, y2: y + CELL });
+        }
+
+        lines.push({ x1: x + CELL, y1: y, x2: x + CELL, y2: y + CELL });
+        lines.push({ x1: x, y1: y + CELL, x2: x + CELL, y2: y + CELL });
+      }
+    }
+
+    return lines;
+  }, [blocked, cols, rows]);
 
   // ====== typing / hidden input ======
   const hiddenInputRef = useRef<TextInput | null>(null);
@@ -387,10 +425,12 @@ export default function QuizPlayCrosswordScreen({
 
     scale.setValue(s);
     currentScale.current = s;
-    translateX.setValue(tx);
-    translateY.setValue(ty);
-    accX.current = tx;
-    accY.current = ty;
+    const snappedTx = Math.round(tx);
+    const snappedTy = Math.round(ty);
+    translateX.setValue(snappedTx);
+    translateY.setValue(snappedTy);
+    accX.current = snappedTx;
+    accY.current = snappedTy;
   }, [
     gridWrapSize.w,
     gridWrapSize.h,
@@ -488,9 +528,33 @@ export default function QuizPlayCrosswordScreen({
         }
       },
 
-      onPanResponderRelease: () => {},
+      onPanResponderRelease: () => {
+        const snappedX = Math.round(accX.current);
+        const snappedY = Math.round(accY.current);
+        Animated.parallel([
+          Animated.timing(translateX, {
+            toValue: snappedX,
+            duration: 90,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: snappedY,
+            duration: 90,
+            useNativeDriver: true,
+          }),
+        ]).start();
+        accX.current = snappedX;
+        accY.current = snappedY;
+      },
       onPanResponderTerminationRequest: () => true,
-      onPanResponderTerminate: () => {},
+      onPanResponderTerminate: () => {
+        const snappedX = Math.round(accX.current);
+        const snappedY = Math.round(accY.current);
+        translateX.setValue(snappedX);
+        translateY.setValue(snappedY);
+        accX.current = snappedX;
+        accY.current = snappedY;
+      },
     })
   ).current;
 
@@ -515,12 +579,22 @@ export default function QuizPlayCrosswordScreen({
         title={spec.meta.name || "Crossword"}
         showBackButton
         onBack={() => router.back()}
-        remaining={remaining}
+        remaining={null}
         paddingTop={insets.top + 6}
+        titleAlign="center"
       />
 
-      {/* Timer bar (below title) */}
-      <TimerBar percent={percent} />
+      {/* Timer row (pill left, bar right) */}
+      <View style={styles.timerRow}>
+        {remaining !== null && remaining !== undefined ? (
+          <TimePill seconds={remaining} />
+        ) : (
+          <View style={styles.timerPillSpacer} />
+        )}
+        <View style={styles.timerRowBarWrap}>
+          <TimerBar percent={percent} inline />
+        </View>
+      </View>
 
       {/* Zoomable / pannable area */}
       <View
@@ -536,7 +610,7 @@ export default function QuizPlayCrosswordScreen({
         <View
           style={[
             styles.gridStage,
-            { backgroundColor: colors.bg2, borderColor: colors.bg3 },
+            { backgroundColor: "transparent", borderColor: accent.blue },
           ]}
         >
           <Animated.View {...gestureResponder.panHandlers} style={{ flex: 1 }}>
@@ -550,7 +624,7 @@ export default function QuizPlayCrosswordScreen({
                 style={{
                   width: cols * CELL,
                   height: rows * CELL,
-                  backgroundColor: colors.bg2,
+                  backgroundColor: "transparent",
                 }}
               >
                 {Array.from({ length: rows }).map((_, r) => (
@@ -614,11 +688,10 @@ export default function QuizPlayCrosswordScreen({
                               width: CELL,
                               height: CELL,
                               backgroundColor: isBlocked
-                                ? colors.bg3
+                                ? "transparent"
                                 : active
-                                ? colors.primaryLight
+                                ? hexToRgba(accent.blue, 0.2)
                                 : colors.bg1,
-                              borderColor: active ? colors.primary : colors.bg3,
                             },
                           ]}
                         >
@@ -636,7 +709,7 @@ export default function QuizPlayCrosswordScreen({
                                 <View
                                   style={[
                                     styles.cursor,
-                                    { borderColor: colors.primaryDark },
+                                    { borderColor: accent.blue },
                                   ]}
                                 />
                               )}
@@ -647,6 +720,25 @@ export default function QuizPlayCrosswordScreen({
                     })}
                   </View>
                 ))}
+                <Svg
+                  pointerEvents="none"
+                  width={cols * CELL}
+                  height={rows * CELL}
+                  style={StyleSheet.absoluteFill}
+                >
+                  {gridLines.map((line, idx) => (
+                    <Line
+                      key={`gline-${idx}`}
+                      x1={line.x1}
+                      y1={line.y1}
+                      x2={line.x2}
+                      y2={line.y2}
+                      stroke={baseCellBorderColor}
+                      strokeWidth={gridLineWidth}
+                      strokeLinecap="square"
+                    />
+                  ))}
+                </Svg>
               </View>
             </Animated.View>
           </Animated.View>
@@ -688,8 +780,7 @@ export default function QuizPlayCrosswordScreen({
           styles.clueWrap,
           {
             backgroundColor: colors.bg2,
-            borderTopColor: colors.bg3,
-            paddingBottom: Math.max(insets.bottom, 10),
+            paddingBottom: Math.max(insets.bottom + 12, 22),
             marginBottom: keyboardHeight,
           },
         ]}
@@ -705,23 +796,26 @@ export default function QuizPlayCrosswordScreen({
                 setActiveDir(e.direction);
                 return ni;
               });
-
               requestAnimationFrame(() => refocusKeyboard());
             }}
             style={({ pressed }) => [
               styles.navBtn,
               {
-                backgroundColor: colors.bg1,
-                borderColor: colors.bg3,
+                backgroundColor: accent.blue,
+                borderColor: accent.blue,
                 opacity: pressed ? 0.85 : 1,
               },
             ]}
           >
-            <Iconify icon="mingcute:left-line" size={21} color={colors.icon} />
+            <Iconify
+              icon="mingcute:left-line"
+              size={21}
+              color="#fff"
+            />
           </Pressable>
 
           <View style={styles.clueTextWrap}>
-            <Text style={[styles.clueDir, { color: colors.textSecondary }]}>
+            <Text style={[styles.clueDir, { color: accent.red }]}>
               {activeEntry?.direction?.toUpperCase()} • {activeEntry?.id}
             </Text>
             <Text style={[styles.clue, { color: colors.textPrimary }]}>
@@ -739,19 +833,18 @@ export default function QuizPlayCrosswordScreen({
                 setActiveDir(e.direction);
                 return ni;
               });
-
               requestAnimationFrame(() => refocusKeyboard());
             }}
             style={({ pressed }) => [
               styles.navBtn,
               {
-                backgroundColor: colors.bg1,
-                borderColor: colors.bg3,
+                backgroundColor: accent.blue,
+                borderColor: accent.blue,
                 opacity: pressed ? 0.85 : 1,
               },
             ]}
           >
-            <Iconify icon="mingcute:right-line" size={21} color={colors.icon} />
+            <Iconify icon="mingcute:right-line" size={21} color="#fff" />
           </Pressable>
         </View>
 
@@ -766,7 +859,7 @@ export default function QuizPlayCrosswordScreen({
             style={({ pressed }) => [
               styles.finishBtn,
               {
-                backgroundColor: colors.primary,
+                backgroundColor: accent.green,
                 opacity: pressed ? 0.9 : 1,
               },
             ]}
@@ -796,29 +889,28 @@ const styles = StyleSheet.create({
 
   gridStage: {
     flex: 1,
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 4,
+    borderWidth: 2,
     overflow: "hidden",
   },
 
   cell: {
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0,
     alignItems: "center",
     justifyContent: "center",
   },
   cellText: { fontSize: 16, fontWeight: "900" },
   cursor: {
     position: "absolute",
-    left: 2,
-    right: 2,
-    top: 2,
-    bottom: 2,
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     borderWidth: 2,
-    borderRadius: 5,
+    borderRadius: 0,
   },
 
   clueWrap: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingTop: 10,
   },
@@ -831,8 +923,8 @@ const styles = StyleSheet.create({
   navBtn: {
     height: 42,
     width: 42,
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 4,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -840,6 +932,19 @@ const styles = StyleSheet.create({
   clueTextWrap: { flex: 1, minWidth: 0 },
   clueDir: { fontSize: 14, fontWeight: "900", opacity: 0.85 },
   clue: { fontSize: 16, fontWeight: "800" },
+  timerRow: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  timerPillSpacer: {
+    width: 84,
+  },
+  timerRowBarWrap: {
+    flex: 1,
+  },
 
   bottomBar: {
     marginTop: 10,
@@ -851,7 +956,7 @@ const styles = StyleSheet.create({
   finishBtn: {
     height: 42,
     paddingHorizontal: 16,
-    borderRadius: 5,
+    borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",

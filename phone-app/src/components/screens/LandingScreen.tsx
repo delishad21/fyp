@@ -1,24 +1,20 @@
 import Button from "@/src/components/ui/Button";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
-import React, { useState } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { googlePalette } from "@/src/theme/google-palette";
+import React from "react";
+import { Animated, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import TwoToneSplitBackground from "../ui/TwoToneSplitBackground";
 
 export default function LandingScreen() {
   const { colors } = useTheme();
+  const topMotion = useEntranceAnimation({ fromY: 14, durationMs: 240 });
+  const cardMotion = useEntranceAnimation({ delayMs: 80, fromY: 18, durationMs: 280 });
   const insets = useSafeAreaInsets();
   const styles = getStyles(colors);
-  const [splitY, setSplitY] = useState<number | null>(null);
-  const defaultSplit = Math.round(Dimensions.get("window").height * 0.45);
 
   return (
     <View style={styles.container}>
-      <TwoToneSplitBackground
-        topHeight={splitY ?? defaultSplit}
-        topColor={colors.bg1}
-        bottomColor={colors.bg3}
-      />
 
       <ScrollView
         contentContainerStyle={{
@@ -30,28 +26,26 @@ export default function LandingScreen() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.topArea}>
+        <Animated.View style={[styles.topArea, topMotion]}>
           <Text style={styles.title}>Quiz App</Text>
           <Text style={styles.subtitle}>
             Learn faster with daily quizzes and track your streak.
           </Text>
-        </View>
+        </Animated.View>
 
-        <View
-          style={styles.card}
-          onLayout={(e) => {
-            const { y, height } = e.nativeEvent.layout;
-            setSplitY(Math.max(0, Math.round(insets.top + y + height / 2)));
-          }}
-        >
+        <Animated.View style={[styles.card, cardMotion]}>
           <Text style={styles.cardTitle}>Ready to begin?</Text>
           <Text style={styles.cardSubtitle}>
             Jump into your practice journey
           </Text>
-          <Button href="/(unauth)/login" variant="primary" style={styles.full}>
+          <Button
+            href="/(unauth)/login"
+            variant="primary"
+            style={[styles.full, styles.authPrimaryBtn]}
+          >
             Get Started
           </Button>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -59,7 +53,7 @@ export default function LandingScreen() {
 
 const getStyles = (colors: any) =>
   StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: colors.bg1 },
     topArea: {
       paddingHorizontal: 12,
       alignItems: "center",
@@ -82,16 +76,11 @@ const getStyles = (colors: any) =>
     card: {
       marginTop: 28,
       marginHorizontal: 16,
-      borderRadius: 8,
+      borderRadius: 12,
       padding: 18,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       backgroundColor: colors.bg2,
       borderColor: colors.bg4,
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 3,
-      shadowColor: "#000",
       gap: 12,
     },
     cardTitle: {
@@ -106,6 +95,9 @@ const getStyles = (colors: any) =>
       color: colors.textSecondary,
       lineHeight: 20,
       textAlign: "center",
+    },
+    authPrimaryBtn: {
+      backgroundColor: googlePalette.blue,
     },
     full: { alignSelf: "stretch", marginTop: 4 },
   });

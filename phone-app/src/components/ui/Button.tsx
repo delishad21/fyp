@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  StyleProp,
   StyleSheet,
   Text,
   TextStyle,
@@ -16,8 +17,8 @@ type Variant = "primary" | "ghost" | "error" | "small";
 
 type ButtonProps = {
   children: React.ReactNode;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   disabled?: boolean;
   loading?: boolean;
   variant?: Variant; // default: primary (solid bg)
@@ -41,7 +42,7 @@ export default function Button({
   leftIcon,
   rightIcon,
 }: ButtonProps) {
-  const { colors } = useTheme();
+  const { colors, tokens } = useTheme();
   const { container, label, ripple, spinner } = resolveVariant(variant, colors);
   const isDisabled = disabled || loading;
 
@@ -63,6 +64,11 @@ export default function Button({
       }
       style={({ pressed }) => [
         styles.base,
+        {
+          borderRadius: tokens.radius.md,
+          paddingVertical: tokens.spacing.sm + 2,
+          paddingHorizontal: tokens.spacing.lg,
+        },
         container, // <-- solid bg comes from here
         pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
@@ -88,15 +94,12 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 6,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
     overflow: "hidden", // ensures Android ripple clips and bg paints cleanly
   },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   icon: { marginRight: 8 },
-  label: { fontSize: 14, fontWeight: "600", textAlign: "center" },
-  pressed: { opacity: 0.94 },
+  label: { fontSize: 15, fontWeight: "700", textAlign: "center" },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   disabled: { opacity: 0.6 },
 });
 
@@ -124,7 +127,7 @@ function resolveVariant(
         borderWidth: 1,
         borderColor: colors.bg4,
       },
-      label: { color: colors.textPrimary, fontWeight: "600" },
+      label: { color: colors.textPrimary, fontWeight: "700" },
       ripple: "rgba(0,0,0,0.08)",
       spinner: colors.textPrimary,
     };
@@ -144,7 +147,7 @@ function resolveVariant(
         paddingVertical: 8,
         paddingHorizontal: 12,
       },
-      label: { color: colors.textPrimary, fontSize: 12, fontWeight: "500" },
+      label: { color: colors.textPrimary, fontSize: 12, fontWeight: "700" },
       ripple: "rgba(0,0,0,0.08)",
       spinner: colors.textPrimary,
     };

@@ -7,6 +7,8 @@ import React from "react";
 import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { Iconify } from "react-native-iconify";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
+import { hexToRgba } from "@/src/lib/color-utils";
 import { TimePill } from "./TimePill";
 
 type QuizHeaderProps = {
@@ -22,6 +24,8 @@ type QuizHeaderProps = {
   paddingTop?: number;
   /** Whether the title area dismisses keyboard on press (default: true for screens with back button) */
   dismissKeyboardOnTitlePress?: boolean;
+  /** Title alignment within header */
+  titleAlign?: "left" | "center";
 };
 
 export function QuizHeader({
@@ -31,8 +35,10 @@ export function QuizHeader({
   remaining,
   paddingTop = 6,
   dismissKeyboardOnTitlePress = showBackButton,
+  titleAlign = "left",
 }: QuizHeaderProps) {
   const { colors } = useTheme();
+  const centerTitle = titleAlign === "center";
 
   return (
     <View
@@ -40,19 +46,43 @@ export function QuizHeader({
         styles.header,
         {
           paddingTop,
-          borderBottomColor: colors.bg2,
+          borderBottomColor: hexToRgba(googlePalette.blue, 0.28),
           backgroundColor: colors.bg1,
         },
       ]}
     >
-      {showBackButton ? (
+      {centerTitle ? (
+        <View style={styles.sideSlot}>
+          {showBackButton ? (
+            <Pressable
+              onPress={onBack}
+              style={({ pressed }) => [
+                styles.backBtn,
+                {
+                  backgroundColor: "transparent",
+                  borderColor: googlePalette.blue,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <Iconify
+                icon="mingcute:arrow-left-line"
+                size={23}
+                color={googlePalette.blue}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : showBackButton ? (
         <Pressable
           onPress={onBack}
           style={({ pressed }) => [
             styles.backBtn,
             {
-              backgroundColor: colors.bg2,
-              borderColor: colors.bg3,
+              backgroundColor: "transparent",
+              borderColor: googlePalette.blue,
               opacity: pressed ? 0.85 : 1,
             },
           ]}
@@ -62,7 +92,7 @@ export function QuizHeader({
           <Iconify
             icon="mingcute:arrow-left-line"
             size={23}
-            color={colors.icon}
+            color={googlePalette.blue}
           />
         </Pressable>
       ) : null}
@@ -74,18 +104,32 @@ export function QuizHeader({
           flex: 1,
           minWidth: 0,
           paddingHorizontal: showBackButton ? 10 : 0,
-          alignItems: showBackButton ? undefined : "flex-start",
+          alignItems: centerTitle ? "center" : showBackButton ? undefined : "flex-start",
         }}
       >
         <Text
           numberOfLines={1}
-          style={[styles.title, { color: colors.textPrimary }]}
+          style={[
+            styles.title,
+            {
+              color: showBackButton ? googlePalette.blue : colors.textPrimary,
+              textAlign: centerTitle ? "center" : "left",
+            },
+          ]}
         >
           {title}
         </Text>
       </Pressable>
 
-      {remaining !== null && remaining !== undefined ? (
+      {centerTitle ? (
+        <View style={[styles.sideSlot, styles.sideSlotRight]}>
+          {remaining !== null && remaining !== undefined ? (
+            <TimePill seconds={remaining} />
+          ) : showBackButton ? (
+            <View style={{ width: 84 }} />
+          ) : null}
+        </View>
+      ) : remaining !== null && remaining !== undefined ? (
         <TimePill seconds={remaining} />
       ) : showBackButton ? (
         <View style={{ width: 84 }} />
@@ -105,10 +149,17 @@ const styles = StyleSheet.create({
   backBtn: {
     height: 42,
     width: 42,
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 4,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  sideSlot: {
+    width: 84,
+    justifyContent: "center",
+  },
+  sideSlotRight: {
+    alignItems: "flex-end",
   },
   title: {
     fontWeight: "900",

@@ -15,7 +15,7 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
+  Animated,
   FlatList,
   Pressable,
   RefreshControl,
@@ -26,9 +26,12 @@ import {
 } from "react-native";
 import { Iconify } from "react-native-iconify";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAnimatedProgress } from "@/src/hooks/useAnimatedProgress";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
+import { hexToRgba } from "@/src/lib/color-utils";
+import { googlePalette } from "@/src/theme/google-palette";
 import { QuizCard } from "../quiz-components/QuizCard";
 import AvatarOrInitials from "../ui/AvatarOrInitials";
-import TwoToneSplitBackground from "../ui/TwoToneSplitBackground";
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -50,12 +53,13 @@ export default function HomeScreen() {
   // pull-to-refresh state
   const [refreshing, setRefreshing] = useState(false);
 
-  // Two-tone background split control
-  const [splitY, setSplitY] = useState<number | null>(null);
-  const defaultSplit = Math.round(Dimensions.get("window").height * 0.5);
-
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -106,7 +110,11 @@ export default function HomeScreen() {
 
   // Pull-to-refresh handler (uses same loader)
   const onRefresh = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setError("Session expired. Please sign in again.");
+      void useSession.getState().logout();
+      return;
+    }
     setRefreshing(true);
     try {
       const [a, p] = await Promise.all([
@@ -173,16 +181,33 @@ export default function HomeScreen() {
     Math.min(pointsPerReward, overallScore - previousThresholdPoints)
   );
   const nextItemPct = pointsPerReward > 0 ? pointsInCurrentBand / pointsPerReward : 0;
+  const topMotion = useEntranceAnimation({ fromY: 14, durationMs: 250 });
+  const bottomMotion = useEntranceAnimation({
+    delayMs: 70,
+    fromY: 18,
+    durationMs: 280,
+  });
+  const animatedProgress = useAnimatedProgress(nextItemPct, 320);
+  const progressWidth = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
 
   const styles = getStyles(colors);
+  const accent = {
+    blue: googlePalette.blue,
+    red: googlePalette.red,
+    yellow: googlePalette.yellow,
+    green: googlePalette.green,
+  } as const;
 
   return (
-    <View style={{ flex: 1 }}>
-      <TwoToneSplitBackground
-        topHeight={splitY ?? defaultSplit}
-        topColor={colors.bg1}
-        bottomColor={colors.bg3}
-      />
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.bg1,
+      }}
+    >
 
       <ScrollView
         contentContainerStyle={{
@@ -201,12 +226,12 @@ export default function HomeScreen() {
         }
       >
         {/* TOP content */}
-        <View style={styles.topArea}>
+        <Animated.View style={[styles.topArea, topMotion]}>
           <View style={styles.headerRow}>
             <View style={{ flexShrink: 1, paddingRight: 12 }}>
               <Text
                 numberOfLines={1}
-                style={[styles.hi, { color: colors.textPrimary }]}
+                style={[styles.hi, { color: accent.blue }]}
               >
                 Hi, {displayName.split(" ")[0]}
               </Text>
@@ -224,19 +249,19 @@ export default function HomeScreen() {
                 style={({ pressed }) => [
                   styles.notificationBtn,
                   {
-                    backgroundColor: colors.bg2,
-                    borderColor: colors.bg4,
-                    opacity: pressed ? 0.85 : 1,
+                    backgroundColor: accent.blue,
+                    borderColor: accent.blue,
+                    opacity: pressed ? 0.88 : 1,
                   },
                 ]}
               >
-                <Iconify icon="tabler:bell" size={20} color={colors.icon} />
+                <Iconify icon="tabler:bell" size={20} color="#FFFFFF" />
                 {notificationUnreadCount > 0 ? (
                   <View
                     style={[
                       styles.notificationBadge,
                       {
-                        backgroundColor: colors.primary,
+                        backgroundColor: accent.red,
                       },
                     ]}
                   >
@@ -247,18 +272,28 @@ export default function HomeScreen() {
                 ) : null}
               </Pressable>
 
-              <AvatarOrInitials
-                uri={
-                  gameProfile?.avatarProfileUrl ||
-                  gameProfile?.avatarUrl ||
-                  profile?.photoUrl
-                }
-                name={displayName}
-                size={44}
-                bgFallback={colors.bg3}
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor={colors.bg4}
-              />
+              <Pressable
+                onPress={() => router.push("/(main)/(tabs)/profile")}
+                style={({ pressed }) => [
+                  styles.profileBtn,
+                  { opacity: pressed ? 0.88 : 1 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Open profile"
+              >
+                <AvatarOrInitials
+                  uri={
+                    gameProfile?.avatarProfileUrl ||
+                    gameProfile?.avatarUrl ||
+                    profile?.photoUrl
+                  }
+                  name={displayName}
+                  size={52}
+                  bgFallback={hexToRgba(accent.blue, 0.16)}
+                  borderWidth={2}
+                  borderColor={accent.blue}
+                />
+              </Pressable>
             </View>
           </View>
 
@@ -267,45 +302,43 @@ export default function HomeScreen() {
             style={[
               styles.streakCard,
               {
-                backgroundColor: colors.bg2,
-                borderColor: colors.bg4,
-                shadowColor: "#000",
+                backgroundColor: accent.blue,
+                borderColor: accent.blue,
               },
             ]}
-            onLayout={(e) => {
-              const { y, height } = e.nativeEvent.layout;
-              setSplitY(Math.max(0, Math.round(insets.top + y + height / 2)));
-            }}
           >
-            <Text style={[styles.streakTitle, { color: colors.textPrimary }]}>
+            <Text style={[styles.streakTitle, { color: "#FFFFFF" }]}>
               🎁 Progress to Next Item
             </Text>
             <Text
-              style={[styles.streakSubtitle, { color: colors.textSecondary }]}
+              style={[styles.streakSubtitle, { color: "#FFFFFFE6" }]}
             >
               {Math.floor(overallScore)} / {Math.floor(nextThresholdPoints)}{" "}
               points • {Math.ceil(pointsRemaining)} to go
             </Text>
 
             <View
-              style={[styles.progressTrack, { backgroundColor: colors.bg3 }]}
+              style={[
+                styles.progressTrack,
+                { backgroundColor: "rgba(255,255,255,0.3)" },
+              ]}
             >
-              <View
+              <Animated.View
                 style={[
                   styles.progressFill,
                   {
-                    width: `${nextItemPct * 100}%`,
-                    backgroundColor: colors.primary,
+                    width: progressWidth,
+                    backgroundColor: googlePalette.yellow,
                   },
                 ]}
               />
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* BOTTOM content */}
-        <View style={styles.bottomArea}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+        <Animated.View style={[styles.bottomArea, bottomMotion]}>
+          <Text style={[styles.sectionTitle, { color: googlePalette.blue }]}>
             Today's Quizzes
           </Text>
 
@@ -324,6 +357,10 @@ export default function HomeScreen() {
               data={attemptables || []}
               keyExtractor={(item) => item.scheduleId}
               scrollEnabled={false}
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={5}
               contentContainerStyle={{
                 paddingBottom: 0,
                 paddingHorizontal: 16,
@@ -368,7 +405,7 @@ export default function HomeScreen() {
               }
             />
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -395,11 +432,14 @@ const getStyles = (colors: any) =>
       alignItems: "center",
       gap: 10,
     },
+    profileBtn: {
+      borderRadius: 26,
+    },
     notificationBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      width: 40,
+      height: 40,
+      borderRadius: 9,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
       position: "relative",
@@ -410,7 +450,7 @@ const getStyles = (colors: any) =>
       right: -6,
       minWidth: 16,
       height: 16,
-      borderRadius: 8,
+      borderRadius: 6,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 3,
@@ -421,30 +461,26 @@ const getStyles = (colors: any) =>
       fontWeight: "900",
     },
 
-    hi: { fontSize: 28, fontWeight: "900" },
-    subHi: { fontSize: 18, fontWeight: "700", marginTop: 2 },
+    hi: { fontSize: 32, fontWeight: "900" },
+    subHi: { fontSize: 17, fontWeight: "700", marginTop: 2 },
 
     streakCard: {
-      borderRadius: 5,
-      padding: 16,
+      borderRadius: 12,
+      padding: 18,
       marginBottom: 4,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
 
       // subtle shadow
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 2,
     },
 
-    streakTitle: { fontSize: 21, fontWeight: "900", marginBottom: 4 },
-    streakSubtitle: { fontSize: 18, marginBottom: 12, fontWeight: "700" },
+    streakTitle: { fontSize: 22, fontWeight: "900", marginBottom: 4 },
+    streakSubtitle: { fontSize: 16, marginBottom: 12, fontWeight: "700" },
 
-    progressTrack: { height: 10, borderRadius: 10, overflow: "hidden" },
-    progressFill: { height: "100%", borderRadius: 10 },
+    progressTrack: { height: 12, borderRadius: 6, overflow: "hidden" },
+    progressFill: { height: "100%", borderRadius: 6 },
 
     sectionTitle: {
-      fontSize: 29,
+      fontSize: 30,
       fontWeight: "900",
       marginBottom: 10,
       paddingHorizontal: 16,
@@ -454,12 +490,12 @@ const getStyles = (colors: any) =>
     messageText: { fontSize: 15, fontWeight: "700" },
 
     emptyWrap: {
-      borderRadius: 5,
-      padding: 16,
-      backgroundColor: colors.bg2,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.bg4,
+      borderRadius: 12,
+      padding: 18,
+      backgroundColor: googlePalette.yellow,
+      borderWidth: 2,
+      borderColor: googlePalette.yellow,
     },
-    emptyTitle: { fontSize: 21, fontWeight: "900", marginBottom: 6 },
-    emptySubtitle: { fontSize: 18, fontWeight: "700", lineHeight: 21 },
+    emptyTitle: { fontSize: 20, fontWeight: "900", marginBottom: 6 },
+    emptySubtitle: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
   });

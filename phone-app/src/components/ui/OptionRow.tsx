@@ -1,4 +1,6 @@
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
+import { hexToRgba } from "@/src/lib/color-utils";
 import { StyleSheet, Text, View } from "react-native";
 import { Chip } from "./Chip";
 
@@ -16,22 +18,31 @@ export function OptionRow({
   const { colors } = useTheme();
   const chips: Array<{ text: string; bg: string; fg: string }> = [];
 
-  if (answersAvailable && isCorrect)
-    chips.push({ text: "Correct", bg: colors.success, fg: "#fff" });
-  if (isSelected) {
-    chips.push({
-      text: answersAvailable
-        ? isCorrect
-          ? "Your answer ✓"
-          : "Your answer ✗"
-        : "Your answer",
-      bg: answersAvailable
-        ? isCorrect
-          ? colors.success
-          : colors.error
-        : colors.primary,
-      fg: "#fff",
-    });
+  let rowBorder = colors.bg3;
+  let rowBg = colors.bg2;
+  if (answersAvailable) {
+    if (isCorrect && isSelected) {
+      rowBorder = googlePalette.green;
+      rowBg = hexToRgba(googlePalette.green, 0.12);
+      chips.push({ text: "Correct", bg: googlePalette.green, fg: "#fff" });
+      chips.push({ text: "Your answer", bg: googlePalette.blue, fg: "#fff" });
+    } else if (isCorrect && !isSelected) {
+      rowBorder = googlePalette.green;
+      rowBg = colors.bg2;
+      chips.push({
+        text: "Correct answer",
+        bg: googlePalette.green,
+        fg: "#fff",
+      });
+    } else if (!isCorrect && isSelected) {
+      rowBorder = googlePalette.red;
+      rowBg = hexToRgba(googlePalette.red, 0.1);
+      chips.push({ text: "Your answer", bg: googlePalette.red, fg: "#fff" });
+    }
+  } else if (isSelected) {
+    rowBorder = googlePalette.blue;
+    rowBg = hexToRgba(googlePalette.blue, 0.1);
+    chips.push({ text: "Selected", bg: googlePalette.blue, fg: "#fff" });
   }
 
   return (
@@ -39,17 +50,9 @@ export function OptionRow({
       style={[
         styles.optRow,
         {
-          backgroundColor: colors.bg2,
-          borderColor: answersAvailable
-            ? isCorrect
-              ? colors.success
-              : isSelected
-              ? colors.error
-              : colors.bg3
-            : isSelected
-            ? colors.primary
-            : colors.bg3,
-          borderWidth: StyleSheet.hairlineWidth,
+          backgroundColor: rowBg,
+          borderColor: rowBorder,
+          borderWidth: 2,
         },
       ]}
     >
@@ -67,10 +70,10 @@ export function OptionRow({
 
 const styles = StyleSheet.create({
   optRow: {
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     gap: 8,
   },
-  optText: { fontSize: 14, fontWeight: "700" },
+  optText: { fontSize: 15, fontWeight: "800" },
 });

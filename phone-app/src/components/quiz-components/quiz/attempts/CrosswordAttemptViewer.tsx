@@ -6,6 +6,7 @@ import {
 import { Line } from "@/src/components/ui/Line";
 import { Pill } from "@/src/components/ui/Pill";
 import { SectionHeader } from "@/src/components/ui/SectionHeader";
+import { hexToRgba } from "@/src/lib/color-utils";
 import {
   buildBlockedSet,
   CELL,
@@ -18,6 +19,7 @@ import {
   touchCentroid,
   touchDistance,
 } from "@/src/lib/attempt-helpers";
+import { googlePalette } from "@/src/theme/google-palette";
 import { useTheme } from "@/src/theme";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -29,10 +31,12 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Read-only Crossword attempt viewer (with per-cell correctness) */
 export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   // NOTE: panSpeed is faster on web to account for lack of touchpad precision. Remove on release. Used only for
   // User testing on web page for now.
   const panSpeed = Platform.OS === "web" ? 2 : 1;
@@ -325,9 +329,9 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
     const txt = `${awarded}/${max}`;
     const full = awarded >= max;
     const none = awarded <= 0;
-    const bg = full ? colors.success : none ? colors.error : colors.warning;
+    const bg = full ? colors.success : none ? colors.error : googlePalette.blue;
     const fg = "#fff";
-    return <Pill text={txt} bg={bg} fg={fg} />;
+    return <Pill text={txt} bg={bg} fg={fg} size="md" />;
   };
 
   return (
@@ -340,14 +344,9 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
           padding: 10,
           overflow: "hidden",
           borderRadius: 10,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.bg4,
+          borderWidth: 2,
+          borderColor: colors.primary,
           backgroundColor: colors.bg2,
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 2,
-          shadowColor: "#000",
         }}
         data-drag-scroll="ignore"
       >
@@ -377,7 +376,7 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
                         : status === "wrong"
                         ? colors.error
                         : colors.bg3;
-                    const borderWidth = status ? 2 : StyleSheet.hairlineWidth;
+                    const borderWidth = status ? 3 : 1;
 
                     return (
                       <View
@@ -419,22 +418,39 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
       <View style={{ flex: 1 }}>
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}
         >
-          <SectionHeader title="Across" />
+          <SectionHeader title="Across" accentColor={googlePalette.blue} />
           {across.map((row) => (
             <View
               key={`A-${row.entry.id}`}
               style={[
                 styles.card,
-                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+                {
+                  backgroundColor:
+                    row.awarded != null && row.max != null
+                      ? row.awarded >= row.max
+                        ? hexToRgba(colors.success, 0.08)
+                        : row.awarded > 0
+                          ? colors.bg2
+                          : hexToRgba(colors.error, 0.08)
+                      : colors.bg2,
+                  borderColor:
+                    row.awarded != null && row.max != null
+                      ? row.awarded >= row.max
+                        ? colors.success
+                        : row.awarded > 0
+                          ? googlePalette.blue
+                          : colors.error
+                      : colors.bg4,
+                },
               ]}
             >
               <View style={styles.cardTop}>
                 <Text
                   style={{
                     color: colors.textSecondary,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: "900",
                   }}
                 >
@@ -447,7 +463,7 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
                 style={{
                   color: colors.textPrimary,
                   fontWeight: "800",
-                  fontSize: 14,
+                  fontSize: 15,
                 }}
               >
                 {row.entry.clue}
@@ -467,20 +483,37 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
             </View>
           ))}
 
-          <SectionHeader title="Down" />
+          <SectionHeader title="Down" accentColor={googlePalette.green} />
           {down.map((row) => (
             <View
               key={`D-${row.entry.id}`}
               style={[
                 styles.card,
-                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+                {
+                  backgroundColor:
+                    row.awarded != null && row.max != null
+                      ? row.awarded >= row.max
+                        ? hexToRgba(colors.success, 0.08)
+                        : row.awarded > 0
+                          ? colors.bg2
+                          : hexToRgba(colors.error, 0.08)
+                      : colors.bg2,
+                  borderColor:
+                    row.awarded != null && row.max != null
+                      ? row.awarded >= row.max
+                        ? colors.success
+                        : row.awarded > 0
+                          ? googlePalette.blue
+                          : colors.error
+                      : colors.bg4,
+                },
               ]}
             >
               <View style={styles.cardTop}>
                 <Text
                   style={{
                     color: colors.textSecondary,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: "900",
                   }}
                 >
@@ -493,7 +526,7 @@ export default function CrosswordAttemptViewer({ doc }: { doc: AttemptDoc }) {
                 style={{
                   color: colors.textPrimary,
                   fontWeight: "800",
-                  fontSize: 14,
+                  fontSize: 15,
                 }}
               >
                 {row.entry.clue}
@@ -522,23 +555,18 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
 
   cell: {
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  cellText: { fontSize: 16, fontWeight: "800" },
+  cellText: { fontSize: 17, fontWeight: "900" },
 
   card: {
     marginHorizontal: 0,
     marginTop: 10,
-    padding: 12,
+    padding: 14,
     borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
-    shadowColor: "#000",
+    borderWidth: 2,
   },
   cardTop: {
     flexDirection: "row",

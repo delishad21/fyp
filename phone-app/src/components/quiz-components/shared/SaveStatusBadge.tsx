@@ -6,6 +6,7 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 
 type SaveStatus = "idle" | "saving" | "error";
 
@@ -20,7 +21,7 @@ export function SaveStatusBadge({ status }: SaveStatusBadgeProps) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
       {status === "saving" ? (
-        <ActivityIndicator size="small" color={colors.textSecondary} />
+        <ActivityIndicator size="small" color={googlePalette.blue} />
       ) : null}
 
       <Text
@@ -29,10 +30,10 @@ export function SaveStatusBadge({ status }: SaveStatusBadgeProps) {
           {
             color:
               status === "saving"
-                ? colors.textSecondary
+                ? googlePalette.blue
                 : status === "error"
-                ? colors.error
-                : colors.textSecondary,
+                ? googlePalette.red
+                : googlePalette.green,
           },
         ]}
       >

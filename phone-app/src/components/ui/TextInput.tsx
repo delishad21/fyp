@@ -42,7 +42,7 @@ const TextInput = forwardRef<RNTextInput, Props>(function TextInput(
   },
   ref
 ) {
-  const { colors } = useTheme();
+  const { colors, tokens } = useTheme();
   const [focused, setFocused] = useState(false);
 
   const errors = useMemo(
@@ -60,22 +60,29 @@ const TextInput = forwardRef<RNTextInput, Props>(function TextInput(
     () =>
       StyleSheet.create({
         wrap: { gap: 6 },
-        label: { fontSize: 15, color: colors.textPrimary },
+        label: {
+          fontSize: tokens.typography.body,
+          color: colors.textPrimary,
+          fontFamily: tokens.typography.bodyFamily,
+          fontWeight: "700",
+        },
         input: {
           borderWidth: 1,
-          borderRadius: 6,
-          paddingVertical: 12,
+          borderRadius: tokens.radius.md,
+          paddingVertical: 13,
           paddingHorizontal: 16,
           backgroundColor: colors.bg2,
           borderColor: focused ? colors.primary : colors.bg4,
           color: colors.textPrimary,
-          fontSize: 15,
+          fontSize: tokens.typography.body,
+          fontFamily: tokens.typography.bodyFamily,
+          fontWeight: "600",
         },
         errorText: { fontSize: 12, color: colors.error, marginTop: 4 },
         errorList: { marginTop: 4, paddingLeft: 16, gap: 2 },
         errorItem: { fontSize: 12, color: colors.error },
       }),
-    [colors, focused]
+    [colors, focused, tokens]
   );
 
   return (

@@ -1,6 +1,5 @@
 import { formatAvailableUntil } from "@/src/utils/dates";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Iconify } from "react-native-iconify";
 
 export function QuizCard({
   title,
@@ -18,7 +17,7 @@ export function QuizCard({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
+      style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
     >
       <View
         style={[
@@ -40,11 +39,6 @@ export function QuizCard({
             {formatAvailableUntil(endDateISO)}
           </Text>
         </View>
-
-        {/* RIGHT: chevron */}
-        <View style={cardStyles.chevronWrap}>
-          <Iconify icon="mingcute:right-line" size={22} color="#ffffffdd" />
-        </View>
       </View>
     </Pressable>
   );
@@ -52,7 +46,7 @@ export function QuizCard({
 
 const cardStyles = StyleSheet.create({
   container: {
-    borderRadius: 5,
+    borderRadius: 12,
     paddingVertical: 25,
     paddingHorizontal: 16,
     marginBottom: 12,
@@ -63,45 +57,33 @@ const cardStyles = StyleSheet.create({
     flexWrap: "nowrap",
 
     // subtle shadow
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+    overflow: "hidden",
   },
 
   left: {
     flex: 1,
     minWidth: 0,
-    paddingRight: 12,
   },
 
   subject: {
     color: "#fff",
     fontWeight: "900",
-    fontSize: 18,
+    fontSize: 17,
     marginBottom: 6,
     letterSpacing: 0.2,
   },
 
   title: {
     color: "#fff",
-    fontSize: 21,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     marginBottom: 8,
-    lineHeight: 23,
+    lineHeight: 24,
   },
 
   until: {
     color: "#ffffffcc",
     fontSize: 14,
     fontWeight: "700",
-  },
-
-  chevronWrap: {
-    width: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0, // CRITICAL
   },
 });

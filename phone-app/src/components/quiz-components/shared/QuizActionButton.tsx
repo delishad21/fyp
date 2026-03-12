@@ -6,6 +6,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 
 type QuizActionButtonProps = {
   /** Button label text */
@@ -39,7 +40,7 @@ export function QuizActionButton({
       style={({ pressed }) => [
         styles.primaryBtn,
         {
-          backgroundColor: backgroundColor ?? colors.primary,
+          backgroundColor: backgroundColor ?? googlePalette.green,
           opacity: pressed ? 0.9 : 1,
           minWidth,
         },
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
   primaryBtn: {
     paddingHorizontal: 18,
     height: 42,
-    borderRadius: 5,
+    borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",

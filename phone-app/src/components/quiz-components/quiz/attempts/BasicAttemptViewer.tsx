@@ -7,12 +7,16 @@ import {
 import { AwardPill } from "@/src/components/ui/AwardPill";
 import { Chip } from "@/src/components/ui/Chip";
 import { OptionRow } from "@/src/components/ui/OptionRow";
+import { hexToRgba } from "@/src/lib/color-utils";
+import { googlePalette } from "@/src/theme/google-palette";
 import { useTheme } from "@/src/theme";
 import React, { useMemo } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const spec = doc.quizVersionSnapshot.renderSpec as BasicRenderSpec;
   const items = (spec.items ?? []).filter(
     (it) => it.kind === "mc" || it.kind === "open",
@@ -49,13 +53,24 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
     (doc as any)?.quizVersionSnapshot?.gradingKey?.items || [];
   const answersAvailable =
     Array.isArray(doc.breakdown) && doc.breakdown.length > 0;
+  const accentCycle = [
+    googlePalette.blue,
+    googlePalette.green,
+    googlePalette.red,
+    googlePalette.blue,
+  ] as const;
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12 }}
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        padding: 16,
+        paddingBottom: Math.max(insets.bottom + 24, 32),
+        gap: 12,
+      }}
       keyboardShouldPersistTaps="handled"
     >
-      {items.map((it) => {
+      {items.map((it, idx) => {
         const b = byId[it.id] || {};
         const selectedIdsRaw = doc.answers?.[it.id];
 
@@ -86,21 +101,33 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
           correctIds.length === selectedIds.length &&
           correctIds.every((c) => selectedIds.includes(c));
 
-        // ----- Border color logic -----
+        // ----- Border/background logic -----
         let borderColor = colors.bg3; // default when answers aren't available
+        let backgroundColor = colors.bg2;
         if (answersAvailable) {
           if (it.kind === "mc") {
             borderColor = mcOverallCorrect ? colors.success : colors.error;
+            backgroundColor = mcOverallCorrect
+              ? hexToRgba(colors.success, 0.08)
+              : hexToRgba(colors.error, 0.08);
           } else {
             // OPEN: use awarded/max to reflect actual grading outcome
             const awarded = b.awarded;
             const max = b.max;
             if (typeof awarded === "number" && typeof max === "number") {
-              if (max > 0 && awarded >= max) borderColor = colors.success;
-              else if (awarded > 0) borderColor = colors.warning;
-              else borderColor = colors.error;
+              if (max > 0 && awarded >= max) {
+                borderColor = colors.success;
+                backgroundColor = hexToRgba(colors.success, 0.08);
+              } else if (awarded > 0) {
+                borderColor = colors.bg3;
+                backgroundColor = colors.bg2;
+              } else {
+                borderColor = colors.error;
+                backgroundColor = hexToRgba(colors.error, 0.08);
+              }
             } else {
               borderColor = colors.bg3;
+              backgroundColor = colors.bg2;
             }
           }
         }
@@ -111,18 +138,30 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
             style={[
               styles.card,
               {
-                backgroundColor: colors.bg2,
+                backgroundColor,
                 borderColor,
-                borderWidth: StyleSheet.hairlineWidth,
-                shadowColor: "#000",
+                borderWidth: 2,
               },
             ]}
           >
             {/* Header row: image + text + awarded pill + (MRQ chip) */}
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
+                <View style={styles.tagRow}>
+                  <View style={styles.questionBadge}>
+                    <Text style={styles.questionBadgeText}>{`Q${idx + 1}`}</Text>
+                  </View>
+                  <Chip
+                    text={it.kind === "mc" ? "MCQ" : "Open"}
+                    bg={colors.bg3}
+                    fg={colors.textPrimary}
+                  />
+                </View>
+                <Text style={[styles.itemQ, { color: colors.textPrimary }]}>
+                  {it.text}
+                </Text>
                 {it.image?.url ? (
-                  <View style={{ marginBottom: 8 }}>
+                  <View style={{ marginTop: 8, marginBottom: 2 }}>
                     <Image
                       source={{ uri: it.image.url }}
                       style={styles.image}
@@ -130,16 +169,12 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                     />
                   </View>
                 ) : null}
-
-                <Text style={[styles.itemQ, { color: colors.textPrimary }]}>
-                  {it.text}
-                </Text>
                 {it.kind === "mc" && isMRQ && (
                   <View style={{ marginTop: 6 }}>
                     <Chip
                       text="Multiple correct answers"
-                      bg={colors.bg3}
-                      fg={colors.textPrimary}
+                      bg={googlePalette.blue}
+                      fg="#fff"
                     />
                   </View>
                 )}
@@ -271,8 +306,10 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                                     <Chip
                                       key={idx}
                                       text={kw}
-                                      bg={colors.bg3}
-                                      fg={colors.textPrimary}
+                                      bg={
+                                        accentCycle[idx % accentCycle.length]
+                                      }
+                                      fg="#fff"
                                     />
                                   ),
                                 )}
@@ -295,8 +332,10 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                                           ? `${idx + 1}. ${item}`
                                           : item
                                       }
-                                      bg={colors.bg3}
-                                      fg={colors.textPrimary}
+                                      bg={
+                                        accentCycle[idx % accentCycle.length]
+                                      }
+                                      fg="#fff"
                                     />
                                   ),
                                 )}
@@ -313,8 +352,10 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
                                 >
                                   <Chip
                                     text={String(a.text)}
-                                    bg={colors.bg3}
-                                    fg={colors.textPrimary}
+                                    bg={
+                                      accentCycle[idx % accentCycle.length]
+                                    }
+                                    fg="#fff"
                                   />
                                 </View>
                               ))
@@ -349,26 +390,44 @@ export default function BasicAttemptViewer({ doc }: { doc: AttemptDoc }) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 10,
-    padding: 14,
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
-    gap: 2,
+    padding: 16,
+    gap: 4,
   },
   cardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  itemQ: { fontSize: 16, fontWeight: "800" },
+  tagRow: { flexDirection: "row", gap: 8, marginBottom: 8, flexWrap: "wrap" },
+  questionBadge: {
+    minHeight: 36,
+    paddingHorizontal: 12,
+    borderRadius: 7,
+    backgroundColor: googlePalette.blue,
+    borderWidth: 1,
+    borderColor: googlePalette.blue,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  questionBadgeText: {
+    color: "#fff",
+    fontSize: 19,
+    fontWeight: "900",
+    lineHeight: 22,
+  },
+  itemQ: {
+    marginTop: 8,
+    fontSize: 19,
+    fontWeight: "800",
+    lineHeight: 26,
+  },
   image: {
     width: "100%",
     height: 170,
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: "#d9d9d9",
   },
 
-  subLabel: { fontSize: 12, fontWeight: "800" },
+  subLabel: { fontSize: 13, fontWeight: "800" },
   openAnsBox: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    padding: 10,
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 12,
   },
 });

@@ -4,11 +4,18 @@ import {
   getMyScheduleSummary,
 } from "@/src/api/class-service";
 import { useSession } from "@/src/auth/session";
+import { hexToRgba } from "@/src/lib/color-utils";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Modal,
   Platform,
@@ -38,12 +45,51 @@ function formatLatestAt(iso?: string | null) {
   return `${day}, ${time}`;
 }
 
+function toDateOnlyInput(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function parseDateOnlyInput(value: string): Date | null {
+  const v = String(value || "").trim();
+  if (!v) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  const d = Number(m[3]);
+  const date = new Date(y, mo, d);
+  if (
+    date.getFullYear() !== y ||
+    date.getMonth() !== mo ||
+    date.getDate() !== d
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function formatDateLabel(value: string): string {
+  const date = parseDateOnlyInput(value);
+  if (!date) return "";
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function AttemptCard({
   quizName,
   subject,
   subjectColorHex,
   topic,
   latestAt,
+  canonicalScore,
+  canonicalMaxScore,
   onPress,
 }: {
   quizName: string;
@@ -51,22 +97,23 @@ function AttemptCard({
   subjectColorHex: string | null;
   topic: string | null;
   latestAt?: string;
+  canonicalScore?: number;
+  canonicalMaxScore?: number;
   onPress?: () => void;
 }) {
   const { colors } = useTheme();
+  const hasCanonical =
+    typeof canonicalScore === "number" && typeof canonicalMaxScore === "number";
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
+      style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
     >
       <View
         style={[
           cardStyles.container,
-          {
-            backgroundColor: subjectColorHex || colors.primary,
-            shadowColor: "#000",
-          },
+          { backgroundColor: subjectColorHex || colors.primary },
         ]}
       >
         {/* Title */}
@@ -79,10 +126,18 @@ function AttemptCard({
           {[subject, topic].filter(Boolean).join(" • ") || "—"}
         </Text>
 
-        {/* Latest attempt date */}
-        <Text numberOfLines={1} style={cardStyles.until}>
-          {formatLatestAt(latestAt)}
-        </Text>
+        <View style={cardStyles.bottomRow}>
+          {/* Latest attempt date */}
+          <Text numberOfLines={1} style={cardStyles.until}>
+            {formatLatestAt(latestAt)}
+          </Text>
+
+          {hasCanonical ? (
+            <Text style={cardStyles.scoreText}>
+              {canonicalScore}/{canonicalMaxScore}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </Pressable>
   );
@@ -90,16 +145,13 @@ function AttemptCard({
 
 const cardStyles = StyleSheet.create({
   container: {
-    borderRadius: 5,
+    borderRadius: 12,
     paddingVertical: 25,
     paddingHorizontal: 16,
     marginBottom: 12,
 
     // subtle depth
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    overflow: "hidden",
   },
   title: {
     color: "#fff",
@@ -118,6 +170,20 @@ const cardStyles = StyleSheet.create({
     color: "#ffffffcc",
     fontSize: 14, // ~12 * 1.15 = 13.8 → 14
     fontWeight: "700",
+    flexShrink: 1,
+  },
+  bottomRow: {
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  scoreText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "900",
+    textAlign: "right",
   },
 });
 
@@ -126,6 +192,11 @@ export default function HistoryScreen() {
 
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const contentMotion = useEntranceAnimation({
+    delayMs: 50,
+    fromY: 16,
+    durationMs: 280,
+  });
   const token = useSession((s) => s.token());
 
   const [rows, setRows] = useState<ScheduleSummaryRow[]>([]);
@@ -143,6 +214,10 @@ export default function HistoryScreen() {
   const [draftTopic, setDraftTopic] = useState("");
   const [draftFrom, setDraftFrom] = useState("");
   const [draftTo, setDraftTo] = useState("");
+  const [datePickerTarget, setDatePickerTarget] = useState<
+    "from" | "to" | null
+  >(null);
+  const [datePickerValue, setDatePickerValue] = useState<Date>(new Date());
 
   // Keep draft in sync when filters change from outside (e.g., reset)
   useEffect(() => {
@@ -155,7 +230,12 @@ export default function HistoryScreen() {
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!token) return;
+      if (!token) {
+        setError("Session expired. Please sign in again.");
+        if (!opts?.silent) setLoading(false);
+        void useSession.getState().logout();
+        return;
+      }
       setError(null);
       if (!opts?.silent) setLoading(true);
       try {
@@ -207,7 +287,66 @@ export default function HistoryScreen() {
     setDraftTopic("");
     setDraftFrom("");
     setDraftTo("");
+    setDatePickerTarget(null);
   };
+
+  const openDatePicker = useCallback(
+    (target: "from" | "to") => {
+      const current = target === "from" ? draftFrom : draftTo;
+      setDatePickerValue(parseDateOnlyInput(current) || new Date());
+      setDatePickerTarget(target);
+    },
+    [draftFrom, draftTo]
+  );
+
+  const applyPickedDate = useCallback(
+    (target: "from" | "to", date: Date) => {
+      const next = toDateOnlyInput(date);
+      if (target === "from") {
+        setDraftFrom(next);
+        const toDate = parseDateOnlyInput(draftTo);
+        if (toDate && toDate.getTime() < date.getTime()) {
+          setDraftTo(next);
+        }
+      } else {
+        setDraftTo(next);
+        const fromDate = parseDateOnlyInput(draftFrom);
+        if (fromDate && fromDate.getTime() > date.getTime()) {
+          setDraftFrom(next);
+        }
+      }
+    },
+    [draftFrom, draftTo]
+  );
+
+  const onDatePickerChange = useCallback(
+    (event: DateTimePickerEvent, selectedDate?: Date) => {
+      if (!datePickerTarget) return;
+
+      if (Platform.OS === "android") {
+        if (event.type === "dismissed") {
+          setDatePickerTarget(null);
+          return;
+        }
+        if (selectedDate) {
+          applyPickedDate(datePickerTarget, selectedDate);
+        }
+        setDatePickerTarget(null);
+        return;
+      }
+
+      if (selectedDate) {
+        setDatePickerValue(selectedDate);
+        applyPickedDate(datePickerTarget, selectedDate);
+      }
+    },
+    [applyPickedDate, datePickerTarget]
+  );
+
+  const pickerMinDate =
+    datePickerTarget === "to" ? parseDateOnlyInput(draftFrom) || undefined : undefined;
+  const pickerMaxDate =
+    datePickerTarget === "from" ? parseDateOnlyInput(draftTo) || undefined : undefined;
 
   const content = useMemo(() => {
     if (loading) {
@@ -233,12 +372,12 @@ export default function HistoryScreen() {
               styles.retryBtn,
               {
                 opacity: pressed ? 0.9 : 1,
-                borderColor: colors.bg3,
-                backgroundColor: colors.bg2,
+                borderColor: googlePalette.red,
+                backgroundColor: googlePalette.red,
               },
             ]}
           >
-            <Text style={{ color: colors.textPrimary, fontWeight: "900" }}>
+            <Text style={{ color: "#fff", fontWeight: "900" }}>
               Retry
             </Text>
           </Pressable>
@@ -257,42 +396,51 @@ export default function HistoryScreen() {
     }
 
     return (
-      <FlatList
-        data={rows}
-        keyExtractor={(r) => `${r.classId}:${r.scheduleId}`}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.bg2}
-          />
-        }
-        contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom + 92, 140),
-        }}
-        renderItem={({ item }) => (
-          <AttemptCard
-            quizName={item.quizName}
-            subject={item.subject}
-            subjectColorHex={item.subjectColorHex}
-            topic={item.topic}
-            latestAt={item.latestAt}
-            onPress={() =>
-              router.push({
-                pathname: "/(main)/attempt",
-                params: {
-                  scheduleId: item.scheduleId,
-                  displayedAttemptId: item.canonical?.attemptId,
-                },
-              })
-            }
-          />
-        )}
-      />
+      <Animated.View style={contentMotion}>
+        <FlatList
+          data={rows}
+          keyExtractor={(r) => `${r.classId}:${r.scheduleId}`}
+          removeClippedSubviews
+          initialNumToRender={10}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.bg2}
+            />
+          }
+          contentContainerStyle={{
+            paddingBottom: Math.max(insets.bottom + 24, 48),
+          }}
+          renderItem={({ item }) => (
+            <AttemptCard
+              quizName={item.quizName}
+              subject={item.subject}
+              subjectColorHex={item.subjectColorHex}
+              topic={item.topic}
+              latestAt={item.latestAt}
+              canonicalScore={item.canonical?.score}
+              canonicalMaxScore={item.canonical?.maxScore}
+              onPress={() =>
+                router.push({
+                  pathname: "/(main)/attempt",
+                  params: {
+                    scheduleId: item.scheduleId,
+                    displayedAttemptId: item.canonical?.attemptId,
+                  },
+                })
+              }
+            />
+          )}
+        />
+      </Animated.View>
     );
   }, [
+    contentMotion,
     colors.primary,
     colors.textPrimary,
     colors.textSecondary,
@@ -319,34 +467,33 @@ export default function HistoryScreen() {
           paddingBottom: 12,
         }}
       >
-        <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>
-          History
-        </Text>
-        <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>
-          Your past quizzes and attempts
-        </Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={[styles.pageTitle, { color: googlePalette.green }]}>
+              History
+            </Text>
+            <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>
+              Your past quizzes and attempts
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setFilterOpen(true)}
+            style={({ pressed }) => [
+              styles.headerFilterBtn,
+              {
+                opacity: pressed ? 0.9 : 1,
+                backgroundColor: googlePalette.green,
+              },
+            ]}
+          >
+            <Iconify icon="mingcute:filter-line" size={18} color="#fff" />
+            <Text style={styles.headerFilterTxt}>Filter</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Body */}
       <View style={{ flex: 1, paddingHorizontal: 16 }}>{content}</View>
-
-      {/* FAB */}
-      <Pressable
-        onPress={() => setFilterOpen(true)}
-        style={({ pressed }) => [
-          styles.fab,
-          {
-            opacity: pressed ? 0.9 : 1,
-            bottom: Math.max(insets.bottom + 16, 24),
-            right: 16,
-            backgroundColor: colors.primary,
-            shadowColor: "#000",
-          },
-        ]}
-      >
-        <Iconify icon="mingcute:filter-line" size={20} color="#fff" />
-        <Text style={styles.fabTxt}>Filter</Text>
-      </Pressable>
 
       {/* Filter Modal */}
       <Modal
@@ -359,7 +506,7 @@ export default function HistoryScreen() {
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: colors.bg1, borderColor: colors.bg2 },
+              { backgroundColor: colors.bg1, borderColor: googlePalette.blue },
             ]}
           >
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
@@ -385,32 +532,78 @@ export default function HistoryScreen() {
                 value={draftTopic}
                 onChangeText={setDraftTopic}
               />
-              <Field
-                label="Latest From (ISO)"
-                placeholder="YYYY-MM-DD or full ISO"
+              <DateField
+                label="Latest From"
                 value={draftFrom}
-                onChangeText={setDraftFrom}
+                placeholder="Select a start date"
+                onPress={() => openDatePicker("from")}
+                onClear={() => setDraftFrom("")}
               />
-              <Field
-                label="Latest To (ISO)"
-                placeholder="YYYY-MM-DD or full ISO"
+              <DateField
+                label="Latest To"
                 value={draftTo}
-                onChangeText={setDraftTo}
+                placeholder="Select an end date"
+                onPress={() => openDatePicker("to")}
+                onClear={() => setDraftTo("")}
               />
             </View>
+
+            {datePickerTarget ? (
+              <View
+                style={[
+                  styles.datePickerWrap,
+                  { backgroundColor: colors.bg2, borderColor: colors.bg3 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.datePickerTitle,
+                    { color: colors.textPrimary },
+                  ]}
+                >
+                  {datePickerTarget === "from"
+                    ? "Pick start date"
+                    : "Pick end date"}
+                </Text>
+                <DateTimePicker
+                  value={datePickerValue}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  onChange={onDatePickerChange}
+                  minimumDate={pickerMinDate}
+                  maximumDate={pickerMaxDate}
+                />
+                {Platform.OS === "ios" ? (
+                  <View style={styles.datePickerActions}>
+                    <Pressable
+                      onPress={() => setDatePickerTarget(null)}
+                      style={({ pressed }) => [
+                        styles.doneBtn,
+                        {
+                          opacity: pressed ? 0.9 : 1,
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.doneBtnText}>Done</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
             <View style={styles.modalActions}>
               <Pressable
                 onPress={resetFilters}
                 style={({ pressed }) => [
                   styles.actionBtn,
-                  {
-                    opacity: pressed ? 0.9 : 1,
-                    borderColor: colors.bg3,
-                    backgroundColor: "transparent",
-                  },
-                ]}
-              >
+              {
+                opacity: pressed ? 0.9 : 1,
+                borderColor: googlePalette.yellow,
+                backgroundColor: googlePalette.yellow,
+              },
+            ]}
+          >
                 <Text style={{ color: colors.textPrimary, fontWeight: "900" }}>
                   Reset
                 </Text>
@@ -422,7 +615,7 @@ export default function HistoryScreen() {
                   styles.actionBtn,
                   {
                     opacity: pressed ? 0.9 : 1,
-                    backgroundColor: colors.primary,
+                    backgroundColor: googlePalette.green,
                   },
                 ]}
               >
@@ -471,7 +664,7 @@ function Field({
         style={[
           styles.input,
           {
-            borderColor: colors.bg2,
+            borderColor: googlePalette.blue,
             color: colors.textPrimary,
             backgroundColor: colors.bg1,
           },
@@ -483,12 +676,96 @@ function Field({
   );
 }
 
+function DateField({
+  label,
+  value,
+  placeholder,
+  onPress,
+  onClear,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onPress: () => void;
+  onClear: () => void;
+}) {
+  const { colors } = useTheme();
+  const hasValue = !!value.trim();
+  return (
+    <View>
+      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.dateFieldBtn,
+          {
+            opacity: pressed ? 0.92 : 1,
+            borderColor: googlePalette.blue,
+            backgroundColor: colors.bg1,
+          },
+        ]}
+      >
+        <View style={styles.dateFieldLeft}>
+          <Iconify icon="mingcute:calendar-line" size={18} color={colors.icon} />
+          <Text
+            style={[
+              styles.dateFieldText,
+              hasValue
+                ? { color: colors.textPrimary }
+                : { color: colors.textSecondary },
+            ]}
+          >
+            {hasValue ? formatDateLabel(value) : placeholder || "Select date"}
+          </Text>
+        </View>
+        {hasValue ? (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+            style={({ pressed }) => [
+              styles.clearDateBtn,
+              {
+                opacity: pressed ? 0.88 : 1,
+                backgroundColor: googlePalette.red,
+              },
+            ]}
+          >
+            <Iconify icon="mingcute:close-line" size={14} color="#fff" />
+          </Pressable>
+        ) : (
+          <Iconify icon="mingcute:right-line" size={18} color={colors.icon} />
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
   // ✅ Home-style title
   pageTitle: { fontSize: 29, fontWeight: "900" },
   pageSubtitle: { fontSize: 18, fontWeight: "700", marginTop: 2 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  headerFilterBtn: {
+    height: 40,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 2,
+  },
+  headerFilterTxt: { color: "#fff", fontWeight: "900", fontSize: 14 },
 
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   helperText: { marginTop: 10, fontSize: 15, fontWeight: "600" },
@@ -498,25 +775,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-
-  fab: {
-    position: "absolute",
-    paddingHorizontal: 16,
-    height: 48,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 10,
-    elevation: 3,
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  fabTxt: { color: "#fff", fontWeight: "900", fontSize: 15 },
 
   modalBackdrop: {
     flex: 1,
@@ -526,12 +787,12 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: "100%",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 26,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
   },
   modalTitle: { fontSize: 18, fontWeight: "900", marginBottom: 12 },
 
@@ -539,10 +800,66 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 14,
     fontSize: 17, // ~15 * 1.15 = 17.25 → 17
     fontWeight: "600",
+  },
+  dateFieldBtn: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  dateFieldLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  dateFieldText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  clearDateBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  datePickerWrap: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+  },
+  datePickerTitle: {
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+  datePickerActions: {
+    marginTop: 8,
+    alignItems: "flex-end",
+  },
+  doneBtn: {
+    minWidth: 88,
+    height: 38,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  doneBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "900",
   },
 
   modalActions: {
@@ -554,7 +871,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

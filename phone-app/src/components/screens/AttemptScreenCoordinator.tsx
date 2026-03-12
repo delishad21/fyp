@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Iconify } from "react-native-iconify";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -16,6 +17,7 @@ import { AttemptPickerModal } from "@/src/components/quiz-components/quiz/attemp
 import { Center } from "@/src/components/ui/Center";
 import { Params, bestTime } from "@/src/lib/attempt-helpers";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 
 /** ---------- Main coordinator screen ---------- */
 export default function AttemptScreenCoordinator() {
@@ -139,7 +141,7 @@ export default function AttemptScreenCoordinator() {
       state === "finalized"
         ? colors.success
         : state === "in_progress"
-        ? colors.warning
+        ? googlePalette.blue
         : state === "invalidated"
         ? colors.error
         : colors.bg3;
@@ -173,8 +175,6 @@ export default function AttemptScreenCoordinator() {
       insetsTop={insets.top}
       colors={colors}
       meta={headerMeta}
-      currentRow={currentRow}
-      onOpenPicker={() => setPickerOpen(true)}
       onBack={() => router.back()}
     />
   );
@@ -185,7 +185,7 @@ export default function AttemptScreenCoordinator() {
       <View style={{ flex: 1, backgroundColor: colors.bg1 }}>
         {header}
         <Center>
-          <Text style={{ color: colors.error }}>Missing scheduleId</Text>
+          <Text style={{ color: googlePalette.red }}>Missing scheduleId</Text>
         </Center>
       </View>
     );
@@ -196,8 +196,8 @@ export default function AttemptScreenCoordinator() {
       <View style={{ flex: 1, backgroundColor: colors.bg1 }}>
         {header}
         <Center>
-          <ActivityIndicator color={colors.primary} />
-          <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
+          <ActivityIndicator color={googlePalette.blue} />
+          <Text style={{ color: googlePalette.blue, marginTop: 8 }}>
             Loading attempts…
           </Text>
         </Center>
@@ -210,7 +210,7 @@ export default function AttemptScreenCoordinator() {
       <View style={{ flex: 1, backgroundColor: colors.bg1 }}>
         {header}
         <Center>
-          <Text style={{ color: colors.error, fontWeight: "800" }}>
+          <Text style={{ color: googlePalette.red, fontWeight: "800" }}>
             {error}
           </Text>
         </Center>
@@ -223,7 +223,7 @@ export default function AttemptScreenCoordinator() {
       <View style={{ flex: 1, backgroundColor: colors.bg1 }}>
         {header}
         <Center>
-          <Text style={{ color: colors.textSecondary }}>No attempts yet.</Text>
+          <Text style={{ color: googlePalette.green }}>No attempts yet.</Text>
         </Center>
       </View>
     );
@@ -234,13 +234,29 @@ export default function AttemptScreenCoordinator() {
     <View style={{ flex: 1, backgroundColor: colors.bg1 }}>
       {header}
 
-      <View style={{ flex: 1, paddingBottom: insets.bottom }}>
+      <View style={{ flex: 1 }}>
         <AttemptBody
           quizType={quizType}
           attemptDoc={attemptDoc}
           loadingAttempt={loadingAttempt}
         />
       </View>
+
+      <Pressable
+        onPress={() => setPickerOpen(true)}
+        style={({ pressed }) => [
+          styles.fab,
+          {
+            opacity: pressed ? 0.9 : 1,
+            bottom: Math.max(insets.bottom + 16, 24),
+            right: 16,
+            backgroundColor: googlePalette.blue,
+          },
+        ]}
+      >
+        <Iconify icon="mingcute:down-line" size={20} color="#fff" />
+        <Text style={styles.fabTxt}>Other Attempts</Text>
+      </Pressable>
 
       <AttemptPickerModal
         visible={pickerOpen}
@@ -255,3 +271,22 @@ export default function AttemptScreenCoordinator() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  fab: {
+    position: "absolute",
+    minHeight: 46,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  fabTxt: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+});

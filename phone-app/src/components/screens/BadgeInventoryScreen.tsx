@@ -6,11 +6,14 @@ import {
   type GameBadgeItem,
 } from "@/src/api/game-service";
 import { useSession } from "@/src/auth/session";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Modal,
   Pressable,
@@ -65,7 +68,7 @@ function BadgeImage({
         style={{
           width: size,
           height: size,
-          borderRadius: 6,
+          borderRadius: 4,
           backgroundColor: fallbackBg,
           alignItems: "center",
           justifyContent: "center",
@@ -92,6 +95,11 @@ function BadgeImage({
 
 export default function BadgeInventoryScreen() {
   const { colors } = useTheme();
+  const contentMotion = useEntranceAnimation({
+    delayMs: 45,
+    fromY: 16,
+    durationMs: 280,
+  });
   const insets = useSafeAreaInsets();
   const token = useSession((s) => s.token());
   const account = useSession((s) => s.account);
@@ -104,7 +112,12 @@ export default function BadgeInventoryScreen() {
     useState<ReplaceBadgeModalState | null>(null);
 
   const load = useCallback(async () => {
-    if (!token || !account?.id) return;
+    if (!token || !account?.id) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -245,9 +258,13 @@ export default function BadgeInventoryScreen() {
             },
           ]}
         >
-          <Iconify icon="mingcute:arrow-left-line" size={20} color={colors.icon} />
+          <Iconify
+            icon="mingcute:arrow-left-line"
+            size={20}
+            color={colors.icon}
+          />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+        <Text style={[styles.headerTitle, { color: googlePalette.yellow }]}>
           Badge Inventory
         </Text>
         <View style={styles.headerSpacer} />
@@ -269,13 +286,16 @@ export default function BadgeInventoryScreen() {
             paddingHorizontal: 16,
             paddingTop: 16,
             paddingBottom: Math.max(insets.bottom + 24, 32),
-            gap: 14,
           }}
         >
-          <View
+          <Animated.View style={[styles.scrollContent, contentMotion]}>
+            <View
             style={[
               styles.infoCard,
-              { borderColor: colors.bg4, backgroundColor: colors.bg2 },
+              {
+                borderColor: colors.bg4,
+                backgroundColor: colors.bg2,
+              },
             ]}
           >
             <Text style={[styles.infoTitle, { color: colors.textPrimary }]}>
@@ -317,7 +337,8 @@ export default function BadgeInventoryScreen() {
                   style={({ pressed }) => [
                     styles.card,
                     {
-                      borderColor: isDisplayed ? colors.primary : colors.bg4,
+                      borderColor: isDisplayed ? googlePalette.blue : colors.bg4,
+                      borderWidth: isDisplayed ? 3 : 1,
                       backgroundColor: colors.bg2,
                       opacity: saving ? 0.5 : pressed ? 0.92 : 1,
                     },
@@ -332,13 +353,23 @@ export default function BadgeInventoryScreen() {
                     fallbackBg={colors.bg3}
                     fallbackColor={colors.icon}
                   />
-                  <Text numberOfLines={2} style={[styles.badgeName, { color: colors.textPrimary }]}>
+                  <Text
+                    numberOfLines={2}
+                    style={[
+                      styles.badgeName,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
                     {badge.name}
                   </Text>
                   <Text
                     style={[
                       styles.badgeStatus,
-                      { color: isDisplayed ? colors.primary : colors.textSecondary },
+                      {
+                        color: isDisplayed
+                          ? googlePalette.blue
+                          : colors.textSecondary,
+                      },
                     ]}
                   >
                     {isDisplayed ? "Displayed" : "Tap to display"}
@@ -348,18 +379,22 @@ export default function BadgeInventoryScreen() {
             })}
           </View>
 
-          {(state?.ownedBadges || []).length === 0 ? (
-            <View
-              style={[
-                styles.emptyCard,
-                { borderColor: colors.bg4, backgroundColor: colors.bg2 },
-              ]}
-            >
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                You have not unlocked any badges yet.
-              </Text>
-            </View>
-          ) : null}
+            {(state?.ownedBadges || []).length === 0 ? (
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    borderColor: colors.bg4,
+                    backgroundColor: colors.bg2,
+                  },
+                ]}
+              >
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  You have not unlocked any badges yet.
+                </Text>
+              </View>
+            ) : null}
+          </Animated.View>
         </ScrollView>
       )}
       <Modal
@@ -372,7 +407,7 @@ export default function BadgeInventoryScreen() {
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: colors.bg1, borderColor: colors.bg4 },
+              { backgroundColor: colors.bg1, borderColor: googlePalette.red },
             ]}
           >
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
@@ -390,7 +425,7 @@ export default function BadgeInventoryScreen() {
                   style={({ pressed }) => [
                     styles.modalBadgeBtn,
                     {
-                      borderColor: colors.bg4,
+                      borderColor: googlePalette.red,
                       backgroundColor: colors.bg2,
                       opacity: saving ? 0.55 : pressed ? 0.9 : 1,
                     },
@@ -417,12 +452,12 @@ export default function BadgeInventoryScreen() {
                 styles.modalCloseBtn,
                 {
                   opacity: pressed ? 0.9 : 1,
-                  borderColor: colors.bg4,
-                  backgroundColor: colors.bg2,
+                  borderColor: googlePalette.red,
+                  backgroundColor: googlePalette.red,
                 },
               ]}
             >
-              <Text style={[styles.modalCloseText, { color: colors.textPrimary }]}>
+              <Text style={[styles.modalCloseText, { color: "#fff" }]}>
                 Cancel
               </Text>
             </Pressable>
@@ -437,7 +472,7 @@ const getStyles = () =>
   StyleSheet.create({
     container: { flex: 1 },
     header: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: 1,
       paddingHorizontal: 12,
       paddingBottom: 10,
       flexDirection: "row",
@@ -447,8 +482,8 @@ const getStyles = () =>
     backBtn: {
       width: 38,
       height: 38,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -467,14 +502,17 @@ const getStyles = () =>
       paddingHorizontal: 16,
       paddingTop: 20,
     },
+    scrollContent: {
+      gap: 14,
+    },
     errorTitle: {
       fontSize: 16,
       fontWeight: "800",
       lineHeight: 22,
     },
     infoCard: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: 6,
+      borderWidth: 1,
+      borderRadius: 9,
       padding: 12,
       gap: 6,
     },
@@ -494,7 +532,7 @@ const getStyles = () =>
       marginTop: 2,
     },
     displayBadge: {
-      borderRadius: 6,
+      borderRadius: 7,
       overflow: "hidden",
     },
     grid: {
@@ -504,8 +542,8 @@ const getStyles = () =>
     },
     card: {
       width: "48%",
-      borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: 6,
+      borderWidth: 1,
+      borderRadius: 9,
       padding: 10,
       alignItems: "center",
       gap: 6,
@@ -521,8 +559,8 @@ const getStyles = () =>
       fontWeight: "700",
     },
     emptyCard: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: 6,
+      borderWidth: 1,
+      borderRadius: 9,
       padding: 12,
       alignItems: "center",
     },
@@ -540,8 +578,8 @@ const getStyles = () =>
     modalCard: {
       width: "100%",
       maxWidth: 420,
-      borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
+      borderWidth: 1,
       padding: 14,
       gap: 10,
     },
@@ -562,7 +600,7 @@ const getStyles = () =>
     modalBadgeBtn: {
       width: "48%",
       borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       padding: 10,
       alignItems: "center",
       gap: 6,
@@ -574,8 +612,8 @@ const getStyles = () =>
       minHeight: 30,
     },
     modalCloseBtn: {
-      borderRadius: 6,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       height: 40,
       alignItems: "center",
       justifyContent: "center",

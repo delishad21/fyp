@@ -22,7 +22,7 @@ export default function ThemeToggle({
   style,
   onPress,
 }: ThemeToggleProps) {
-  const { scheme, setScheme, colors } = useTheme();
+  const { scheme, setScheme, colors, tokens } = useTheme();
   const insets = useSafeAreaInsets();
   const next = scheme === "dark" ? "light" : "dark";
 
@@ -30,7 +30,15 @@ export default function ThemeToggle({
     return (
       <Pressable
         onPress={() => (onPress ? onPress() : setScheme(next))}
-        style={[styles.inlineWrap, style]}
+        style={[
+          styles.inlineWrap,
+          {
+            borderRadius: tokens.radius.sm,
+            borderColor: colors.bg4,
+            backgroundColor: colors.bg2,
+          },
+          style,
+        ]}
         accessibilityRole="button"
         accessibilityLabel="Toggle theme"
       >
@@ -48,7 +56,12 @@ export default function ThemeToggle({
       onPress={() => (onPress ? onPress() : setScheme(next))}
       style={[
         styles.btn,
-        { backgroundColor: colors.bg3, top: insets.top + 8 },
+        {
+          backgroundColor: colors.bg2,
+          borderRadius: tokens.radius.md,
+          borderColor: colors.bg4,
+          top: insets.top + 8,
+        },
         style,
       ]}
       accessibilityRole="button"
@@ -68,12 +81,12 @@ const styles = StyleSheet.create({
     right: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   inlineWrap: {
     width: 38,
     height: 38,
-    borderRadius: 5,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
   },

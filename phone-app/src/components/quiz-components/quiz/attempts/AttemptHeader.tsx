@@ -1,6 +1,5 @@
-import { AttemptRow } from "@/src/api/quiz-service";
 import { Pill } from "@/src/components/ui/Pill";
-import { fmtDateTime } from "@/src/lib/attempt-helpers";
+import { googlePalette } from "@/src/theme/google-palette";
 import { useTheme } from "@/src/theme";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Iconify } from "react-native-iconify";
@@ -9,8 +8,6 @@ export function AttemptHeader({
   insetsTop,
   colors,
   meta,
-  currentRow,
-  onOpenPicker,
   onBack,
 }: {
   insetsTop: number;
@@ -27,8 +24,6 @@ export function AttemptHeader({
     stateBg: string;
     stateFg: string;
   };
-  currentRow: AttemptRow | null;
-  onOpenPicker: () => void;
   onBack?: () => void;
 }) {
   return (
@@ -39,7 +34,6 @@ export function AttemptHeader({
           borderBottomColor: colors.bg4,
           paddingTop: insetsTop + 6,
           backgroundColor: colors.bg1,
-          shadowColor: "#000",
         },
       ]}
     >
@@ -53,7 +47,7 @@ export function AttemptHeader({
               {
                 backgroundColor: colors.bg2,
                 borderColor: colors.bg4,
-                opacity: pressed ? 0.88 : 1,
+                opacity: pressed ? 0.85 : 1,
               },
             ]}
             accessibilityRole="button"
@@ -69,7 +63,7 @@ export function AttemptHeader({
 
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
-            style={[styles.title, { color: colors.textPrimary }]}
+            style={[styles.title, { color: googlePalette.blue }]}
             numberOfLines={1}
           >
             {meta.quizName}
@@ -99,7 +93,7 @@ export function AttemptHeader({
         </View>
       </View>
 
-      {/* Right: score + state pill + attempt picker */}
+      {/* Right: score + state pill */}
       <View style={{ alignItems: "flex-end", gap: 8 }}>
         <View
           style={{
@@ -110,7 +104,7 @@ export function AttemptHeader({
             justifyContent: "flex-end",
           }}
         >
-          <Text style={{ color: colors.textPrimary, fontWeight: "900" }}>
+          <Text style={{ color: googlePalette.red, fontWeight: "900" }}>
             {meta.score != null && meta.maxScore != null
               ? `${meta.score}/${meta.maxScore}`
               : "—"}
@@ -121,30 +115,6 @@ export function AttemptHeader({
             fg={meta.stateFg}
           />
         </View>
-
-        <Pressable
-          onPress={onOpenPicker}
-          style={({ pressed }) => [
-            styles.pickerBtn,
-            {
-              opacity: pressed ? 0.9 : 1,
-              borderColor: colors.bg4,
-              backgroundColor: colors.bg2,
-            },
-          ]}
-        >
-          <Text
-            style={{ color: colors.textPrimary, fontWeight: "800" }}
-            numberOfLines={1}
-          >
-            {fmtDateTime(currentRow?.finishedAt || currentRow?.startedAt)}
-          </Text>
-          <Iconify
-            icon="mingcute:down-line"
-            size={16}
-            color={colors.textSecondary}
-          />
-        </Pressable>
       </View>
     </View>
   );
@@ -160,10 +130,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
   },
   title: { fontSize: 18, fontWeight: "900" },
   subjectDot: { width: 8, height: 8, borderRadius: 999 },
@@ -171,21 +137,9 @@ const styles = StyleSheet.create({
   backBtn: {
     height: 34,
     width: 34,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
-  },
-
-  pickerBtn: {
-    paddingHorizontal: 10,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    minWidth: 160,
   },
 });

@@ -5,8 +5,8 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Iconify } from "react-native-iconify";
-import { useTheme } from "@/src/theme";
 import { fmtClock } from "@/src/lib/attempt-helpers";
+import { googlePalette } from "@/src/theme/google-palette";
 
 type TimePillProps = {
   /** Remaining time in seconds */
@@ -14,17 +14,18 @@ type TimePillProps = {
 };
 
 export function TimePill({ seconds }: TimePillProps) {
-  const { colors } = useTheme();
-
   return (
     <View
       style={[
         styles.timePill,
-        { backgroundColor: colors.bg2, borderColor: colors.bg3 },
+        {
+          backgroundColor: googlePalette.red,
+          borderColor: googlePalette.red,
+        },
       ]}
     >
-      <Iconify icon="mingcute:time-line" size={18} color={colors.icon} />
-      <Text style={[styles.timePillText, { color: colors.textPrimary }]}>
+      <Iconify icon="mingcute:time-line" size={18} color="#fff" />
+      <Text style={[styles.timePillText, { color: "#fff" }]}>
         {fmtClock(seconds)}
       </Text>
     </View>
@@ -35,7 +36,7 @@ const styles = StyleSheet.create({
   timePill: {
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 5,
+    borderRadius: 4,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",

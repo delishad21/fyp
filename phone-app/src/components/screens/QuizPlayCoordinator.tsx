@@ -161,7 +161,17 @@ function Centered({ children }: { children: React.ReactNode }) {
         },
       ]}
     >
-      {children}
+      <View
+        style={[
+          styles.centerCard,
+          {
+            backgroundColor: colors.bg2,
+            borderColor: colors.bg4,
+          },
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 }
@@ -171,7 +181,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+  },
+  centerCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   title: {
     fontSize: 18,

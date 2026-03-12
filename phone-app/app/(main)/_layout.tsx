@@ -1,14 +1,21 @@
 import { useSession } from "@/src/auth/session";
+import { useTheme } from "@/src/theme";
 import { Redirect, Stack } from "expo-router";
 
 export default function MainLayout() {
   const status = useSession((s) => s.status);
+  const { colors } = useTheme();
 
   if (status === "loading") return null;
   if (status !== "auth") return <Redirect href="/(unauth)/landing" />;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bg1 },
+      }}
+    >
       {/* Tabs live here */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       {/* Non-tab stacks registered here */}

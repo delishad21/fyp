@@ -1,15 +1,19 @@
 import { useSession } from "@/src/auth/session";
 import Button from "@/src/components/ui/Button";
 import TextInput from "@/src/components/ui/TextInput";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Iconify } from "react-native-iconify";
 
 export default function ChangePasswordScreen() {
   const { colors } = useTheme();
+  const titleMotion = useEntranceAnimation({ fromY: 12, durationMs: 230 });
+  const formMotion = useEntranceAnimation({ delayMs: 80, fromY: 18, durationMs: 290 });
   const insets = useSafeAreaInsets();
   const styles = getStyles(colors);
   const changePassword = useSession((s) => s.changePassword);
@@ -108,7 +112,7 @@ export default function ChangePasswordScreen() {
           </Pressable>
         ) : null}
 
-        <View style={styles.titleBlock}>
+        <Animated.View style={[styles.titleBlock, titleMotion]}>
           <Text style={styles.title}>Change password</Text>
           <Text style={styles.subtitle}>
             Keep your account secure with a fresh password.
@@ -118,9 +122,9 @@ export default function ChangePasswordScreen() {
               Confirm your new password below.
             </Text>
           ) : null}
-        </View>
+        </Animated.View>
 
-        <View style={styles.card}>
+        <Animated.View style={[styles.card, formMotion]}>
           {currentNeeded ? (
             <TextInput
               id="current-password"
@@ -157,11 +161,11 @@ export default function ChangePasswordScreen() {
             variant="primary"
             onPress={onSubmit}
             disabled={disable}
-            style={styles.fullWidth}
+            style={[styles.fullWidth, styles.authPrimaryBtn]}
           >
             {loading ? "Updating…" : "Update"}
           </Button>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -197,17 +201,15 @@ const getStyles = (colors: any) =>
     },
     card: {
       marginTop: 14,
-      borderRadius: 8,
+      borderRadius: 12,
       padding: 16,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       backgroundColor: colors.bg2,
       borderColor: colors.bg4,
       gap: 12,
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 3,
-      shadowColor: "#000",
+    },
+    authPrimaryBtn: {
+      backgroundColor: googlePalette.blue,
     },
     fullWidth: { alignSelf: "stretch", marginTop: 4 },
   });

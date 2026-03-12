@@ -11,12 +11,15 @@ import { useSession } from "@/src/auth/session";
 import {
   QuizHeader,
   SaveStatusBadge,
+  TimePill,
   TimerBar,
 } from "@/src/components/quiz-components/shared";
 import { useInterval } from "@/src/hooks/useInterval";
 import { normaliseInitialAnswers } from "@/src/lib/attempt-helpers";
+import { hexToRgba } from "@/src/lib/color-utils";
 import { navigateToQuizResults } from "@/src/lib/quiz-navigation";
 import { getHalfScreenHeight } from "@/src/lib/ui-helpers";
+import { googlePalette } from "@/src/theme/google-palette";
 import { useTheme } from "@/src/theme";
 import { useRouter } from "expo-router";
 import React, {
@@ -270,6 +273,10 @@ export default function QuizPlayRapidScreen({
 
   const canInteract =
     !!current && !finishing && saving !== "saving" && qRemaining > 0;
+  const accent = {
+    blue: googlePalette.blue,
+    green: googlePalette.green,
+  } as const;
 
   if (!current) {
     return (
@@ -315,21 +322,35 @@ export default function QuizPlayRapidScreen({
           title={spec.meta?.name ?? "Rapid Quiz"}
           showBackButton
           onBack={() => router.back()}
-          remaining={qRemaining}
+          remaining={null}
           paddingTop={insets.top + 6}
         />
 
-        {/* Timer bar (below title) */}
-        <TimerBar percent={pct} />
+        {/* Timer row (pill left, bar right) */}
+        {(qRemaining !== null && qRemaining !== undefined) || pct !== null ? (
+          <View style={styles.timerRow}>
+            {qRemaining !== null && qRemaining !== undefined ? (
+              <TimePill seconds={qRemaining} />
+            ) : (
+              <View style={styles.timerPillSpacer} />
+            )}
+            <View style={styles.timerRowBarWrap}>
+              <TimerBar percent={pct} inline />
+            </View>
+          </View>
+        ) : null}
 
         {/* Question count row (below timer bar) */}
         <View
           style={[
             styles.qRow,
-            { borderBottomColor: colors.bg2, backgroundColor: colors.bg1 },
+            {
+              borderBottomColor: hexToRgba(accent.green, 0.35),
+              backgroundColor: colors.bg1,
+            },
           ]}
         >
-          <Text style={[styles.qCount, { color: colors.textPrimary }]}>
+          <Text style={[styles.qCount, { color: accent.green }]}>
             {index + 1} / {items.length}
           </Text>
         </View>
@@ -409,9 +430,11 @@ export default function QuizPlayRapidScreen({
                         styles.option,
                         {
                           backgroundColor: isSelected
-                            ? colors.primary
+                            ? accent.blue
                             : colors.bg2,
-                          borderColor: colors.bg3,
+                          borderColor: isSelected
+                            ? accent.blue
+                            : hexToRgba(accent.blue, 0.35),
                           opacity: pressed ? 0.92 : 1,
                         },
                       ]}
@@ -440,7 +463,9 @@ export default function QuizPlayRapidScreen({
                 style={({ pressed }) => [
                   styles.primaryBtn,
                   {
-                    backgroundColor: selected ? colors.primary : colors.bg3,
+                    backgroundColor: selected
+                      ? accent.green
+                      : hexToRgba(accent.green, 0.35),
                     opacity: pressed ? 0.9 : 1,
                   },
                 ]}
@@ -463,6 +488,19 @@ export default function QuizPlayRapidScreen({
 
 const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
+  timerRow: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  timerPillSpacer: {
+    width: 84,
+  },
+  timerRowBarWrap: {
+    flex: 1,
+  },
 
   qRow: {
     marginTop: 10,
@@ -482,7 +520,7 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: 200,
-    borderRadius: 5,
+    borderRadius: 4,
   },
 
   prompt: {
@@ -499,7 +537,7 @@ const styles = StyleSheet.create({
   option: {
     paddingVertical: 14,
     paddingHorizontal: 12,
-    borderRadius: 5,
+    borderRadius: 4,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 10,
   },
@@ -518,7 +556,7 @@ const styles = StyleSheet.create({
   primaryBtn: {
     paddingHorizontal: 18,
     height: 42,
-    borderRadius: 5,
+    borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
     minWidth: 160,

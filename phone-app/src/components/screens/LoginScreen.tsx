@@ -2,14 +2,18 @@ import { useSession } from "@/src/auth/session";
 import Button from "@/src/components/ui/Button";
 import TextInput from "@/src/components/ui/TextInput";
 import ThemeToggle from "@/src/components/ui/ThemeToggle";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const { colors } = useTheme();
+  const titleMotion = useEntranceAnimation({ fromY: 12, durationMs: 230 });
+  const formMotion = useEntranceAnimation({ delayMs: 70, fromY: 18, durationMs: 280 });
   const insets = useSafeAreaInsets();
   const styles = getStyles(colors);
   const signIn = useSession((s) => s.signIn);
@@ -46,12 +50,12 @@ export default function LoginScreen() {
           <ThemeToggle variant="inline" />
         </View>
 
-        <View style={styles.titleBlock}>
+        <Animated.View style={[styles.titleBlock, titleMotion]}>
           <Text style={styles.title}>Log in</Text>
           <Text style={styles.subtitle}>Welcome back</Text>
-        </View>
+        </Animated.View>
 
-        <View style={styles.card}>
+        <Animated.View style={[styles.card, formMotion]}>
           <TextInput
             id="username"
             label="Username"
@@ -71,10 +75,14 @@ export default function LoginScreen() {
             error={!loading && err ? err : undefined}
           />
 
-          <Button variant="primary" onPress={onSignIn} style={styles.fullWidth}>
+          <Button
+            variant="primary"
+            onPress={onSignIn}
+            style={[styles.fullWidth, styles.authPrimaryBtn]}
+          >
             {loading ? "Signing in…" : "Sign in"}
           </Button>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -92,7 +100,7 @@ const getStyles = (colors: any) =>
       marginTop: 4,
       paddingHorizontal: 4,
     },
-    title: { fontSize: 35, fontWeight: "900", color: colors.textPrimary },
+    title: { fontSize: 38, fontWeight: "900", color: colors.textPrimary },
     subtitle: {
       fontSize: 16,
       fontWeight: "600",
@@ -101,17 +109,15 @@ const getStyles = (colors: any) =>
     },
     card: {
       marginTop: 14,
-      borderRadius: 8,
+      borderRadius: 12,
       padding: 16,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       backgroundColor: colors.bg2,
       borderColor: colors.bg4,
       gap: 12,
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 3,
-      shadowColor: "#000",
+    },
+    authPrimaryBtn: {
+      backgroundColor: googlePalette.blue,
     },
     fullWidth: { alignSelf: "stretch", marginTop: 4 },
   });

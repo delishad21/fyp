@@ -5,6 +5,7 @@ import {
 } from "@/src/api/game-service";
 import { useSession } from "@/src/auth/session";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,7 +25,12 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!token || !account?.id) return;
+    if (!token || !account?.id) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -66,8 +72,8 @@ export default function ProfileScreen() {
   }, [gameProfile?.equipped]);
 
   const displayName = account?.name || "Student";
-  const subtitle = email || className || null;
-  const showBack = true;
+  const subtitle = className || email || null;
+  const showBack = false;
 
   async function onLogout() {
     await logout();
@@ -78,7 +84,7 @@ export default function ProfileScreen() {
     <StudentProfilePage
       colors={colors}
       insets={insets}
-      headerTitle="My Profile"
+      headerTitle="Profile"
       displayName={displayName}
       subtitle={subtitle}
       avatarUrl={gameProfile?.avatarUrl || null}
@@ -86,6 +92,8 @@ export default function ProfileScreen() {
       error={error}
       onBack={() => router.back()}
       showBack={showBack}
+      tabMode
+      navAccentColor={googlePalette.yellow}
       rank={gameProfile?.rank ?? null}
       overallScore={Number(gameProfile?.overallScore || 0)}
       currentStreak={Number(gameProfile?.currentStreak || 0)}
@@ -120,7 +128,7 @@ export default function ProfileScreen() {
         },
         {
           key: "badge-inventory",
-          label: "Badge Inventory",
+          label: "Manage Badges",
           icon: "mingcute:award-line",
           onPress: () => router.push("/(main)/badge-inventory"),
         },

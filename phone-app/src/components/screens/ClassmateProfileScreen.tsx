@@ -42,7 +42,12 @@ export default function ClassmateProfileScreen() {
   }, [account?.id, account?.name, displayNameParam, studentId]);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     if (!classId || !studentId) {
       setError("Missing class or student context.");
       setLoading(false);

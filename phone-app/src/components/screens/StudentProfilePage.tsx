@@ -1,6 +1,9 @@
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
+import { googlePalette } from "@/src/theme/google-palette";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   ScrollView,
@@ -123,6 +126,8 @@ type Props = {
   error?: string | null;
   onBack: () => void;
   showBack?: boolean;
+  tabMode?: boolean;
+  navAccentColor?: string | null;
   rank: number | null;
   overallScore: number;
   currentStreak: number;
@@ -151,6 +156,8 @@ export default function StudentProfilePage({
   error,
   onBack,
   showBack = true,
+  tabMode = false,
+  navAccentColor = null,
   rank,
   overallScore,
   currentStreak,
@@ -162,39 +169,70 @@ export default function StudentProfilePage({
   actions = [],
 }: Props) {
   const styles = useMemo(() => getStyles(colors), [colors]);
+  const contentMotion = useEntranceAnimation({
+    delayMs: 40,
+    fromY: 18,
+    durationMs: 290,
+  });
   const customizeAction = actions.find((a) => a.key === "customize-avatar");
-  const trailingActions = actions.filter((a) => a.key !== "customize-avatar");
+  const manageBadgesAction = actions.find((a) => a.key === "badge-inventory");
+  const trailingActions = actions.filter(
+    (a) => a.key !== "customize-avatar" && a.key !== "badge-inventory"
+  );
+  const kpiPalette = [
+    googlePalette.red,
+    googlePalette.blue,
+    googlePalette.green,
+    googlePalette.yellow,
+  ] as const;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg1 }]}>
-      <View
-        style={[
-          styles.headerRow,
-          { paddingTop: insets.top + 12, borderBottomColor: colors.bg4 },
-        ]}
-      >
-        {showBack ? (
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backBtn,
-              {
-                opacity: pressed ? 0.9 : 1,
-                backgroundColor: colors.bg2,
-                borderColor: colors.bg4,
-              },
+      {tabMode ? (
+        <View style={[styles.tabTopWrap, { paddingTop: insets.top + 16 }]}>
+          <Text
+            style={[
+              styles.tabTopTitle,
+              { color: navAccentColor || colors.textPrimary },
             ]}
           >
-            <Iconify icon="mingcute:left-line" size={18} color={colors.icon} />
-          </Pressable>
-        ) : (
+            {headerTitle}
+          </Text>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.headerRow,
+            { paddingTop: insets.top + 12, borderBottomColor: colors.bg4 },
+          ]}
+        >
+          {showBack ? (
+            <Pressable
+              onPress={onBack}
+              style={({ pressed }) => [
+                styles.backBtn,
+                {
+                  opacity: pressed ? 0.9 : 1,
+                  backgroundColor: colors.bg2,
+                  borderColor: colors.bg4,
+                },
+              ]}
+            >
+              <Iconify
+                icon="mingcute:arrow-left-line"
+                size={18}
+                color={colors.icon}
+              />
+            </Pressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+            {headerTitle}
+          </Text>
           <View style={styles.headerSpacer} />
-        )}
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-          {headerTitle}
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.center}>
@@ -215,15 +253,18 @@ export default function StudentProfilePage({
             paddingHorizontal: 16,
             paddingTop: 16,
             paddingBottom: insets.bottom + 24,
-            gap: 12,
           }}
         >
-          <View
-            style={[
-              styles.heroCard,
-              { backgroundColor: colors.bg2, borderColor: colors.bg4 },
-            ]}
-          >
+          <Animated.View style={[styles.scrollContent, contentMotion]}>
+            <View
+              style={[
+                styles.heroCard,
+                {
+                  backgroundColor: colors.bg2,
+                  borderColor: colors.bg4,
+                },
+              ]}
+            >
             <View style={styles.heroAvatarWrap}>
               <FullAvatarPreview
                 uri={avatarUrl || null}
@@ -236,7 +277,7 @@ export default function StudentProfilePage({
                   style={({ pressed }) => [
                     styles.heroCustomizeBtn,
                     {
-                      opacity: pressed ? 0.92 : 1,
+                      opacity: pressed ? 0.94 : 1,
                       borderColor: colors.bg4,
                       backgroundColor: colors.bg2,
                     },
@@ -274,52 +315,52 @@ export default function StudentProfilePage({
             <View
               style={[
                 styles.kpiCard,
-                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+                { backgroundColor: kpiPalette[0], borderColor: kpiPalette[0] },
               ]}
             >
-              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.kpiLabel, { color: googlePalette.white }]}>
                 Rank
               </Text>
-              <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
+              <Text style={[styles.kpiValue, { color: googlePalette.white }]}>
                 {rank != null ? `#${rank}` : "-"}
               </Text>
             </View>
             <View
               style={[
                 styles.kpiCard,
-                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+                { backgroundColor: kpiPalette[1], borderColor: kpiPalette[1] },
               ]}
             >
-              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.kpiLabel, { color: googlePalette.white }]}>
                 Overall Score
               </Text>
-              <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
+              <Text style={[styles.kpiValue, { color: googlePalette.white }]}>
                 {Math.round(overallScore || 0)}
               </Text>
             </View>
             <View
               style={[
                 styles.kpiCard,
-                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+                { backgroundColor: kpiPalette[2], borderColor: kpiPalette[2] },
               ]}
             >
-              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.kpiLabel, { color: googlePalette.white }]}>
                 Current Streak
               </Text>
-              <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
+              <Text style={[styles.kpiValue, { color: googlePalette.white }]}>
                 {Math.round(currentStreak || 0)}
               </Text>
             </View>
             <View
               style={[
                 styles.kpiCard,
-                { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+                { backgroundColor: kpiPalette[3], borderColor: kpiPalette[3] },
               ]}
             >
-              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.kpiLabel, { color: "#1F1F1F" }]}>
                 Best Streak
               </Text>
-              <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
+              <Text style={[styles.kpiValue, { color: "#1F1F1F" }]}>
                 {Math.round(bestStreakDays || 0)}
               </Text>
             </View>
@@ -328,7 +369,10 @@ export default function StudentProfilePage({
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+              {
+                backgroundColor: colors.bg2,
+                borderColor: colors.bg4,
+              },
             ]}
           >
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
@@ -337,37 +381,24 @@ export default function StudentProfilePage({
             {badges.length ? (
               <View style={styles.badgeWrap}>
                 {badges.map((badge) => (
-                  <View
-                    key={badge.id}
-                    style={[
-                      styles.badgeCard,
-                      { borderColor: colors.bg4, backgroundColor: "transparent" },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.badgeImageWrap,
-                        { backgroundColor: "transparent", borderColor: colors.bg4 },
-                      ]}
-                    >
-                      {badge.imageUrl ? (
-                        isSvgUrl(badge.imageUrl) ? (
-                          <SvgUri uri={badge.imageUrl} width={88} height={88} />
-                        ) : (
-                          <Image
-                            source={{ uri: badge.imageUrl }}
-                            style={styles.badgeImage}
-                            resizeMode="contain"
-                          />
-                        )
+                  <View key={badge.id} style={styles.badgeItem}>
+                    {badge.imageUrl ? (
+                      isSvgUrl(badge.imageUrl) ? (
+                        <SvgUri uri={badge.imageUrl} width={120} height={120} />
                       ) : (
-                        <Iconify
-                          icon="mingcute:award-line"
-                          size={36}
-                          color={colors.icon}
+                        <Image
+                          source={{ uri: badge.imageUrl }}
+                          style={styles.badgeImage}
+                          resizeMode="contain"
                         />
-                      )}
-                    </View>
+                      )
+                    ) : (
+                      <Iconify
+                        icon="mingcute:award-line"
+                        size={56}
+                        color={colors.icon}
+                      />
+                    )}
                     <Text
                       numberOfLines={2}
                       style={[styles.badgeName, { color: colors.textPrimary }]}
@@ -382,10 +413,39 @@ export default function StudentProfilePage({
                 No badges yet.
               </Text>
             )}
+
+            {manageBadgesAction ? (
+              <Pressable
+                onPress={manageBadgesAction.onPress}
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  styles.badgesActionBtn,
+                  {
+                    opacity: pressed ? 0.92 : 1,
+                    borderColor: colors.bg4,
+                    backgroundColor: colors.bg2,
+                  },
+                ]}
+              >
+                <View style={styles.actionLeft}>
+                  {renderActionIcon(manageBadgesAction.icon, colors.icon)}
+                  <Text
+                    style={[styles.actionTxt, { color: colors.textPrimary }]}
+                  >
+                    {manageBadgesAction.label}
+                  </Text>
+                </View>
+                <Iconify
+                  icon="mingcute:right-line"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            ) : null}
           </View>
 
-          {trailingActions.length ? (
-            <View style={styles.actionList}>
+            {trailingActions.length ? (
+              <View style={styles.actionList}>
               {trailingActions.map((action) => {
                 const danger = action.tone === "danger";
                 return (
@@ -396,20 +456,24 @@ export default function StudentProfilePage({
                       styles.actionBtn,
                       {
                         opacity: pressed ? 0.92 : 1,
-                        borderColor: danger ? colors.error : colors.bg4,
-                        backgroundColor: colors.bg2,
+                        borderColor: danger ? googlePalette.red : colors.bg4,
+                        backgroundColor: danger
+                          ? googlePalette.red
+                          : colors.bg2,
                       },
                     ]}
                   >
                     <View style={styles.actionLeft}>
                       {renderActionIcon(
                         action.icon,
-                        danger ? colors.error : colors.icon
+                        danger ? googlePalette.white : colors.icon
                       )}
                       <Text
                         style={[
                           styles.actionTxt,
-                          { color: danger ? colors.error : colors.textPrimary },
+                          {
+                            color: danger ? googlePalette.white : colors.textPrimary,
+                          },
                         ]}
                       >
                         {action.label}
@@ -425,8 +489,9 @@ export default function StudentProfilePage({
                   </Pressable>
                 );
               })}
-            </View>
-          ) : null}
+              </View>
+            ) : null}
+          </Animated.View>
         </ScrollView>
       )}
     </View>
@@ -448,8 +513,8 @@ const getStyles = (colors: any) =>
     backBtn: {
       width: 34,
       height: 34,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -458,6 +523,14 @@ const getStyles = (colors: any) =>
       fontWeight: "900",
     },
     headerSpacer: { width: 34 },
+    tabTopWrap: {
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+    },
+    tabTopTitle: {
+      fontSize: 31,
+      fontWeight: "900",
+    },
 
     center: {
       flex: 1,
@@ -467,6 +540,9 @@ const getStyles = (colors: any) =>
     centerPad: {
       paddingHorizontal: 16,
       paddingTop: 24,
+    },
+    scrollContent: {
+      gap: 12,
     },
 
     errorTitle: {
@@ -481,9 +557,16 @@ const getStyles = (colors: any) =>
     },
 
     heroCard: {
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 12,
+      borderWidth: 1,
       overflow: "hidden",
+    },
+    heroTint: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 110,
     },
     heroAvatarWrap: {
       width: "100%",
@@ -500,35 +583,33 @@ const getStyles = (colors: any) =>
       paddingHorizontal: 16,
       paddingVertical: 14,
       gap: 2,
+      alignItems: "center",
     },
     heroCustomizeBtn: {
       position: "absolute",
       right: 10,
       top: 10,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       paddingHorizontal: 12,
       paddingVertical: 9,
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 2,
-      shadowColor: "#000",
     },
     heroCustomizeTxt: {
       fontSize: 14,
       fontWeight: "900",
     },
     name: {
-      fontSize: 30,
+      fontSize: 34,
       fontWeight: "900",
+      textAlign: "center",
     },
     sub: {
-      fontSize: 20,
+      fontSize: 24,
       fontWeight: "700",
+      textAlign: "center",
     },
 
     kpiGrid: {
@@ -538,23 +619,31 @@ const getStyles = (colors: any) =>
     },
     kpiCard: {
       width: "48.5%",
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 9,
+      borderWidth: 1,
       padding: 12,
+      minHeight: 120,
+      position: "relative",
+      alignItems: "center",
+      justifyContent: "center",
     },
     kpiLabel: {
       fontSize: 12,
       fontWeight: "800",
-      marginBottom: 6,
+      position: "absolute",
+      top: 10,
+      left: 12,
     },
     kpiValue: {
-      fontSize: 22,
+      fontSize: 44,
       fontWeight: "900",
+      textAlign: "center",
+      lineHeight: 48,
     },
 
     card: {
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
+      borderWidth: 1,
       padding: 14,
       gap: 8,
     },
@@ -575,26 +664,16 @@ const getStyles = (colors: any) =>
       gap: 10,
       marginTop: 2,
     },
-    badgeCard: {
+    badgeItem: {
       width: "48.5%",
-      borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
-      paddingHorizontal: 10,
-      paddingVertical: 10,
+      paddingHorizontal: 4,
+      paddingVertical: 6,
       alignItems: "center",
       gap: 6,
     },
-    badgeImageWrap: {
-      width: 96,
-      height: 96,
-      borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
-      alignItems: "center",
-      justifyContent: "center",
-    },
     badgeImage: {
-      width: 88,
-      height: 88,
+      width: 120,
+      height: 120,
     },
     badgeName: {
       fontSize: 13,
@@ -606,19 +685,17 @@ const getStyles = (colors: any) =>
     actionList: {
       gap: 10,
     },
+    badgesActionBtn: {
+      marginTop: 8,
+    },
     actionBtn: {
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 9,
+      borderWidth: 1,
       paddingHorizontal: 14,
       paddingVertical: 14,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 2,
-      shadowColor: "#000",
     },
     actionLeft: {
       flexDirection: "row",

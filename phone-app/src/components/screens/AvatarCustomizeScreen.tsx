@@ -11,11 +11,14 @@ import {
   type GameStudentInventory,
 } from "@/src/api/game-service";
 import { useSession } from "@/src/auth/session";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   ScrollView,
@@ -74,7 +77,7 @@ function AvatarCanvasPreview({
       style={{
         width: size,
         height: size,
-        borderRadius: 12,
+        borderRadius: 8,
         overflow: "hidden",
         borderWidth: StyleSheet.hairlineWidth,
         borderColor,
@@ -157,7 +160,7 @@ function CosmeticCardPreview({
       style={{
         width: size,
         height: size,
-        borderRadius: 6,
+        borderRadius: 4,
         overflow: "hidden",
         backgroundColor: bgColor,
         borderWidth: StyleSheet.hairlineWidth,
@@ -185,10 +188,20 @@ function CosmeticCardPreview({
 
 export default function AvatarCustomizeScreen() {
   const { colors } = useTheme();
+  const contentMotion = useEntranceAnimation({
+    delayMs: 45,
+    fromY: 16,
+    durationMs: 280,
+  });
   const insets = useSafeAreaInsets();
   const token = useSession((s) => s.token());
   const account = useSession((s) => s.account);
   const styles = getStyles(colors);
+  const accent = {
+    blue: googlePalette.blue,
+    red: googlePalette.red,
+    green: googlePalette.green,
+  } as const;
 
   const [classId, setClassId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<GameRewardsCatalog | null>(null);
@@ -219,7 +232,12 @@ export default function AvatarCustomizeScreen() {
   }, [catalog?.cosmetics, currentSlot, inventory?.equipped, ownedCosmeticSet]);
 
   const load = useCallback(async () => {
-    if (!token || !account?.id) return;
+    if (!token || !account?.id) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -316,9 +334,13 @@ export default function AvatarCustomizeScreen() {
             },
           ]}
         >
-          <Iconify icon="mingcute:left-line" size={18} color={colors.icon} />
+          <Iconify
+            icon="mingcute:arrow-left-line"
+            size={18}
+            color={colors.icon}
+          />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+        <Text style={[styles.headerTitle, { color: accent.blue }]}>
           Avatar Customization
         </Text>
         <View style={styles.headerSpacer} />
@@ -340,20 +362,23 @@ export default function AvatarCustomizeScreen() {
             paddingHorizontal: 16,
             paddingTop: 14,
             paddingBottom: insets.bottom + 24,
-            gap: 14,
           }}
         >
-          <View
+          <Animated.View style={[styles.scrollContent, contentMotion]}>
+            <View
             style={[
               styles.previewCard,
-              { backgroundColor: colors.bg2, borderColor: colors.bg4 },
+              {
+                backgroundColor: colors.bg2,
+                borderColor: colors.bg4,
+              },
             ]}
           >
             <AvatarCanvasPreview
               uri={inventory?.avatarUrl || null}
               name={account?.name || "Student"}
-              size={184}
-              bgColor={colors.bg1}
+              size={232}
+              bgColor={colors.bg2}
               borderColor={colors.bg4}
             />
           </View>
@@ -370,21 +395,23 @@ export default function AvatarCustomizeScreen() {
                     <Pressable
                       key={slot}
                       onPress={() => setSelectedSlot(slot)}
-                      style={[
-                        styles.slotChip,
-                        {
-                          borderColor: isActive ? colors.primary : colors.bg4,
-                          backgroundColor: isActive ? colors.bg3 : colors.bg2,
-                        },
-                      ]}
-                    >
+                    style={[
+                      styles.slotChip,
+                      {
+                        borderColor: isActive ? accent.blue : colors.bg4,
+                        backgroundColor: isActive
+                          ? accent.blue
+                          : colors.bg2,
+                      },
+                    ]}
+                  >
                       <Text
                         style={[
                           styles.slotChipText,
                           {
                             color: isActive
-                              ? colors.textPrimary
-                              : colors.textSecondary,
+                              ? "#fff"
+                              : colors.textPrimary,
                           },
                         ]}
                       >
@@ -414,15 +441,22 @@ export default function AvatarCustomizeScreen() {
                   styles.noneChip,
                   {
                     opacity: pressed ? 0.92 : 1,
-                    borderColor: colors.bg4,
+                    borderColor: accent.red,
                     backgroundColor: !inventory?.equipped?.[currentSlot]
-                      ? colors.bg3
+                      ? accent.red
                       : colors.bg2,
                   },
                 ]}
               >
                 <Text
-                  style={[styles.noneChipText, { color: colors.textPrimary }]}
+                  style={[
+                    styles.noneChipText,
+                    {
+                      color: !inventory?.equipped?.[currentSlot]
+                        ? "#fff"
+                        : accent.red,
+                    },
+                  ]}
                 >
                   None
                 </Text>
@@ -445,8 +479,9 @@ export default function AvatarCustomizeScreen() {
                       styles.assetCard,
                       {
                         opacity: pressed ? 0.92 : 1,
-                        borderColor: selected ? colors.primary : colors.bg4,
-                        backgroundColor: selected ? colors.bg3 : colors.bg2,
+                        borderColor: selected ? accent.blue : colors.bg4,
+                        borderWidth: selected ? 3 : 1,
+                        backgroundColor: colors.bg2,
                       },
                     ]}
                   >
@@ -454,13 +489,16 @@ export default function AvatarCustomizeScreen() {
                       <CosmeticCardPreview
                         previewUri={previewUrl}
                         size={132}
-                        bgColor={colors.bg3}
+                        bgColor={colors.bg1}
                         borderColor={colors.bg4}
                       />
                     ) : null}
                     <Text
                       numberOfLines={2}
-                      style={[styles.assetLabel, { color: colors.textPrimary }]}
+                      style={[
+                        styles.assetLabel,
+                        { color: colors.textPrimary },
+                      ]}
                     >
                       {item.name}
                     </Text>
@@ -477,16 +515,17 @@ export default function AvatarCustomizeScreen() {
             ) : null}
           </View>
 
-          {saving ? (
-            <View style={styles.savingRow}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text
-                style={[styles.savingText, { color: colors.textSecondary }]}
-              >
-                Saving...
-              </Text>
-            </View>
-          ) : null}
+            {saving ? (
+              <View style={styles.savingRow}>
+                <ActivityIndicator size="small" color={accent.green} />
+                <Text
+                  style={[styles.savingText, { color: colors.textSecondary }]}
+                >
+                  Saving...
+                </Text>
+              </View>
+            ) : null}
+          </Animated.View>
         </ScrollView>
       )}
     </View>
@@ -498,7 +537,7 @@ const getStyles = (colors: any) =>
     container: { flex: 1 },
     headerRow: {
       paddingHorizontal: 16,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
@@ -507,8 +546,8 @@ const getStyles = (colors: any) =>
     backBtn: {
       width: 34,
       height: 34,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -526,14 +565,17 @@ const getStyles = (colors: any) =>
       paddingHorizontal: 16,
       paddingTop: 24,
     },
+    scrollContent: {
+      gap: 14,
+    },
     errorTitle: {
       fontSize: 16,
       fontWeight: "800",
       lineHeight: 22,
     },
     previewCard: {
-      borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
+      borderWidth: 1,
       paddingVertical: 16,
       alignItems: "center",
       gap: 8,
@@ -556,8 +598,8 @@ const getStyles = (colors: any) =>
       paddingRight: 8,
     },
     slotChip: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: 999,
+      borderWidth: 1,
+      borderRadius: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
     },
@@ -576,8 +618,8 @@ const getStyles = (colors: any) =>
     },
     noneChip: {
       alignSelf: "flex-start",
-      borderRadius: 999,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       paddingHorizontal: 12,
       paddingVertical: 6,
       marginBottom: 4,
@@ -593,15 +635,15 @@ const getStyles = (colors: any) =>
     },
     assetCard: {
       width: "48%",
-      borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 9,
+      borderWidth: 1,
       padding: 8,
       gap: 8,
     },
     assetImage: {
       width: "100%",
       aspectRatio: 1,
-      borderRadius: 6,
+      borderRadius: 4,
       backgroundColor: colors.bg1,
     },
     assetLabel: {

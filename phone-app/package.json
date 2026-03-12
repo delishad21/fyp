@@ -13,6 +13,7 @@
     "@iconify-json/tabler": "^1.2.23",
     "@iconify/types": "^2.0.0",
     "@iconify/utils": "^3.0.2",
+    "@react-native-community/datetimepicker": "^8.4.4",
     "@react-navigation/native": "^7.1.8",
     "expo": "~54.0.13",
     "expo-constants": "~18.0.9",

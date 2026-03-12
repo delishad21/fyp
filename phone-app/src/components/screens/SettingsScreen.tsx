@@ -1,8 +1,12 @@
 import ThemeToggle from "@/src/components/ui/ThemeToggle";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
+import { hexToRgba } from "@/src/lib/color-utils";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router } from "expo-router";
 import React from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +19,11 @@ import { Iconify } from "react-native-iconify";
 
 export default function SettingsScreen() {
   const { colors, scheme, setScheme } = useTheme();
+  const contentMotion = useEntranceAnimation({
+    delayMs: 40,
+    fromY: 14,
+    durationMs: 260,
+  });
   const insets = useSafeAreaInsets();
   const styles = getStyles(colors);
   const next = scheme === "dark" ? "light" : "dark";
@@ -28,7 +37,7 @@ export default function SettingsScreen() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.topArea}>
+        <Animated.View style={[styles.topArea, contentMotion]}>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [
@@ -47,21 +56,25 @@ export default function SettingsScreen() {
           </Pressable>
           <Text style={styles.pageTitle}>Settings</Text>
           <Text style={styles.pageSubtitle}>Theme and preferences</Text>
-        </View>
+        </Animated.View>
 
-        <View style={styles.bottomArea}>
+        <Animated.View style={[styles.bottomArea, contentMotion]}>
           <Text style={styles.sectionTitle}>Preferences</Text>
 
           <Pressable
             onPress={() => setScheme(next)}
             style={({ pressed }) => [
               styles.tile,
-              { opacity: pressed ? 0.92 : 1 },
+              {
+                opacity: pressed ? 0.92 : 1,
+                borderColor: googlePalette.blue,
+                backgroundColor: googlePalette.blue,
+              },
             ]}
           >
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.tileTitle}>Dark mode</Text>
-              <Text numberOfLines={1} style={styles.tileSubtitle}>
+              <Text style={[styles.tileTitle, { color: "#fff" }]}>Dark mode</Text>
+              <Text numberOfLines={1} style={[styles.tileSubtitle, { color: "#FFFFFFE0" }]}>
                 Toggle app theme
               </Text>
             </View>
@@ -77,22 +90,26 @@ export default function SettingsScreen() {
             }
             style={({ pressed }) => [
               styles.tile,
-              { opacity: pressed ? 0.92 : 1 },
+              {
+                opacity: pressed ? 0.92 : 1,
+                borderColor: googlePalette.green,
+                backgroundColor: googlePalette.green,
+              },
             ]}
           >
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.tileTitle}>Change password</Text>
-              <Text numberOfLines={1} style={styles.tileSubtitle}>
+              <Text style={[styles.tileTitle, { color: "#fff" }]}>Change password</Text>
+              <Text numberOfLines={1} style={[styles.tileSubtitle, { color: "#FFFFFFE0" }]}>
                 Update your account password
               </Text>
             </View>
             <Iconify
               icon="mingcute:right-line"
               size={18}
-              color={colors.textSecondary}
+              color="#fff"
             />
           </Pressable>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -116,7 +133,7 @@ const getStyles = (colors: any) =>
     pageTitle: {
       fontSize: 28,
       fontWeight: "900",
-      color: colors.textPrimary,
+      color: googlePalette.blue,
     },
     backBtn: {
       alignSelf: "flex-start",
@@ -143,24 +160,19 @@ const getStyles = (colors: any) =>
       fontWeight: "900",
       letterSpacing: 0.8,
       marginTop: 2,
-      color: colors.textSecondary,
+      color: googlePalette.red,
     },
 
     tile: {
-      borderRadius: 5,
+      borderRadius: 9,
       paddingVertical: 14,
       paddingHorizontal: 14,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       backgroundColor: colors.bg2,
       borderColor: colors.bg4,
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: Platform.select({ android: 2, ios: 0 }),
-      shadowColor: "#000",
     },
     tileTitle: {
       fontSize: 15,

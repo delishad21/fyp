@@ -5,7 +5,9 @@ import {
   type GameStudentNotification,
 } from "@/src/api/game-service";
 import { useSession } from "@/src/auth/session";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
@@ -33,6 +35,10 @@ function formatWhen(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString();
+}
+
+function notificationAccent(notification: GameStudentNotification) {
+  return googlePalette.blue;
 }
 
 function NotificationAsset({
@@ -176,6 +182,11 @@ function SwipeToAcknowledgeRow({
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
+  const contentMotion = useEntranceAnimation({
+    delayMs: 40,
+    fromY: 14,
+    durationMs: 260,
+  });
   const insets = useSafeAreaInsets();
   const token = useSession((s) => s.token());
   const account = useSession((s) => s.account);
@@ -188,7 +199,12 @@ export default function NotificationsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!token || !account?.id) return;
+    if (!token || !account?.id) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -297,10 +313,14 @@ export default function NotificationsScreen() {
             },
           ]}
         >
-          <Iconify icon="mingcute:arrow-left-line" size={21} color={colors.icon} />
+          <Iconify
+            icon="mingcute:arrow-left-line"
+            size={21}
+            color={colors.icon}
+          />
         </Pressable>
 
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+        <Text style={[styles.headerTitle, { color: googlePalette.blue }]}>
           Notifications
         </Text>
 
@@ -313,12 +333,12 @@ export default function NotificationsScreen() {
             styles.markAllBtn,
             {
               opacity: !unreadIds.length || markingAll ? 0.45 : pressed ? 0.85 : 1,
-              backgroundColor: colors.bg2,
-              borderColor: colors.bg4,
+              backgroundColor: googlePalette.blue,
+              borderColor: googlePalette.blue,
             },
           ]}
         >
-          <Text style={[styles.markAllText, { color: colors.textPrimary }]}>
+          <Text style={[styles.markAllText, { color: "#fff" }]}>
             Clear all
           </Text>
         </Pressable>
@@ -329,10 +349,10 @@ export default function NotificationsScreen() {
           paddingHorizontal: 16,
           paddingTop: 14,
           paddingBottom: Math.max(insets.bottom + 24, 32),
-          gap: 10,
         }}
       >
-        {loading ? (
+        <Animated.View style={[styles.scrollContent, contentMotion]}>
+          {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
@@ -375,7 +395,7 @@ export default function NotificationsScreen() {
                     styles.rowCard,
                     {
                       backgroundColor: colors.bg2,
-                      borderColor: colors.primary,
+                      borderColor: colors.bg4,
                     },
                   ]}
                 >
@@ -395,7 +415,7 @@ export default function NotificationsScreen() {
                           {row.title}
                         </Text>
                         <View
-                          style={[styles.unreadDot, { backgroundColor: colors.primary }]}
+                          style={[styles.unreadDot, { backgroundColor: googlePalette.blue }]}
                         />
                       </View>
                       <Text style={[styles.rowMessage, { color: colors.textSecondary }]}>
@@ -410,13 +430,17 @@ export default function NotificationsScreen() {
               </SwipeToAcknowledgeRow>
             );
           })
-        )}
+          )}
+        </Animated.View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    gap: 10,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -428,8 +452,8 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 38,
     height: 38,
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -439,8 +463,8 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   markAllBtn: {
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 7,
+    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
@@ -454,16 +478,16 @@ const styles = StyleSheet.create({
     minHeight: 140,
   },
   emptyCard: {
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    borderWidth: 1,
     minHeight: 120,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
   rowCard: {
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 9,
+    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -475,7 +499,7 @@ const styles = StyleSheet.create({
   assetWrap: {
     width: 42,
     height: 42,
-    borderRadius: 5,
+    borderRadius: 7,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
@@ -483,7 +507,7 @@ const styles = StyleSheet.create({
   assetFallback: {
     width: 42,
     height: 42,
-    borderRadius: 5,
+    borderRadius: 7,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -505,7 +529,7 @@ const styles = StyleSheet.create({
   unreadDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 3,
   },
   rowMessage: {
     marginTop: 3,

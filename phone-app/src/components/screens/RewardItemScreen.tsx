@@ -13,11 +13,15 @@ import {
   type GameStudentInventory,
 } from "@/src/api/game-service";
 import { useSession } from "@/src/auth/session";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
+import { hexToRgba } from "@/src/lib/color-utils";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Modal,
   Pressable,
@@ -77,7 +81,7 @@ function RewardArt({
         style={{
           width: size,
           height: size,
-          borderRadius: 10,
+          borderRadius: 7,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: fallbackBg,
@@ -108,6 +112,11 @@ function RewardArt({
 
 export default function RewardItemScreen() {
   const { colors } = useTheme();
+  const contentMotion = useEntranceAnimation({
+    delayMs: 45,
+    fromY: 16,
+    durationMs: 280,
+  });
   const insets = useSafeAreaInsets();
   const token = useSession((s) => s.token());
   const account = useSession((s) => s.account);
@@ -133,7 +142,12 @@ export default function RewardItemScreen() {
     useState<ReplaceBadgeModalState | null>(null);
 
   const load = useCallback(async () => {
-    if (!token || !account?.id) return;
+    if (!token || !account?.id) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     if (!rewardId) {
       setError("Missing rewardId");
       setLoading(false);
@@ -341,13 +355,16 @@ export default function RewardItemScreen() {
             paddingHorizontal: 16,
             paddingTop: 16,
             paddingBottom: Math.max(insets.bottom + 24, 32),
-            gap: 12,
           }}
         >
+          <Animated.View style={[styles.scrollContent, contentMotion]}>
           <View
             style={[
               styles.artCard,
-              { borderColor: colors.bg4, backgroundColor: colors.bg2 },
+              {
+                borderColor: colors.bg4,
+                backgroundColor: colors.bg2,
+              },
             ]}
           >
             <RewardArt
@@ -362,7 +379,10 @@ export default function RewardItemScreen() {
           <View
             style={[
               styles.infoCard,
-              { borderColor: colors.bg4, backgroundColor: colors.bg2 },
+              {
+                borderColor: colors.bg4,
+                backgroundColor: colors.bg2,
+              },
             ]}
           >
             {rewardType === "badge" ? (
@@ -410,44 +430,45 @@ export default function RewardItemScreen() {
             )}
           </View>
 
-          {rewardType === "badge" ? (
-            <Pressable
-              onPress={onToggleDisplayBadge}
-              disabled={!ownsBadge || saving}
-              style={({ pressed }) => [
-                styles.primaryBtn,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: !ownsBadge || saving ? 0.45 : pressed ? 0.9 : 1,
-                },
-              ]}
-            >
-              {saving ? <ActivityIndicator size="small" color="#fff" /> : null}
-              <Text style={styles.primaryBtnText}>
-                {displayedBadge ? "Remove from Display" : "Display on Profile"}
-              </Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={onEquipCosmetic}
-              disabled={!ownsCosmetic || saving || !cosmetic?.slot}
-              style={({ pressed }) => [
-                styles.primaryBtn,
-                {
-                  backgroundColor: colors.primary,
-                  opacity:
-                    !ownsCosmetic || saving || !cosmetic?.slot ? 0.45 : pressed ? 0.9 : 1,
-                },
-              ]}
-            >
-              {saving ? <ActivityIndicator size="small" color="#fff" /> : null}
-              <Text style={styles.primaryBtnText}>
-                {inventory?.equipped?.[cosmetic?.slot as AvatarSlot] === rewardId
-                  ? "Equipped"
-                  : "Equip"}
-              </Text>
-            </Pressable>
-          )}
+            {rewardType === "badge" ? (
+              <Pressable
+                onPress={onToggleDisplayBadge}
+                disabled={!ownsBadge || saving}
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: googlePalette.green,
+                    opacity: !ownsBadge || saving ? 0.45 : pressed ? 0.9 : 1,
+                  },
+                ]}
+              >
+                {saving ? <ActivityIndicator size="small" color="#fff" /> : null}
+                <Text style={styles.primaryBtnText}>
+                  {displayedBadge ? "Remove from Display" : "Display on Profile"}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={onEquipCosmetic}
+                disabled={!ownsCosmetic || saving || !cosmetic?.slot}
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: googlePalette.green,
+                    opacity:
+                      !ownsCosmetic || saving || !cosmetic?.slot ? 0.45 : pressed ? 0.9 : 1,
+                  },
+                ]}
+              >
+                {saving ? <ActivityIndicator size="small" color="#fff" /> : null}
+                <Text style={styles.primaryBtnText}>
+                  {inventory?.equipped?.[cosmetic?.slot as AvatarSlot] === rewardId
+                    ? "Equipped"
+                    : "Equip"}
+                </Text>
+              </Pressable>
+            )}
+          </Animated.View>
         </ScrollView>
       )}
       <Modal
@@ -460,7 +481,7 @@ export default function RewardItemScreen() {
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: colors.bg1, borderColor: colors.bg4 },
+              { backgroundColor: colors.bg1, borderColor: googlePalette.red },
             ]}
           >
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
@@ -506,12 +527,12 @@ export default function RewardItemScreen() {
                 styles.modalCloseBtn,
                 {
                   opacity: pressed ? 0.9 : 1,
-                  borderColor: colors.bg4,
-                  backgroundColor: colors.bg2,
+                  borderColor: googlePalette.red,
+                  backgroundColor: googlePalette.red,
                 },
               ]}
             >
-              <Text style={[styles.modalCloseText, { color: colors.textPrimary }]}>
+              <Text style={[styles.modalCloseText, { color: "#fff" }]}>
                 Cancel
               </Text>
             </Pressable>
@@ -528,7 +549,7 @@ const getStyles = () =>
     header: {
       paddingHorizontal: 12,
       paddingBottom: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: 1,
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
@@ -536,8 +557,8 @@ const getStyles = () =>
     backBtn: {
       width: 38,
       height: 38,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -559,6 +580,9 @@ const getStyles = () =>
       paddingTop: 20,
       gap: 6,
     },
+    scrollContent: {
+      gap: 12,
+    },
     errorTitle: {
       fontSize: 17,
       fontWeight: "900",
@@ -569,15 +593,15 @@ const getStyles = () =>
       lineHeight: 20,
     },
     artCard: {
-      borderRadius: 6,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
       paddingVertical: 16,
     },
     infoCard: {
-      borderRadius: 6,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
+      borderWidth: 1,
       padding: 14,
       gap: 6,
     },
@@ -596,7 +620,7 @@ const getStyles = () =>
     },
     primaryBtn: {
       height: 44,
-      borderRadius: 6,
+      borderRadius: 9,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -617,8 +641,8 @@ const getStyles = () =>
     modalCard: {
       width: "100%",
       maxWidth: 420,
-      borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
+      borderWidth: 1,
       padding: 14,
       gap: 10,
     },
@@ -639,7 +663,7 @@ const getStyles = () =>
     modalBadgeBtn: {
       width: "48%",
       borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       padding: 10,
       alignItems: "center",
       gap: 6,
@@ -651,8 +675,8 @@ const getStyles = () =>
       minHeight: 30,
     },
     modalCloseBtn: {
-      borderRadius: 6,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       height: 40,
       alignItems: "center",
       justifyContent: "center",

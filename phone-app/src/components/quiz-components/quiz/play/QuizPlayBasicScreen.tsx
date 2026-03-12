@@ -15,8 +15,8 @@ import { normaliseInitialAnswers } from "@/src/lib/attempt-helpers";
 import { hexToRgba, isDarkHex } from "@/src/lib/color-utils";
 import { navigateToQuizResults } from "@/src/lib/quiz-navigation";
 import { getHalfScreenHeight } from "@/src/lib/ui-helpers";
+import { googlePalette } from "@/src/theme/google-palette";
 import { useTheme } from "@/src/theme";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, {
   useCallback,
@@ -46,6 +46,7 @@ import {
   QuizActionButton,
   QuizHeader,
   SaveStatusBadge,
+  TimePill,
   TimerBar,
 } from "../../shared";
 
@@ -260,6 +261,11 @@ export default function QuizPlayBasicScreen({
 
   const canInteract =
     (remaining === null || remaining > 0) && !finishing && saving !== "saving";
+  const accent = {
+    blue: googlePalette.blue,
+    red: googlePalette.red,
+    green: googlePalette.green,
+  } as const;
 
   const keyboardH = useKeyboardHeight();
 
@@ -306,16 +312,6 @@ export default function QuizPlayBasicScreen({
 
   const indicatorStyle = isDarkHex(colors.bg1) ? "white" : "black";
 
-  // Gradient colors derived from bg1 so it matches theme
-  const fadeTop = [
-    hexToRgba(colors.bg1, 1),
-    hexToRgba(colors.bg1, 0.0),
-  ] as const;
-  const fadeBottom = [
-    hexToRgba(colors.bg1, 0.0),
-    hexToRgba(colors.bg1, 1),
-  ] as const;
-
   const promptFontSize = getPromptFontSize(current.text);
   const promptLineHeight = Math.round(promptFontSize * 1.4);
 
@@ -329,18 +325,32 @@ export default function QuizPlayBasicScreen({
         {/* ===== Header (using extracted component) ===== */}
         <QuizHeader
           title={spec.meta?.name ?? "Quiz"}
-          remaining={remaining}
+          remaining={null}
           paddingTop={insets.top + 6}
         />
 
-        {/* ===== Timer bar (using extracted component) ===== */}
-        <TimerBar percent={percent} />
+        {/* ===== Timer row (pill left, bar right) ===== */}
+        {(remaining !== null && remaining !== undefined) || percent !== null ? (
+          <View style={styles.timerRow}>
+            {remaining !== null && remaining !== undefined ? (
+              <TimePill seconds={remaining} />
+            ) : (
+              <View style={styles.timerPillSpacer} />
+            )}
+            <View style={styles.timerRowBarWrap}>
+              <TimerBar percent={percent} inline />
+            </View>
+          </View>
+        ) : null}
 
         {/* ===== Nav row (below timer bar) ===== */}
         <View
           style={[
             styles.navRow,
-            { borderBottomColor: colors.bg2, backgroundColor: colors.bg1 },
+            {
+              borderBottomColor: hexToRgba(accent.blue, 0.35),
+              backgroundColor: colors.bg1,
+            },
           ]}
         >
           <Pressable
@@ -349,16 +359,20 @@ export default function QuizPlayBasicScreen({
             style={({ pressed }) => [
               styles.navBtn,
               {
-                backgroundColor: colors.bg2,
-                borderColor: colors.bg3,
+                backgroundColor: "transparent",
+                borderColor: accent.blue,
                 opacity: pressed ? 0.85 : index === 0 || !canInteract ? 0.5 : 1,
               },
             ]}
           >
-            <Iconify icon="mingcute:left-line" size={21} color={colors.icon} />
+            <Iconify
+              icon="mingcute:arrow-left-line"
+              size={21}
+              color={accent.blue}
+            />
           </Pressable>
 
-          <Text style={[styles.qCount, { color: colors.textPrimary }]}>
+          <Text style={[styles.qCount, { color: accent.blue }]}>
             {index + 1} / {items.length}
           </Text>
 
@@ -368,13 +382,13 @@ export default function QuizPlayBasicScreen({
             style={({ pressed }) => [
               styles.navBtn,
               {
-                backgroundColor: colors.bg2,
-                borderColor: colors.bg3,
+                backgroundColor: "transparent",
+                borderColor: accent.blue,
                 opacity: pressed ? 0.85 : isLast || !canInteract ? 0.5 : 1,
               },
             ]}
           >
-            <Iconify icon="mingcute:right-line" size={21} color={colors.icon} />
+            <Iconify icon="mingcute:right-line" size={21} color={accent.blue} />
           </Pressable>
         </View>
 
@@ -436,25 +450,19 @@ export default function QuizPlayBasicScreen({
                 ) : null}
               </ScrollView>
 
-              {/* ✅ Real gradient fades (makes scrollability obvious) */}
+              {/* Scroll affordance overlays */}
               {promptCanScroll ? (
                 <>
                   {promptScrolledY > 6 ? (
-                    <LinearGradient
+                    <View
                       pointerEvents="none"
-                      colors={fadeTop as any}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 0, y: 1 }}
-                      style={styles.fadeTop}
+                      style={[styles.fadeTop, { backgroundColor: colors.bg1 }]}
                     />
                   ) : null}
 
-                  <LinearGradient
+                  <View
                     pointerEvents="none"
-                    colors={fadeBottom as any}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={styles.fadeBottom}
+                    style={[styles.fadeBottom, { backgroundColor: colors.bg1 }]}
                   />
 
                   {/* optional nudge hint before first scroll */}
@@ -464,15 +472,15 @@ export default function QuizPlayBasicScreen({
                         style={[
                           styles.scrollHintPill,
                           {
-                            backgroundColor: colors.bg2,
-                            borderColor: colors.bg3,
+                            backgroundColor: hexToRgba(accent.blue, 0.14),
+                            borderColor: accent.blue,
                           },
                         ]}
                       >
                         <Text
                           style={[
                             styles.scrollHintText,
-                            { color: colors.textSecondary },
+                            { color: accent.blue },
                           ]}
                         >
                           Scroll
@@ -480,7 +488,7 @@ export default function QuizPlayBasicScreen({
                         <Iconify
                           icon="mingcute:down-line"
                           size={18}
-                          color={colors.textSecondary}
+                          color={accent.blue}
                         />
                       </View>
                     </View>
@@ -520,9 +528,11 @@ export default function QuizPlayBasicScreen({
                           styles.option,
                           {
                             backgroundColor: selected
-                              ? colors.primary
+                              ? accent.blue
                               : colors.bg2,
-                            borderColor: colors.bg3,
+                            borderColor: selected
+                              ? accent.blue
+                              : hexToRgba(accent.blue, 0.35),
                             opacity: pressed ? 0.9 : 1,
                           },
                         ]}
@@ -582,10 +592,10 @@ export default function QuizPlayBasicScreen({
                               disabled={!canInteract}
                               style={({ pressed }) => [
                                 {
-                                  backgroundColor: colors.primary,
+                                  backgroundColor: accent.green,
                                   paddingHorizontal: 12,
                                   paddingVertical: 6,
-                                  borderRadius: 5,
+                                  borderRadius: 4,
                                   opacity: pressed ? 0.8 : 1,
                                 },
                               ]}
@@ -626,7 +636,7 @@ export default function QuizPlayBasicScreen({
                                     style={[
                                       styles.input,
                                       {
-                                        borderColor: colors.primary,
+                                        borderColor: accent.blue,
                                         color: colors.textPrimary,
                                         backgroundColor: colors.bg1,
                                       },
@@ -644,9 +654,12 @@ export default function QuizPlayBasicScreen({
                                     disabled={!canInteract}
                                     style={({ pressed }) => [
                                       {
-                                        backgroundColor: colors.bg2,
+                                        backgroundColor: hexToRgba(
+                                          accent.red,
+                                          0.14
+                                        ),
                                         padding: 10,
-                                        borderRadius: 5,
+                                        borderRadius: 4,
                                         opacity: pressed ? 0.7 : 1,
                                       },
                                     ]}
@@ -654,7 +667,7 @@ export default function QuizPlayBasicScreen({
                                     <Iconify
                                       icon="mingcute:delete-2-line"
                                       size={20}
-                                      color={colors.textSecondary}
+                                      color={accent.red}
                                     />
                                   </Pressable>
                                 )}
@@ -702,7 +715,7 @@ export default function QuizPlayBasicScreen({
                           style={[
                             styles.input,
                             {
-                              borderColor: colors.primary,
+                              borderColor: accent.blue,
                               color: colors.textPrimary,
                               backgroundColor: colors.bg1,
                             },
@@ -751,6 +764,19 @@ export default function QuizPlayBasicScreen({
 
 const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
+  timerRow: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  timerPillSpacer: {
+    width: 84,
+  },
+  timerRowBarWrap: {
+    flex: 1,
+  },
 
   navRow: {
     marginTop: 10,
@@ -764,8 +790,8 @@ const styles = StyleSheet.create({
   navBtn: {
     height: 42,
     width: 42,
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 4,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -779,7 +805,7 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: 220,
-    borderRadius: 5,
+    borderRadius: 4,
   },
 
   prompt: {
@@ -789,13 +815,14 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
 
-  // gradient fades
+  // prompt edge overlays
   fadeTop: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 26,
+    opacity: 0.92,
   },
   fadeBottom: {
     position: "absolute",
@@ -803,6 +830,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 34,
+    opacity: 0.96,
   },
 
   scrollHintWrap: {
@@ -814,7 +842,7 @@ const styles = StyleSheet.create({
   },
   scrollHintPill: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     flexDirection: "row",
@@ -837,7 +865,7 @@ const styles = StyleSheet.create({
   option: {
     paddingVertical: 14,
     paddingHorizontal: 12,
-    borderRadius: 5,
+    borderRadius: 4,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 10,
   },
@@ -846,7 +874,7 @@ const styles = StyleSheet.create({
   input: {
     height: 44,
     borderWidth: 2,
-    borderRadius: 5,
+    borderRadius: 4,
     paddingHorizontal: 12,
     fontSize: 17,
     fontWeight: "800",

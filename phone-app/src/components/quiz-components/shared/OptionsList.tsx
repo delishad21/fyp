@@ -6,6 +6,8 @@
 import React from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
+import { hexToRgba } from "@/src/lib/color-utils";
 
 type Option = {
   id: string;
@@ -64,8 +66,12 @@ export function OptionsList({
               style={({ pressed }) => [
                 styles.option,
                 {
-                  backgroundColor: isSelected ? colors.primary : colors.bg2,
-                  borderColor: colors.bg3,
+                  backgroundColor: isSelected
+                    ? googlePalette.blue
+                    : colors.bg2,
+                  borderColor: isSelected
+                    ? googlePalette.blue
+                    : hexToRgba(googlePalette.blue, 0.4),
                   opacity: pressed ? 0.9 : 1,
                 },
               ]}
@@ -96,7 +102,7 @@ const styles = StyleSheet.create({
   option: {
     paddingVertical: 14,
     paddingHorizontal: 12,
-    borderRadius: 5,
+    borderRadius: 4,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 10,
   },

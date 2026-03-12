@@ -1,5 +1,6 @@
 import { AttemptRow } from "@/src/api/quiz-service";
 import { fmtDateTime } from "@/src/lib/attempt-helpers";
+import { googlePalette } from "@/src/theme/google-palette";
 import { useTheme } from "@/src/theme";
 import {
   FlatList,
@@ -42,13 +43,12 @@ export function AttemptPickerModal({
             {
               backgroundColor: colors.bg1,
               borderColor: colors.bg4,
-              shadowColor: "#000",
               // Ensure list stays above home indicator
               paddingBottom: 24 + Math.max(insets.bottom, 0),
             },
           ]}
         >
-          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+          <Text style={[styles.modalTitle, { color: googlePalette.blue }]}>
             Select attempt
           </Text>
 
@@ -74,9 +74,8 @@ export function AttemptPickerModal({
                     styles.row,
                     {
                       opacity: pressed ? 0.92 : 1,
-                      backgroundColor: isSel ? colors.bg2 : colors.bg1,
-                      borderColor: colors.bg4,
-                      shadowColor: "#000",
+                      backgroundColor: colors.bg1,
+                      borderColor: isSel ? googlePalette.blue : colors.bg4,
                     },
                   ]}
                 >
@@ -95,7 +94,10 @@ export function AttemptPickerModal({
                     </Text>
                   </View>
                   <Text
-                    style={{ color: colors.textPrimary, fontWeight: "900" }}
+                    style={{
+                      color: isSel ? googlePalette.red : colors.textPrimary,
+                      fontWeight: "900",
+                    }}
                   >
                     {score}
                   </Text>
@@ -110,12 +112,12 @@ export function AttemptPickerModal({
               styles.closeBtn,
               {
                 opacity: pressed ? 0.9 : 1,
-                borderColor: colors.bg4,
-                backgroundColor: colors.bg2,
+                borderColor: googlePalette.red,
+                backgroundColor: googlePalette.red,
               },
             ]}
           >
-            <Text style={{ color: colors.textPrimary, fontWeight: "800" }}>
+            <Text style={{ color: "#fff", fontWeight: "800" }}>
               Close
             </Text>
           </Pressable>
@@ -135,34 +137,26 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: "100%",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     paddingHorizontal: 16,
     paddingTop: 14,
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: "70%",
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 6,
   },
   modalTitle: { fontSize: 16, fontWeight: "900", marginBottom: 10 },
   row: {
     paddingHorizontal: 12,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 7,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
   },
   closeBtn: {
     height: 44,
-    borderRadius: 10,
+    borderRadius: 7,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",

@@ -7,15 +7,18 @@ import {
   type AttemptSpec,
 } from "@/src/api/quiz-service";
 import { useSession } from "@/src/auth/session";
+import { hexToRgba } from "@/src/lib/color-utils";
+import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useAttemptCache } from "@/src/services/attempt-cache";
 import { useTheme } from "@/src/theme";
+import { googlePalette } from "@/src/theme/google-palette";
 import { RouteProp, useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -58,11 +61,25 @@ const quizTypeLabel = (spec: AttemptSpec | null) => {
   return null;
 };
 
+const QUIZ_TYPE_COLOR_FALLBACK: Record<string, string> = {
+  basic: "#22c55e",
+  rapid: "#f59e0b",
+  crossword: "#3b82f6",
+  "rapid-arithmetic": "#eab308",
+  "crossword-bank": "#0ea5e9",
+  "true-false": "#ef4444",
+};
+
 export default function QuizStartScreen() {
   const { params } = useRoute<RouteProp<ParamList, "QuizStart">>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const contentMotion = useEntranceAnimation({
+    delayMs: 40,
+    fromY: 14,
+    durationMs: 270,
+  });
   const token = useSession((s) => s.token());
 
   const [loading, setLoading] = useState(true);
@@ -71,7 +88,12 @@ export default function QuizStartScreen() {
   const [inProgressAttemptId, setInProgressAttemptId] = useState<string>();
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setError("Session expired. Please sign in again.");
+      setLoading(false);
+      void useSession.getState().logout();
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -104,6 +126,28 @@ export default function QuizStartScreen() {
     params.subjectColorHex || spec?.meta?.subjectColorHex || colors.primary;
 
   const typeLabel = useMemo(() => quizTypeLabel(spec), [spec]);
+  const typeTag = useMemo(() => {
+    const type = spec?.quizType;
+    const serverTypeColor = String(spec?.meta?.typeColorHex || "").trim();
+    if (serverTypeColor) {
+      return {
+        bg: serverTypeColor,
+        fg:
+          serverTypeColor.toLowerCase() === "#eab308" ? "#1F1F1F" : "#fff",
+      };
+    }
+    if (!type) {
+      return {
+        bg: colors.bg3,
+        fg: colors.textPrimary,
+      };
+    }
+    const fallbackColor = QUIZ_TYPE_COLOR_FALLBACK[String(type)] || colors.bg3;
+    return {
+      bg: fallbackColor,
+      fg: fallbackColor.toLowerCase() === "#eab308" ? "#1F1F1F" : "#fff",
+    };
+  }, [colors.bg3, colors.textPrimary, spec?.meta?.typeColorHex, spec?.quizType]);
 
   const { questionCount, timeLine } = useMemo(() => {
     if (!spec) return { questionCount: 0, timeLine: "—" };
@@ -156,209 +200,257 @@ export default function QuizStartScreen() {
   }, [token, spec, params.scheduleId, router]);
 
   const styles = getStyles();
+  const accent = { green: googlePalette.green } as const;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg1 }}>
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: insets.top + 10,
-          paddingBottom: insets.bottom + 28,
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            style={({ pressed }) => [
-              styles.backBtn,
-              {
-                backgroundColor: colors.bg2,
-                borderColor: colors.bg3,
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Iconify
-              icon="mingcute:arrow-left-line"
-              size={23}
-              color={colors.icon}
-            />
-          </Pressable>
+      <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={({ pressed }) => [
+            styles.backBtn,
+            {
+              backgroundColor: colors.bg2,
+              borderColor: colors.bg4,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <Iconify
+            icon="mingcute:arrow-left-line"
+            size={22}
+            color={colors.icon}
+          />
+        </Pressable>
+      </View>
 
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            Quiz
-          </Text>
-
-          <View style={{ width: 42 }} />
-        </View>
-
-        <View style={{ paddingHorizontal: 16 }}>
-          {/* TITLE CARD (title at top, subject/topic below) */}
-          <View
-            style={[
-              styles.titleCard,
-              {
-                backgroundColor: pillColor,
-                shadowColor: "#000",
-              },
-            ]}
-          >
-            <View style={styles.titleTopRow}>
-              <Text style={styles.titleCardTitle} numberOfLines={2}>
-                {quizName}
-              </Text>
-
-              {typeLabel ? (
-                <View style={styles.typeBadge}>
-                  <Text style={styles.typeBadgeText}>{typeLabel}</Text>
-                </View>
-              ) : null}
-            </View>
-
-            <Text style={styles.titleCardSub} numberOfLines={2}>
-              {[subject, topic].filter(Boolean).join(" • ") || "Quiz"}
-            </Text>
+      <View style={styles.splitRoot}>
+        <Animated.View
+          style={[
+            styles.topHalf,
+            { backgroundColor: pillColor },
+            contentMotion,
+          ]}
+        >
+          <View style={styles.topInner}>
+            <Text style={styles.topTitle}>{quizName}</Text>
           </View>
+        </Animated.View>
 
-          {/* STATS AREA (separate area) */}
-          <View
-            style={[
-              styles.statsCard,
-              { backgroundColor: colors.bg2, borderColor: colors.bg3 },
-            ]}
-          >
-            <View style={styles.statRow}>
-              <View
-                style={[
-                  styles.statIconWrap,
-                  { backgroundColor: colors.bg3, borderColor: colors.bg3 },
-                ]}
-              >
-                <Iconify
-                  icon="mingcute:question-line"
-                  size={21}
-                  color={colors.icon}
-                />
+        <View style={[styles.bottomHalf, { backgroundColor: colors.bg1 }]}>
+          <Animated.View style={[styles.bottomInner, contentMotion]}>
+            {loading ? (
+              <View style={styles.center}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.helper, { color: colors.textSecondary }]}>
+                  Loading quiz…
+                </Text>
               </View>
+            ) : error ? (
+              <View style={styles.center}>
+                <Text style={[styles.errorText, { color: colors.error }]}>
+                  {error}
+                </Text>
 
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text
-                  style={[styles.statLabel, { color: colors.textSecondary }]}
+                <Pressable
+                  onPress={load}
+                  style={({ pressed }) => [
+                    styles.retryBtn,
+                    {
+                      opacity: pressed ? 0.9 : 1,
+                      backgroundColor: googlePalette.red,
+                      borderColor: googlePalette.red,
+                    },
+                  ]}
                 >
-                  Questions
-                </Text>
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                  {questionCount}{" "}
-                  {questionCount === 1 ? "question" : "questions"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.bg3 }]} />
-
-            <View style={styles.statRow}>
-              <View
-                style={[
-                  styles.statIconWrap,
-                  { backgroundColor: colors.bg3, borderColor: colors.bg3 },
-                ]}
-              >
-                <Iconify
-                  icon="mingcute:time-line"
-                  size={21}
-                  color={colors.icon}
-                />
-              </View>
-
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text
-                  style={[styles.statLabel, { color: colors.textSecondary }]}
-                >
-                  Time limit
-                </Text>
-                <Text
-                  style={[styles.statValue, { color: colors.textPrimary }]}
-                  numberOfLines={2}
-                >
-                  {timeLine}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Content */}
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.helper, { color: colors.textSecondary }]}>
-                Loading quiz…
-              </Text>
-            </View>
-          ) : error ? (
-            <View style={styles.center}>
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {error}
-              </Text>
-
-              <Pressable
-                onPress={load}
-                style={({ pressed }) => [
-                  styles.retryBtn,
-                  {
-                    opacity: pressed ? 0.9 : 1,
-                    backgroundColor: colors.bg2,
-                    borderColor: colors.bg3,
-                  },
-                ]}
-              >
-                <Text style={{ color: colors.textPrimary, fontWeight: "900" }}>
-                  Retry
-                </Text>
-              </Pressable>
-            </View>
-          ) : spec ? (
-            <>
-              {/* CTA */}
-              <Pressable
-                onPress={onStartOrResume}
-                style={({ pressed }) => [
-                  styles.cta,
-                  {
-                    backgroundColor: colors.primary,
-                    opacity: pressed ? 0.92 : 1,
-                    shadowColor: "#000",
-                  },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.ctaTitle}>
-                    {inProgressAttemptId ? "Resume quiz" : "Start quiz"}
+                  <Text style={{ color: "#fff", fontWeight: "900" }}>
+                    Retry
                   </Text>
-                  <Text style={styles.ctaSub}>
-                    {spec.attemptsRemaining} attempt
-                    {spec.attemptsRemaining === 1 ? "" : "s"} remaining
-                  </Text>
-                </View>
+                </Pressable>
+              </View>
+            ) : spec ? (
+              <View style={styles.bottomContent}>
+                <Pressable
+                  onPress={onStartOrResume}
+                  style={({ pressed }) => [
+                    styles.cta,
+                    {
+                      backgroundColor: accent.green,
+                      opacity: pressed ? 0.92 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.ctaRow}>
+                    <Iconify
+                      icon="mingcute:play-fill"
+                      size={22}
+                      color="#fff"
+                    />
+                    <Text style={styles.ctaTitle}>
+                      {inProgressAttemptId ? "Resume Quiz" : "Start Quiz"}
+                    </Text>
+                  </View>
+                </Pressable>
+                <Text style={[styles.attemptsText, { color: colors.textSecondary }]}>
+                  {spec.attemptsRemaining} attempt
+                  {spec.attemptsRemaining === 1 ? "" : "s"} remaining
+                </Text>
 
-                <View style={styles.ctaArrowWrap}>
-                  <Iconify
-                    icon="mingcute:right-line"
-                    size={21}
-                    color="#fff"
+                <View style={styles.bottomInfoArea}>
+                <View
+                  style={[
+                    styles.statsCard,
+                    {
+                      backgroundColor: colors.bg2,
+                      borderColor: colors.bg4,
+                    },
+                  ]}
+                >
+                  <View style={styles.statRow}>
+                    <View style={styles.statLabelGroup}>
+                      <Iconify
+                        icon="mingcute:book-2-line"
+                        size={18}
+                        color={colors.icon}
+                      />
+                      <Text
+                        style={[styles.statLabel, { color: colors.textSecondary }]}
+                      >
+                        Subject
+                      </Text>
+                    </View>
+                    <View style={styles.subjectValueWrap}>
+                      <View
+                        style={[
+                          styles.subjectDot,
+                          { backgroundColor: pillColor || colors.primary },
+                        ]}
+                      />
+                      <Text
+                        style={[styles.subjectValueText, { color: colors.textPrimary }]}
+                        numberOfLines={1}
+                      >
+                        {subject || "—"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View
+                    style={[styles.divider, { backgroundColor: colors.bg4 }]}
                   />
-                </View>
-              </Pressable>
 
-              <Text style={[styles.helper2, { color: colors.textSecondary }]}>
-                You can leave and come back later — we’ll keep your progress.
-              </Text>
-            </>
-          ) : null}
+                  <View style={styles.statRow}>
+                    <View style={styles.statLabelGroup}>
+                      <Iconify
+                        icon="mingcute:tag-2-line"
+                        size={18}
+                        color={colors.icon}
+                      />
+                      <Text
+                        style={[styles.statLabel, { color: colors.textSecondary }]}
+                      >
+                        Topic
+                      </Text>
+                    </View>
+                    <Text
+                      style={[styles.statValue, { color: colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {topic || "—"}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[styles.divider, { backgroundColor: colors.bg4 }]}
+                  />
+
+                  <View style={styles.statRow}>
+                    <View style={styles.statLabelGroup}>
+                      <Iconify
+                        icon="mingcute:award-line"
+                          size={18}
+                          color={colors.icon}
+                        />
+                        <Text
+                          style={[styles.statLabel, { color: colors.textSecondary }]}
+                        >
+                          Quiz Type
+                        </Text>
+                      </View>
+                      <View style={styles.statValueWrap}>
+                        <View
+                          style={[
+                            styles.typeTag,
+                            {
+                              backgroundColor: typeTag.bg,
+                              borderColor: typeTag.bg,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.typeTagText, { color: typeTag.fg }]}>
+                            {typeLabel || "—"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View
+                      style={[styles.divider, { backgroundColor: colors.bg4 }]}
+                    />
+
+                    <View style={styles.statRow}>
+                      <View style={styles.statLabelGroup}>
+                        <Iconify
+                          icon="mingcute:question-line"
+                          size={18}
+                          color={colors.icon}
+                        />
+                        <Text
+                          style={[styles.statLabel, { color: colors.textSecondary }]}
+                        >
+                          Questions
+                        </Text>
+                      </View>
+                      <Text
+                        style={[styles.statValue, { color: colors.textPrimary }]}
+                      >
+                        {questionCount}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[styles.divider, { backgroundColor: colors.bg4 }]}
+                    />
+
+                    <View style={styles.statRow}>
+                      <View style={styles.statLabelGroup}>
+                        <Iconify
+                          icon="mingcute:time-line"
+                          size={18}
+                          color={colors.icon}
+                        />
+                        <Text
+                          style={[styles.statLabel, { color: colors.textSecondary }]}
+                        >
+                          Time Limit
+                        </Text>
+                      </View>
+                      <Text
+                        style={[styles.statValue, { color: colors.textPrimary }]}
+                        numberOfLines={2}
+                      >
+                        {timeLine}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+          </Animated.View>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -366,132 +458,149 @@ export default function QuizStartScreen() {
 const getStyles = () =>
   StyleSheet.create({
     headerRow: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 20,
       paddingHorizontal: 12,
-      marginBottom: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
+      paddingBottom: 10,
     },
     backBtn: {
       height: 42,
       width: 42,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: "900",
-      letterSpacing: 0.2,
-    },
-
-    // --- Title card ---
-    titleCard: {
-      borderRadius: 5,
-      paddingHorizontal: 18,
-      paddingVertical: 18,
-      shadowOpacity: 0.16,
-      shadowRadius: 14,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 3,
-      marginBottom: 12,
-    },
-    titleTopRow: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: 12,
-      marginBottom: 8,
-    },
-    titleCardTitle: {
-      color: "#fff",
-      fontSize: 25,
-      fontWeight: "900",
-      letterSpacing: 0.2,
-      lineHeight: 32,
+    splitRoot: {
       flex: 1,
-      minWidth: 0,
+      position: "relative",
     },
-    titleCardSub: {
-      color: "#ffffffdd",
-      fontSize: 16,
-      fontWeight: "700",
-      lineHeight: 23,
-    },
-    typeBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 999,
-      backgroundColor: "#ffffff22",
-      flexShrink: 0,
+    topHalf: {
+      flex: 1,
       alignItems: "center",
       justifyContent: "center",
+      paddingHorizontal: 24,
+      paddingTop: 0,
+      paddingBottom: 0,
     },
-    typeBadgeText: {
+    topInner: {
+      alignItems: "center",
+      justifyContent: "center",
+      maxWidth: 560,
+      width: "96%",
+    },
+    topTitle: {
       color: "#fff",
-      fontSize: 14,
+      fontSize: 38,
       fontWeight: "900",
-      letterSpacing: 0.3,
-      textTransform: "uppercase",
+      lineHeight: 44,
+      textAlign: "center",
     },
-
-    // --- Stats area ---
+    bottomHalf: {
+      flex: 3,
+      paddingHorizontal: 16,
+      paddingBottom: 20,
+    },
+    bottomInner: {
+      flex: 1,
+    },
+    bottomContent: {
+      gap: 16,
+      paddingTop: 16,
+    },
+    bottomInfoArea: {
+      marginTop: 0,
+    },
     statsCard: {
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
+      borderWidth: 1,
       padding: 16,
-      marginBottom: 16,
+      gap: 2,
     },
     statRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      justifyContent: "space-between",
+      gap: 14,
+      minHeight: 48,
     },
-    statIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+    statLabelGroup: {
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      gap: 8,
+      minWidth: 0,
+      flexShrink: 1,
     },
     statLabel: {
       fontSize: 14,
       fontWeight: "900",
       letterSpacing: 0.5,
       textTransform: "uppercase",
-      marginBottom: 2,
+      flexShrink: 0,
     },
     statValue: {
       fontSize: 18,
       fontWeight: "900",
       letterSpacing: 0.2,
+      textAlign: "right",
+      flex: 1,
+    },
+    statValueWrap: {
+      flex: 1,
+      alignItems: "flex-end",
+      justifyContent: "center",
+    },
+    subjectValueWrap: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 8,
+    },
+    subjectDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 999,
+      flexShrink: 0,
+    },
+    subjectValueText: {
+      fontSize: 17,
+      fontWeight: "800",
+      textAlign: "right",
+    },
+    typeTag: {
+      alignSelf: "flex-end",
+      borderWidth: 1,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      maxWidth: "100%",
+    },
+    typeTagText: {
+      fontSize: 13,
+      fontWeight: "900",
+      letterSpacing: 0.2,
+      textTransform: "uppercase",
     },
     divider: {
       height: StyleSheet.hairlineWidth,
-      marginVertical: 14,
-      borderRadius: 999,
+      marginVertical: 10,
+      borderRadius: 2,
     },
-
-    // --- Loading / error ---
     center: {
       alignItems: "center",
       justifyContent: "center",
-      minHeight: 220,
-      paddingTop: 10,
+      minHeight: 180,
+      paddingTop: 24,
     },
     helper: {
       marginTop: 10,
       fontSize: 15,
       fontWeight: "700",
-    },
-    helper2: {
-      marginTop: 10,
-      fontSize: 14,
-      fontWeight: "600",
-      textAlign: "center",
-      opacity: 0.9,
     },
     errorText: {
       textAlign: "center",
@@ -502,41 +611,37 @@ const getStyles = () =>
     retryBtn: {
       paddingHorizontal: 16,
       paddingVertical: 10,
-      borderRadius: 5,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 8,
+      borderWidth: 1,
     },
-
     cta: {
-      borderRadius: 5,
+      borderRadius: 10,
+      width: "100%",
+      minHeight: 86,
+      alignItems: "center",
+      justifyContent: "center",
       paddingHorizontal: 16,
-      paddingVertical: 16,
+      paddingVertical: 14,
+      borderWidth: 1,
+      borderColor: "#00000010",
+    },
+    ctaRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
-      shadowOpacity: 0.14,
-      shadowRadius: 14,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 3,
+      justifyContent: "center",
+      gap: 8,
     },
     ctaTitle: {
       color: "#fff",
-      fontSize: 18,
+      fontSize: 23,
       fontWeight: "900",
       letterSpacing: 0.2,
-      marginBottom: 4,
     },
-    ctaSub: {
-      color: "#ffffffdd",
+    attemptsText: {
       fontSize: 14,
-      fontWeight: "800",
-    },
-    ctaArrowWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 5,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "#ffffff22",
-      flexShrink: 0,
+      fontWeight: "700",
+      textAlign: "center",
+      marginTop: 0,
+      marginBottom: 0,
     },
   });
