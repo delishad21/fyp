@@ -41,16 +41,29 @@ import {
 
 const router = Router();
 
+/**
+ * Routes under prefix:
+ * - /         (mounted in src/index.ts)
+ * - /api/game (mounted in src/index.ts)
+ */
+
+/** Health */
 router.get("/health", getServiceHealth);
+
+/** Leaderboards and profile */
 router.get("/classes/:classId/leaderboard", getClassLeaderboard);
 router.get("/classes/:classId/leaderboard/top", getTopLeaderboardRows);
 router.get("/classes/:classId/students/:studentId/profile", getClassStudentProfile);
+
+/** Protected attempt outcome */
 router.get(
   "/classes/:classId/students/:studentId/attempts/:attemptId/outcome",
   verifyAccessToken,
   verifyAttemptOwnerOrPrivileged,
   getStudentAttemptOutcome
 );
+
+/** Rewards catalog and class reward config */
 router.get("/rewards/catalog", getRewardsCatalog);
 router.get("/rewards/cosmetics/:cosmeticId/preview.svg", getCosmeticPreviewSvg);
 router.get("/rewards/cosmetics/:cosmeticId/asset.svg", getCosmeticAssetSvg);
@@ -70,6 +83,8 @@ router.put(
   "/classes/:classId/students/:studentId/badges/display",
   updateStudentDisplayedBadges
 );
+
+/** Protected attempt reward reveal + acknowledge */
 router.get(
   "/classes/:classId/students/:studentId/rewards/attempt/:attemptId",
   verifyAccessToken,
@@ -82,6 +97,8 @@ router.post(
   verifyAttemptOwnerOrPrivileged,
   acknowledgeAttemptRewards
 );
+
+/** Protected notifications feed + acknowledge */
 router.get(
   "/classes/:classId/students/:studentId/notifications",
   verifyAccessToken,
@@ -94,6 +111,8 @@ router.post(
   verifyTeacherOfStudentOrSelf,
   acknowledgeStudentNotifications
 );
+
+/** Avatar and badge rendering */
 router.get(
   "/classes/:classId/students/:studentId/avatar-profile.svg",
   getStudentAvatarProfileSvg
@@ -108,6 +127,8 @@ router.get(
   "/classes/:classId/rewards/cosmetics/:cosmeticId/asset.svg",
   getCosmeticAssetSvg
 );
+
+/** Inventory/equip/grant mutations */
 router.put("/classes/:classId/students/:studentId/inventory", updateStudentInventory);
 router.post("/classes/:classId/students/:studentId/equip", equipStudentItem);
 router.post("/classes/:classId/students/:studentId/rewards/grant", grantStudentReward);
