@@ -31,6 +31,7 @@ export default function DataTable({
   dragConfig,
   renderEmpty,
   preTableContent,
+  paginationPlacement = "top",
 }: {
   columns: ColumnDef[];
   initial: InitialPayload;
@@ -51,6 +52,7 @@ export default function DataTable({
   dragConfig?: DragConfig;
   renderEmpty?: () => React.ReactNode;
   preTableContent?: ReactNode;
+  paginationPlacement?: "top" | "bottom" | "both";
 }) {
   const filters = useTableFilters({
     name: initial.query.name,
@@ -192,21 +194,31 @@ export default function DataTable({
     () => filters.value,
     [filters.value]
   );
+  const showTopPagination =
+    paginationPlacement === "top" || paginationPlacement === "both";
+  const showBottomPagination =
+    paginationPlacement === "bottom" || paginationPlacement === "both";
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-row gap-4 sm:items-end sm:justify-between">
-        <Filters
-          meta={initial.meta}
-          value={filtersValue}
-          onChange={onFiltersChange}
-          onReset={onReset}
-        />
-        <Pagination
-          page={data.page}
-          pageCount={data.pageCount}
-          onPageChange={onPageChange}
-        />
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+        <div className="overflow-x-auto pb-1">
+          <Filters
+            meta={initial.meta}
+            value={filtersValue}
+            onChange={onFiltersChange}
+            onReset={onReset}
+          />
+        </div>
+        {showTopPagination ? (
+          <div className="self-end">
+            <Pagination
+              page={data.page}
+              pageCount={data.pageCount}
+              onPageChange={onPageChange}
+            />
+          </div>
+        ) : null}
       </div>
 
       {preTableContent}
@@ -235,6 +247,16 @@ export default function DataTable({
           </div>
         )}
       </div>
+
+      {showBottomPagination ? (
+        <div className="flex justify-end">
+          <Pagination
+            page={data.page}
+            pageCount={data.pageCount}
+            onPageChange={onPageChange}
+          />
+        </div>
+      ) : null}
 
       {/* Confirmation Modal */}
       <WarningModal

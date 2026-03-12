@@ -33,6 +33,7 @@ export default function SchedulingQuizzesTab({
         scheduleOnRowClick
         onScheduleAttemptComplete={onScheduleAttemptComplete}
         showViewClassScheduleButtons={false}
+        paginationPlacement="bottom"
         schedulingHint={
           <>
             <div className="flex-row flex items-center gap-2 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-2 text-sm text-[var(--color-text-secondary)]">

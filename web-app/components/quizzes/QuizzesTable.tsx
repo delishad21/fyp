@@ -38,6 +38,7 @@ export default function QuizzesTable({
   schedulingHint,
   showViewClassScheduleButtons,
   showGoToSchedulingButton,
+  paginationPlacement = "top",
 }: {
   initial: InitialPayload;
   columns: ColumnDef[];
@@ -49,6 +50,7 @@ export default function QuizzesTable({
   schedulingHint?: ReactNode;
   showViewClassScheduleButtons?: boolean;
   showGoToSchedulingButton?: boolean;
+  paginationPlacement?: "top" | "bottom" | "both";
 }) {
   const router = useRouter();
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -163,6 +165,7 @@ export default function QuizzesTable({
         editable={editable}
         dragConfig={dragConfig}
         preTableContent={schedulingHint}
+        paginationPlacement={paginationPlacement}
         renderEmpty={() => (
           <EmptyStateBox
             title="You don't have any quizzes yet"

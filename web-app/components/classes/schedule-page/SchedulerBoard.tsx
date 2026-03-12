@@ -718,6 +718,7 @@ export default function SchedulerBoard({
             ]}
             draggable
             editable={false}
+            paginationPlacement="bottom"
           />
         </div>
       </div>

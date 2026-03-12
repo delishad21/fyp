@@ -1191,6 +1191,7 @@ export default function SchedulingCalendarsTab({
                 scheduleOnRowClick
                 onScheduleAttemptComplete={onScheduleAttemptComplete}
                 showViewClassScheduleButtons={false}
+                paginationPlacement="bottom"
                 schedulingHint={
                   <p className="text-sm text-[var(--color-text-secondary)]">
                     Click any quiz to schedule with the modal, or drag a quiz
