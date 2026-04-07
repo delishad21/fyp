@@ -1,0 +1,3048 @@
+% !TeX program = xelatex
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+  12pt,
+  a4paper,
+]{report}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\newenvironment{Shaded}{}{}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\usepackage{longtable,booktabs}
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\AtBeginEnvironment{longtable}{\scriptsize}
+\AtEndEnvironment{longtable}{\normalsize}
+\AtBeginEnvironment{tabular}{\footnotesize}
+\AtEndEnvironment{tabular}{\normalsize}
+\AtBeginEnvironment{tabularx}{\footnotesize}
+\AtEndEnvironment{tabularx}{\normalsize}
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{fontspec}
+\IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{\setmainfont{TeX Gyre Termes}}
+\IfFontExistsTF{DejaVu Sans Mono}{\setmonofont{DejaVu Sans Mono}}{}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{pdfpages}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{hanging}
+\setcounter{secnumdepth}{-1}
+\setcounter{tocdepth}{2}
+\setlength{\emergencystretch}{3em}
+\raggedbottom
+\onehalfspacing
+
+\titleformat{name=\chapter}[block]
+  {\normalfont\bfseries\singlespacing\fontsize{14}{16}\selectfont}
+  {}
+  {0pt}
+  {}
+\titleformat{name=\chapter,numberless}[block]
+  {\normalfont\bfseries\singlespacing\fontsize{14}{16}\selectfont}
+  {}
+  {0pt}
+  {}
+\titlespacing*{\chapter}{0pt}{0pt}{10pt}
+\makeatletter
+\patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
+\makeatother
+
+\titleformat{\section}[block]
+  {\normalfont\bfseries\singlespacing\fontsize{13}{15}\selectfont}
+  {}
+  {0pt}
+  {}
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+
+\titleformat{\subsection}[block]
+  {\normalfont\bfseries\singlespacing\fontsize{12}{14}\selectfont}
+  {}
+  {0pt}
+  {}
+\titlespacing*{\subsection}{0pt}{10pt}{5pt}
+
+\titleformat{\subsubsection}[block]
+  {\normalfont\bfseries\singlespacing\fontsize{12.2}{13.5}\selectfont}
+  {}
+  {0pt}
+  {}
+\titlespacing*{\subsubsection}{0pt}{8pt}{4pt}
+
+\author{}
+\date{}
+
+% draft mode:
+\includeonly{}
+\begin{document}
+
+\newcommand{\reporttitletext}{Gamified AI-Powered Mobile Learning Platform}
+\newcommand{\reportauthorname}{Johan Soo}
+\newcommand{\reportdepartment}{Department of Computer Science}
+\newcommand{\reportschool}{School of Computing}
+\newcommand{\reportuniversity}{National University of Singapore}
+\newcommand{\reportacademicyear}{2025/2026}
+\newcommand{\reportprojectnumber}{H416100}
+\newcommand{\reportadvisorname}{Associate Professor Anandha Gopalan}
+
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+\vspace*{2.0cm}
+{\fontsize{14}{16}\selectfont\bfseries B.Comp. Dissertation\par}
+\vspace{1.0cm}
+{\fontsize{18}{22}\selectfont\bfseries \reporttitletext\par}
+\vspace{0.9cm}
+{\fontsize{12}{14}\selectfont By\par}
+\vspace{0.4cm}
+{\fontsize{12}{14}\selectfont \reportauthorname\par}
+\vfill
+{\fontsize{12}{14}\selectfont \reportdepartment\par}
+{\fontsize{12}{14}\selectfont \reportschool\par}
+{\fontsize{12}{14}\selectfont \reportuniversity\par}
+\vspace{0.6cm}
+{\fontsize{12}{14}\selectfont \reportacademicyear\par}
+\end{center}
+\end{titlepage}
+
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+\vspace*{1.6cm}
+{\fontsize{14}{16}\selectfont\bfseries B.Comp. Dissertation\par}
+\vspace{0.8cm}
+{\fontsize{18}{22}\selectfont\bfseries \reporttitletext\par}
+\vspace{0.8cm}
+{\fontsize{12}{14}\selectfont By\par}
+\vspace{0.4cm}
+{\fontsize{12}{14}\selectfont \reportauthorname\par}
+\vfill
+{\fontsize{12}{14}\selectfont \reportdepartment\par}
+{\fontsize{12}{14}\selectfont \reportschool\par}
+{\fontsize{12}{14}\selectfont \reportuniversity\par}
+{\fontsize{12}{14}\selectfont \reportacademicyear\par}
+\vspace{0.9cm}
+{\fontsize{12}{14}\selectfont \textbf{Project No:} \reportprojectnumber\par}
+{\fontsize{12}{14}\selectfont \textbf{Advisor:} \reportadvisorname\par}
+\vspace{0.4cm}
+{\fontsize{12}{14}\selectfont \textbf{Deliverables:}\\ Report: 1 Volume\\ Appendices: Bound together with report\\ Developer Guide: 1 Volume \\ Software: Source code repository\par}
+\end{center}
+\end{titlepage}
+
+\newcounter{frontmatterlastromanpage}
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{Abstract}
+\begin{center}
+{\bfseries Abstract}
+\end{center}
+
+Retrieval practice is well established as a valuable mechanism for
+enhancing information retention and improving academic performance in
+students. However, in the fast-paced learning environment of Singapore
+primary schools, teachers have to cover a packed syllabus, and revision
+practices also take time to craft, making it difficult for teachers to
+facilitate structured retrieval practices of taught topics. The platform
+outlined in this report aims to address this problem, and provide a
+software that enables teachers to easily generate, schedule and monitor
+short revision quizzes for students. The platform will also make use of
+gamification features to engage and retain students, allowing for
+consistent participation in retrieval practice and improving students’
+learning outcomes.
+
+\noindent\textbf{Subject Descriptors:} K.3.1 Computer Uses in Education;
+C.2.4 Distributed Systems; H.5.2 User Interfaces; I.2.7 Natural Language
+Processing
+
+\noindent\textbf{Keywords:} retrieval practice, quiz generation, primary
+education, learning analytics, gamification
+
+\noindent\textbf{Implementation Software and Hardware:} Next.js, React
+Native (Expo), Node.js, TypeScript, MongoDB, Redis, Redpanda/Kafka,
+Docker
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\begin{center}
+{\bfseries Acknowledgements}
+\end{center}
+
+I would like to thank my advisor Prof Anandha Gopalan for continued guidance
+throughout the development of the project, and the teachers who contributed their
+valuable time to participate in the user testing and evaluation activities. Their
+feedback was crucial for informing the design and refinment of this platform.
+
+\clearpage
+\tableofcontents
+\clearpage
+\setcounter{frontmatterlastromanpage}{\value{page}}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\hypertarget{chapter-1-introduction}{%
+\chapter{Chapter 1 --- Introduction}\label{chapter-1-introduction}}
+
+Retrieval practice has been shown to be a highly effective strategy for
+strengthening long-term information retention (Roediger et al., 2006). Compared to passive
+review of study material, actively recalling information from memory
+improves retention of that information. However, despite the strong
+evidence supporting retrieval practice, systematic implementation in Singapore
+primary school classrooms is limited. A major barrier is the time and effort
+required for teachers to facilitate
+effective retrieval practice. It remains challenging to create
+high-quality quizzes that are well-aligned with their curriculum and
+learning objectives, and class time is generally used to cover an
+already packed syllabus, leaving little time for additional activities.
+
+This project aims to address this barrier by developing a system that
+facilitates the easy creation, management and assignment of revision
+quizzes. The system will be supplemented by an AI-powered quiz
+generation system that can automatically create quizzes using
+provided instructions and content. The end goal is to provide
+teachers with an efficient tool for creating and assigning effective
+retrieval practice materials, ultimately enhancing student learning
+outcomes.
+
+The project consists of two main user-facing components:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  A teacher-facing web dashboard where teachers can create and manage
+  their quizzes, schedule quiz assignments, and view student performance
+  analytics. A dedicated AI quiz generation interface is included,
+  assisting teachers in creating quizzes by taking in instructions and
+  content, then generating draft quizzes aligned to provided
+  specifications. The interface will allow easy review and editing of
+  AI-generated quizzes before finalisation.
+\item
+  A mobile application that allows students to access and complete their
+  assigned quizzes on their phones. The mobile application is meant to
+  provide a simple, clean and user-friendly interface for students to
+  engage with their quizzes and receive immediate feedback on their
+  performance. The app will also include features such as progress
+  tracking and gamification elements to motivate students to regularly
+  engage in retrieval practice.
+\end{enumerate}
+
+From preliminary user studies and feedback, this system is generally well recieved by
+teachers, who find the overall value of the platform to be high, and the retreival practice
+and AI generation features to be particularly useful.
+
+
+\clearpage
+
+
+\hypertarget{chapter-2-literature-review}{%
+\chapter{Chapter 2 --- Literature Review}\label{chapter-2-literature-review}}
+
+\hypertarget{pedagogical-rationale}{%
+\section{2.1 Pedagogical Rationale}\label{pedagogical-rationale}}
+
+\hypertarget{core-idea-practice-testing-retrieval}{%
+\subsection{2.1.1 Core idea: Practice Testing
+(Retrieval)}\label{core-idea-practice-testing-retrieval}}
+
+This platform is built around retrieval practice, which is the act of
+using low or no-stakes activities that require students to retrieve
+target information from memory. In many laboratory and
+classroom-adjacent studies, attempting retrieval of content, as opposed
+to other revision methods, produces significantly better long-term
+retention of study material.
+
+A simple demonstration comes from Roediger \& Karpicke (2006). Learners
+were shown short expository sciences passages, after which they were
+split into two groups. Group A restudied the passage for 7 minutes,
+while Group B completed a 7 minute free-recall test - essentially
+writing everything they could remember. On the final free-recall tests
+performed at 2 days and 1 week from the initial study, the practice-test
+group outperformed the restudy group in recall accuracy, with 68\% vs
+54\% for 2 days, and 56\% vs 42\% for 1 week.
+
+\hypertarget{volume-of-tests}{%
+\subsection{2.1.2 Volume of Tests}\label{volume-of-tests}}
+
+Another crucial factor that impacts information retention is the volume
+of tests. Roediger \& Karpicke (2008) compared practice schedules across
+four periods: SSSS (restudy only), SSST (mixed), and STTT (test-heavy).
+After 1 week, they tracked student performance based on the number of
+tests given. STTT forgot least (\textasciitilde10\%) and SSSS most
+(\textasciitilde52\%), indicating that an increase in the number of
+tests had a positive effect on the information retained.
+
+\hypertarget{optimal-spacing-of-tests}{%
+\subsection{2.1.3 Optimal Spacing of
+Tests}\label{optimal-spacing-of-tests}}
+
+Further studies have also indicated that the interval between these
+practice tests are also significant. In a case of paired foreign-word
+learning, Pyc \& Rawson (2009) manipulated the schedules of practice
+tests for different learners. Their findings indicate that when practice
+tests were spaced with longer gaps to make recall of content more
+difficult, students scored higher on the later test as compared to
+students that had practice tests with much shorter gaps.
+
+\hypertarget{implementation-of-practice-testing-in-singapore}{%
+\subsection{2.1.4 Implementation of Practice Testing in
+Singapore}\label{implementation-of-practice-testing-in-singapore}}
+
+Unfortunately, implementing practice testing in the Singaporean
+classroom is not a trivial task. The syllabus is packed, and teachers
+move from topic to topic quickly. (Ng, 2015). That makes it unrealistic
+for teachers to consistently hand-craft new recall items and orchestrate
+revisit points for every topic.
+
+\hypertarget{use-of-quizzes-and-games-in-education}{%
+\section{2.2 Use of Quizzes and Games in
+Education}\label{use-of-quizzes-and-games-in-education}}
+
+\hypertarget{definition-of-gamification}{%
+\subsection{2.2.1 Definition of
+Gamification}\label{definition-of-gamification}}
+
+Gamification refers to the use of selected game elements such as points,
+badges, leaderboards, avatars, progress bars, streaks, in non-game
+contexts (Deterding et al., 2011).
+
+\hypertarget{use-of-gamification-in-education}{%
+\subsection{2.2.2 Use of Gamification in
+Education}\label{use-of-gamification-in-education}}
+
+In the field of education, substantial evidence indicates that
+gamification of learning activities can improve cognitive outcomes and
+motivation in students, especially when gamification mechanics are
+coupled with explicit learning goals and timely, informational feedback.
+In a meta-analysis done by Sailer \& Homer (2020) and a review done by
+Clark, Tanner and Killingsworth (2016), classes that made use of
+gamification tools in learning did noticeably better on tasks and were
+more motivated to learn relative to nongame conditions.
+
+Similarly, a systematic study of Kahoot!, an online quiz based platform
+with gamification elements, concluded that when used as brief and
+frequent activities, it improves learning performance, student attitudes
+and can reduce anxiety (Wang \& Tabir, 2020).
+
+\hypertarget{findings-on-specific-gamification-elements}{%
+\subsection{2.2.3 Findings on Specific Gamification
+Elements}\label{findings-on-specific-gamification-elements}}
+
+More specifically, studies have shown that gamification elements such as
+points, rewards, leaderboards and achievement streaks (Felix, 2025), can
+improve student performance in learning when implemented as
+informational progress cues rather than as controlling incentives or
+pure competition, (Mekler et al., 2015). Other classroom studies report
+neutral effects of these elements on achievement but positive attitudes
+toward continued use, indicating that gamification elements should be
+used as engagement scaffolds rather than learning mechanisms (Balcı et
+al., 2022).
+
+Another form of gamification that has found success is avatar
+identification and customisation. Lab studies have shown that users who
+were given the option to personalise an avatar with cosmetic items
+(outfits, accessories) were shown to have more intrinsic motivation to
+complete tasks (Birk et al., 2016). Moreover, studies of game design
+have found that customisation and self-expression features support key
+needs from Self-Determination Theory, especially autonomy and
+relatedness, which improves motivation and replay (Türkay \& Kinzer,
+2015). Sinha (2025) also emphasised the importance of positive reinforcement
+in promoting consistent participation and timely submissions. In particular,
+progressive reward systems, such as points and badges, are effective in
+rewarding effort and persistence.
+
+\hypertarget{implementation-of-gamification-elements}{%
+\subsection{2.2.4 Implementation of Gamification
+Elements}\label{implementation-of-gamification-elements}}
+
+Overall, studies on educational gamification link improved student
+performance to increased participation and persistence. Importantly,
+gamification is ancillary to learning. Its purpose is to complement the
+practice-testing mechanisms by increasing frequency and regularity of
+practice to produce the positive effects of practice testing as outlined
+in Section 2.1. Accordingly, the gamification features for the proposed
+platform will be designed to encourage sustained use, and these will be
+outlined in Section 3.5.
+
+\hypertarget{use-of-large-language-models-llms-to-generate-practice-testing-content}{%
+\section{2.3 Use of Large Language Models (LLMs) to Generate
+Practice-Testing
+Content}\label{use-of-large-language-models-llms-to-generate-practice-testing-content}}
+
+\hypertarget{llms-as-quiz-item-drafters}{%
+\subsection{2.3.1 LLMs as Quiz Item
+Drafters}\label{llms-as-quiz-item-drafters}}
+
+Recent empirical evidence indicates that LLMs such as GPT-3.5 and 4 can
+draft multiple-choice and short-answer items that are comparable in
+clarity and key validity to instructor-written items while taking
+substantially less time to author. In a PLOS ONE study, independent
+raters judged ChatGPT-generated MCQs for graduate medical exams as
+indistinguishable in overall quality from professor-written items
+(Chueng, 2015). Authors also documented a large authoring-time advantage
+when making use of ChatGPT. Further evaluations in the fields of
+medicine revealed similar results. After vetting for alignment and
+distractors, ChatGPT/GPT-4-generated items match or approach human items
+in appropriateness, clarity/specificity, suitability, and psychometric
+properties (Kiyak et al., 2024) (Bhandari et al, 2024). In the field of
+data science, LLM-generated retrieval practice has also shown to be
+effective at improving learning outcomes (An, 2025).
+
+Outside of higher education, a study that generated and field-tested
+K-12 (primary and secondary school) items found that LLM-generated
+questions were comparable on accuracy and validity when compared to
+human-generated baselines (Zelikman et al., 2023).
+
+\hypertarget{common-weaknesses-and-practical-mitigations}{%
+\subsection{2.3.2 Common Weaknesses and Practical
+Mitigations}\label{common-weaknesses-and-practical-mitigations}}
+
+Across multiple studies, evaluations and reviews, several recurring
+problems appear when using LLM to draft assessment items. Firstly, when
+a LLM isn't given precise constraints, wording might drift away from the
+intended syllabus, difficulty level and target idea (Kiyak et al., 2024)
+(Shuraiqi, 2024) (Law et al., 2025). Secondly, generated items might be
+ambiguous, having more than one interpretation, or having multiple
+reasonable answers (Bouamor et al., 2023) (Florian, 2025). Finally,
+models can sometimes introduce factual slips, also known as
+hallucinations. This could be the most harmful of all, as the model
+might generate items that look reasonable, and would require discerning
+eyes to fix (An et al., 2025) (Ken, 2023).
+
+To mitigate the above pitfalls, Kıyak et al.~(2024) finds that general
+prompt engineering strategies as documented by OpenAI were effective in
+improving item output. In his prompts for generation, requests were
+structured with the syllabus topic, difficulty level, cognitive target,
+and the expected answer form.
+
+Elzayyat et al.~(2025) finds that expert review on generated items
+remains critical to ensure clarity and alignment with curricular goals.
+Artsi et al.~(2024) similarly emphasises that a teacher or SME should
+review the generated items to catch ambiguity and hallucinations. These
+conclusions point to the importance of a ``human-gate'' to audit the
+generated content before release.
+
+As such, the proposed platform plans to implement the AI quiz generation
+features with structured prompts and a teacher-in-the-loop workflow that
+encodes the above mentioned safeguards by design.
+
+\hypertarget{actionable-analytics-to-guide-formative-decisions}{%
+\section{2.4 Actionable Analytics to Guide Formative
+Decisions}\label{actionable-analytics-to-guide-formative-decisions}}
+
+Teachers have been shown to make better instructional decisions when
+they have timely and interpretable evidence about their students'
+understanding and struggles. Classic formative assessment research has
+shown that using assessment evidence to guide teaching can raise overall
+student achievement, with particularly strong effectiveness for
+lower-achieving students (Black \& William 1998). A study on
+instructor-facing analytics also reported that learning analytics was
+regarded by many teachers to be an important tool to support them in
+revising syllabus content or providing good intervention to students
+(Wise \& Jung, 2019). In an exam-oriented system like Singapore where
+ongoing formative use is still challenging in practice (Lim \& Tan,
+2015), concise analytics that surface where students are lacking can be
+especially valuable for teachers.
+
+\hypertarget{commonly-used-educational-platforms-with-similar-goals}{%
+\section{2.5 Commonly Used Educational Platforms with Similar
+Goals}\label{commonly-used-educational-platforms-with-similar-goals}}
+
+Digital platforms are widely encouraged in Singapore classrooms
+(Ministry of Education Singapore, 2025), but they tend to serve
+complementary, distinct use cases rather than the very specific one
+targeted here (brief, phone-first retrieval practice with teacher-gated
+AI authoring and concise, topic-level analytics).
+
+\hypertarget{kahoot-teacher-paced-live-quiz-games-optional-homework-mode.}{%
+\subsection{2.5.1 Kahoot! (teacher-paced, live quiz games, optional
+homework
+mode).}\label{kahoot-teacher-paced-live-quiz-games-optional-homework-mode.}}
+
+Synthesis work on classroom use of Kahoot! consistently reports
+improvements in test performance, classroom dynamics, and
+student/teacher attitudes, especially when run as short, in-class
+episodes with immediate feedback (Wang et al., 2025). However, Kahoot!'s
+core design is optimised for synchronous, whole-class play. While it has
+an assignment mode, the predominant use pattern is still live classroom
+sessions rather than routine quizzing meant to target retrieval
+practice.
+
+\hypertarget{quizlet-learner-driven-flashcards-and-practice-modes-including-spaced-study.}{%
+\subsection{2.5.2 Quizlet (learner-driven flashcards and practice modes,
+including spaced
+study).}\label{quizlet-learner-driven-flashcards-and-practice-modes-including-spaced-study.}}
+
+Empirical studies and recent syntheses relating to Quizlet generally
+find small-to-moderate gains in vocabulary/term learning and retention,
+with positive learner attitudes, particularly when practice is regular
+and spaced. (Özdemir, 2024) Design-wise, however, Quizlet is primarily
+oriented toward self-initiated study sets. It lacks in teacher-assigned,
+syllabus-specific workflows and class-level analytics
+
+\hypertarget{koobits}{%
+\subsection{2.5.3 KooBits}\label{koobits}}
+
+Among current tools, KooBits has the greatest overlap with the present
+project's audience and curriculum. KooBits emphasises alignment to the
+Singapore MOE syllabus (Mathematics, Science, English), daily short
+practice with auto-marked questions, and broad school-level adoption.
+However, two gaps remain relative to the use case targeted.
+
+Mobile, on-the-go practice. Student access is mostly done via web
+browsers on computers, whereas the proposed system is phone-first by
+design, with short quizzes that launch with a single tap and are
+intended for interstitial moments such as commutes.
+
+KooBits intentionally bundles many capabilities (curriculum content,
+games, animations, challenges, rewards, school/parent portals). The
+breadth is valuable, but for younger learners it could potentially raise
+navigational and decision overhead (Firat et al., 2011) which may lead
+to negative performance gains. In contrast, the proposed application is
+deliberately single-purpose. Quizzes are the main surface, and they are
+low-friction to start, reducing extraneous steps and keeping attention
+on practice testing.
+
+Taken together, existing platforms excel at in-class engagement
+(Kahoot!), general assessment delivery, self-paced term learning with
+spacing (Quizlet), and they offer ecosystem breadth specific to the
+Singapore syllabus (KooBits). Few, however, are designed specifically
+for brief, phone-optimised quizzes intended for daily use. The
+combination of routine, low-friction practice testing, with rapid
+content generation and actionable analytics, is precisely the gap the
+proposed platform is designed to fill. It operationalises the frequency
+and spacing conditions under which retrieval practice yields the
+strongest long-term retention (Section 2.1), while minimising planning
+and marking overhead for teachers.
+
+
+\hypertarget{chapter-3-system-scope-requirements-and-high-level-architecture}{%
+\chapter{Chapter 3 --- System Scope, Requirements, and High-Level
+Architecture}\label{chapter-3-system-scope-requirements-and-high-level-architecture}}
+
+\hypertarget{system-overview-and-report-structure}{%
+\section{3.1 System Overview and Report
+Structure}\label{system-overview-and-report-structure}}
+
+The system is designed around the operationalisation of
+retrieval-practice principles in a way that is feasible for Singapore
+primary school teachers to implement. This requires an efficient,
+user-friendly platform for teachers to author, assign and monitor
+quizzes, as well as a simple, easy-to-navigate mobile application for
+students to access and complete their quizzes. The platform is
+intentionally scoped to be a tool that supports teachers and enhances
+their existing teaching practices, rather than a standalone learning
+system. It should empower teachers to implement retrieval practice more
+effectively and efficiently.
+
+The platform's scope consists of a teacher-facing web dashboard, a
+student-facing mobile application, and a backend separated into multiple
+domain-based microservices for identity, quiz lifecycle,
+class/scheduling, AI generation, and gamification. A full, comprehensive
+requirement specification is provided in Appendix A.
+
+In the following chapters of the report, each domain will be broken down
+and explained. These will include design choices, implementation
+methods, and the main tradeoffs or limitations that follow from them.
+
+\hypertarget{functional-requirements}{%
+\section{3.2 Functional Requirements}\label{functional-requirements}}
+
+For the functional requirements, the platform is designed around two core user
+journeys. This includes the overall teacher journey for preparing and assigning
+retrieval practice, and the student journey for attempting that retreival practice
+with the least amount of friction possible.
+
+For teachers, the main journey is:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Create an account and set up a profile
+\item
+  Sign in securely
+\item
+  Create a class and generate student accounts with credentials
+\item
+  Create or manage practice quizzes using different quiz types
+\item
+  Schedule retrieval practice quizzes for classes with specific rules such as
+  attempt windows, attempt limits and score contribution.
+\item
+  Review student performance afterwards through class, student and quiz based analytics.
+\end{enumerate}
+
+For students, the main journey is intetionally designed to be simple, to reduce
+the complexity of the overall experience and encourage regular use.
+
+The main student journey is:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Sign in with their credentials
+\item
+  See the retreival practice quizzes that are currently available for them
+  to attmept, assigned by their teachers.
+\item
+  Start or resume their attempts in quiz interfaces optimised for a mobile experience.
+\item
+  Submit answers after completing the quiz.
+\item
+  Immediately review results and progress after attempt submission.
+\end{enumerate}
+
+Seperately, as supporting infrastructure for the above journeys, there are two
+key sets of functional requirements that are not part of any key user journey
+but are still critical to the overall value of the platform.
+
+The first is a teacher-in-the-loop AI workflow, as defined in Section 2.3.
+Teachers should be able to provide instructions and source material, and the
+system should use LLMs to generate draft quizzes, formatted in supported quiz
+types by the paltform. Teachers should then be able to review and edit the generated
+quizzes, before assignment to students. This worflow is designed to make the
+most tedious part of the key teacher journey (quiz authoring) more efficient,
+while still ensuring that teachers have full control over the content and quality
+of the quizzes that they assign to their students.
+
+The second is a set of gamification features that are designed to encourage the
+key student journey of regular retrieval practice. The functional requirements
+for these features include scoring, leaderboards, streaks, rewards and customisable
+avatars and profiles.
+
+\hypertarget{non-functional-requirements}{%
+\section{3.3 Non-Functional
+Requirements}\label{non-functional-requirements}}
+
+The core non-functional requirements help to ensure that the system does
+not just contain the necessary features, but allows the system to work in
+a reliable, consistent and secure manner.
+
+The non-functional requirements under four main categories: integrity,
+reliability, security, and maintainability.
+
+Integrity requirements ensure that educational records remain
+consistent. Quiz versions should be immutable after creation and student
+attempts should be tied to the exact version of the quiz. For randomised
+quiz variants, quizzes should resolve deterministically and be the same
+for all students to ensure a fair and consistent student experience.
+
+Reliability requirements focus on resilience under stress and
+distributed conditions. The platform relies on multiple bounded
+services, so the system is designed around an event-based architecture
+with eventual consistency and asynchronous propagation in mind. As such,
+the system should be able to tolerate retries, partial outages, and
+delayed delivery without corrupting state.
+
+Security requirements ensure data protection and privacy. Users are
+built with role-scoped authorisation and secure credential handling.
+Routes should be secured with access tokens issued by a central
+authority. Internal routes between services must be secured with
+secrets. Upload constraints and AI generation limits are also required
+to mitigate abuse and prevent exhaustion of available resources.
+
+Maintainability requirements ensure the system can be updated without
+frequent cross-domain regression. The system should be built with
+modularity and clear ownership boundaries in mind. Each service should
+have a well-defined API contract, and changes to one service should not
+require changes to others.
+
+\hypertarget{high-level-architecture}{%
+\section{3.4 High-Level Architecture}\label{high-level-architecture}}
+
+The platform adopts a microservice architecture with explicit service
+boundaries. Instead of concentrating all
+business logic in a single backend, each domain is owned by a dedicated
+service with specific responsibilities. This approach improves
+maintainability, simplifies fault isolation, and reduces regression risk
+during development.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-3-1-overall-architecture.drawio.png}
+\caption*{Figure 3.1: Platform architecture.}
+\addcontentsline{lof}{figure}{Figure 3.1: Platform architecture.}
+\end{figure}
+
+\hypertarget{client-applications}{%
+\subsection{3.4.1 Client Applications}\label{client-applications}}
+
+The system is delivered through two role-specific clients:
+
+\begin{itemize}
+\tightlist
+\item
+  a \textbf{teacher-facing web dashboard}
+\item
+  a \textbf{student-facing mobile application}
+\end{itemize}
+
+The web dashboard functions as the operational control plane for
+teachers, covering class setup, quiz creation, schedule administration,
+results review, and AI-assisted draft workflows. The mobile application
+is optimised for students to use, allowing for easy student actions
+such as starting assigned quizzes, submitting attempts, and reviewing performance history.
+
+This split keeps each interface aligned with its user context:
+administrative depth for teachers, execution simplicity for students.
+
+\hypertarget{domain-owned-backend-services}{%
+\subsection{3.4.2 Domain-Owned Backend
+Services}\label{domain-owned-backend-services}}
+
+The core backend services of the platform is as follows:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{User Service}: authentication, token issuance, teacher/student
+  account management, and authorisation workflows.
+\item
+  \textbf{Quiz Service}: quiz authoring , version control, attempt
+  management and grading logic.
+\item
+  \textbf{Class Service}: class/scheduling management and analytics
+  projections.
+\item
+  \textbf{AI Service}: asynchronous quiz generation workflows.
+\item
+  \textbf{Game Service}: leaderboard projections, streaks, rewards,
+  badges, inventory/loadout management, avatar rendering, and reward
+  related notifications.
+\end{enumerate}
+
+The backend is organised so that each service owns its data and has its
+own rules. Cross-service interaction happens only through clearly
+defined APIs and event flows, and no services will write directly into
+the databases of other services. This boundary ensures that the system
+stays modular, and services can evolve independently based on their
+needs.
+
+Further information about the services will be detailed in their
+respective chapters below.
+
+\hypertarget{infrastructure-layer}{%
+\subsection{3.4.3 Infrastructure Layer}\label{infrastructure-layer}}
+
+Each service runs in an isolated container and persists data in its own
+MongoDB database. Event transport is handled through Kafka and Redis is
+used where time-sensitive events are required, such as enforcing time
+limits placed on quiz attempts.
+
+An Nginx gateway is also used to provide stable ingress and service
+routing.
+
+\hypertarget{service-communication-and-deployment}{%
+\section{3.5 Service Communication and
+Deployment}\label{service-communication-and-deployment}}
+
+\hypertarget{synchronous-api-calls}{%
+\subsection{3.5.1 Synchronous API Calls}\label{synchronous-api-calls}}
+
+Synchronous HTTP calls are used when immediate responses are required
+within a request lifecycle. Typical examples include frontend-to-service
+requests and service-to-service checks that require real-time
+validation, such as identity or schema/contract checks. This
+communication mode is intentionally used where immediate correctness
+matters.
+
+\hypertarget{asynchronous-event-flows}{%
+\subsection{3.5.2 Asynchronous Event
+Flows}\label{asynchronous-event-flows}}
+
+Asynchronous event messaging is used for cross-domain updates that do
+not need to complete in the initiating HTTP call. Quiz and Class
+services publish relevant domain events through Kafka, and services such
+as Class Service and Game Service consume those events to maintain
+projections or update their own states.
+
+The detailed event workflows and reliability mechanisms around them are
+discussed further in Chapter 9.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-3-2-interactions-between-services.drawio.png}
+\caption*{Figure 3.2: Service communication and event flows.}
+\addcontentsline{lof}{figure}{Figure 3.2: Service communication and event flows.}
+\end{figure}
+
+\hypertarget{deployment-and-runtime-topology}{%
+\subsection{3.5.3 Deployment and Runtime
+Topology}\label{deployment-and-runtime-topology}}
+
+The platform runs in a containerised topology, and each service is
+independently deployable. This supports incremental scaling and reduces
+the blast radius of failures within one service, as functionalities are
+mostly isolated within containers.
+
+Services are also designed to be stateless, with state persisted in
+their own databases or through event flows. This allows for horizontal
+scaling and simplifies deployment and maintenance.
+
+Wherever appropriate, background processing is also separated from
+standard request-response paths (for example, event
+publishing/consumption flows are separated to a separate worker
+service). This prevents other endpoints of a service from being blocked
+even as other longer-running internal tasks are being executed.
+
+Overall, the platform's architecture is designed with a focus on
+clarity, extensibility, and reliability for real classroom usage.
+
+
+\hypertarget{chapter-4-user-service-authentication-and-authorisation}{%
+\chapter{Chapter 4 --- User Service, Authentication, and
+Authorisation}\label{chapter-4-user-service-authentication-and-authorisation}}
+
+The User Service serves as a centralised service for all functionalities
+related to identity, credential management, authentication and
+authorisation. All other services in the platform rely on the User
+Service as the sole authority for role management and access control.
+
+This design helps to ensure that authentication and role-based access
+control are consistent throughout the entire application. It also
+reduces duplication of logic across other services. Downstream services
+can then focus solely on the functionalities and rules in their own
+domain, while simply calling on User Service endpoints for account state
+and access control logic.
+
+\hypertarget{account-models}{%
+\section{4.1 Teacher Account Journeys}\label{account-models}}
+
+\hypertarget{teacher-accounts-and-verification}{%
+\subsection{4.1.1 Journey 1: Onboarding and Daily
+Access}\label{teacher-accounts-and-verification}}
+
+The first key teacher journey begins with sign-up and sign-in for normal
+web dashboard usage.
+
+For sign-up:
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Sign up with name, username, email, and password.
+\item
+  Verify the registered email with OTP.
+\end{enumerate}
+
+For sign-in, teachers can use either email or username, together with
+password.
+
+Teacher accounts are the main identity type on the platform as most
+operations on the platform are ownership scoped to teacher identity.
+Teacher accounts are therefore very important, and the platform designs
+a stricter onboarding flow to ensure account integrity and account
+recoverability.
+
+To support this, sign-up uses a temporary account creation flow followed by
+OTP verification. Users are not allowed to access key platform features until
+an account has been fully verified with the OTP of the registered email.
+
+The email verification step provides a critical recovery path for teachers,
+and also mitigates the risk of fake accounts and abuse.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-4-1-teacher-sign-up-request.drawio.png}
+\caption*{Figure 4.1: Teacher sign-up and OTP issuance flow.}
+\addcontentsline{lof}{figure}{Figure 4.1: Teacher sign-up and OTP issuance flow.}
+\end{figure}
+
+\hypertarget{teacher-password-recovery-and-email-change}{%
+\subsection{4.1.2 Journey 2: Recovery and Credential
+Maintenance}\label{teacher-password-recovery-and-email-change}}
+
+Forgot password flow:
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Trigger password reset flow when password is forgotten or compromised.
+\item
+  A password reset link is sent to the registered email which links to a password reset page.
+\item
+  User types in a new password and confirms the reset.
+\end{enumerate}
+
+Reset email flow:
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Trigger email change from account settings.
+\item
+  An OTP is sent to the new email for verification.
+\item
+  User confirms the email change on the platform using the OTP.
+\end{enumerate}
+
+Password recovery and email change are handled using short-lived and
+single-purpose tokens. It uses a selector and validator design to keep
+any account management flows secure.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-4-2-password-recovery.drawio.png}
+\caption*{Figure 4.2: Teacher password recovery flow.}
+\addcontentsline{lof}{figure}{Figure 4.2: Teacher password recovery flow.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-4-3-email-change.drawio.png}
+\caption*{Figure 4.3: Teacher email change flow.}
+\addcontentsline{lof}{figure}{Figure 4.3: Teacher email change flow.}
+\end{figure}
+
+\hypertarget{authentication-verification-and-recovery-flows}{%
+\section{4.2 Student Account Journeys}\label{authentication-verification-and-recovery-flows}}
+
+\hypertarget{student-accounts-and-teacher-ownership}{%
+\subsection{4.2.1 Journey 1: Teacher Provisioned Accounts
+Access}\label{student-accounts-and-teacher-ownership}}
+
+Sign-in flow:
+\begin{enumerate}
+  \item Teacher shares credentials with students.
+  \item Students use the credentials to sign in for the first time.
+  \item Students are prompted to change their password after first sign in,
+        and they can then access the platform in the future with their new credentials.
+\end{enumerate}
+
+The student user journey starts from the teacher side. Students do not
+register themselves on the platform. Teachers provision accounts during class setup,
+and credentials are disseminated by teachers, students simply use the
+teacher-provided credentials for first time access to the platform.
+
+As such, student accounts are modelled differently from teacher accounts. Each
+student account is technically "owned" by a teacher. Account management flows
+hence mostly go through the teacher rather than the students. This design
+was chosen as the platform is mainly targeted at primary school students,
+who might not yet have the technical knowledge to manage their own account
+credentials and recovery. The platform thus limits the student journey to
+a simple sign in and password change.
+
+
+\hypertarget{student-sign-in}{%
+\subsection{4.2.2 Journey 2: Teacher-Guided
+Recovery}\label{student-sign-in}}
+
+Account Recovery Flow:
+\begin{enumerate}
+  \item Student tells their teacher (that owns their account) that they have forgotten their password or are having trouble signing in.
+  \item The teacher can trigger a password reset for the student from the dashboard, which will generate a temporary password for the teacher.
+  \item The teacher shares the temporary password with the student.
+  \item The student can then use the temporary password to sign in.
+\end{enumerate}
+
+Student recovery is intentionally designed to be mediated by the owning teacher rather than the students themselves.
+Similar to the onboarding and management models for student accounts, the recovery flow is designed with the
+assumption that primary school students might not have the technical knowledge to figure out how to recover
+their accounts on their own. Routing recovery through teachers allows for a more controlled and guided process.
+
+\hypertarget{centralised-authorisation-and-role-based-access}{%
+\section{4.3 Shared Identity and Authorisation
+Backbone}\label{centralised-authorisation-and-role-based-access}}
+
+To support the role-based access control and authentication needs of the platform, a centralised model needs to
+be used for identity resolution. The sections below explains high level details on the implmentation that
+the project settled on for this.
+
+\hypertarget{jwt-verification-and-role-guards}{%
+\subsection{4.3.1 JWT usage}\label{jwt-verification-and-role-guards}}
+
+The platform uses a single JWT access-token model as the common
+authentication contract across both user facing clients and backend services.
+After sign in, the User Service issues the JWT token to clients, who store it and attach it
+as bearer tokens in the authorization header for all subsequent requests.
+Backend services then verify the token on each request to confirm the identity and role of the caller.
+As JWT tokens are self-contained and portable, they can be easily passed along with requests across different services without needing to query a central session store.
+
+
+\hypertarget{centralised-identity-resolution}{%
+\subsection{4.3.2 Centralised Identity
+Resolution}\label{centralised-identity-resolution}}
+
+Beyond the authentication workflows, User Service also serves as a
+centralised and authoritative unit for identity resolution. Downstream
+services first rely on User Service to confirm who the caller is and
+what role they hold, then layer their own domain-specific checks on top
+of that identity. This keeps role and ownership logic consistent across
+quiz, class, AI, and game features.
+
+\hypertarget{design-tradeoffs-and-limits}{%
+\section{4.4 Design Tradeoffs and
+Limits}\label{design-tradeoffs-and-limits}}
+
+\hypertarget{rationale-for-an-in-house-user-service}{%
+\subsection{4.4.1 Rationale for an In-House User
+Service}\label{rationale-for-an-in-house-user-service}}
+
+An early decision was made to develop user service internally from
+scratch instead of using a third-party authentication provider. The
+platform needed two account types with noticeably different lifecycles,
+teacher ownership of student access, and downstream identity checks that
+are tightly tied to the rest of the platform. An in-house service fit
+those needs more cleanly than adapting a more generic external auth
+provider.
+
+\hypertarget{centralisation-tradeoffs}{%
+\subsection{4.4.2 Centralisation
+Tradeoffs}\label{centralisation-tradeoffs}}
+
+The choice to centralise authentication and identity resolution in one
+place improves consistency, but it also creates a critical dependency.
+If User Service is unavailable, many role-scoped operations across the
+platform will also stall. Even so, centralisation was still the better
+tradeoff here. Duplicating sensitive authorisation logic across several
+services would have raised the regression risk much more than operating a
+single shared identity service.
+
+\hypertarget{chapter-5-quiz-service-quiz-authoring-and-attempt-management}{%
+\chapter{Chapter 5 --- Quiz Service, Quiz Authoring, and Attempt
+Management}\label{chapter-5-quiz-service-quiz-authoring-and-attempt-management}}
+
+The quiz domain serves as a core domain of the platform, as it is where
+the retrieval-practice activities, as outlined in Chapter 2, are
+operationalised. The quiz service is responsible for supporting the
+management of quiz content, and the facilitation of quiz attempts by
+students. This includes the creation, storage, retrieval, versioning,
+attempting and grading of quizzes, while staying aligned with
+scheduling, analytics, AI generation, and gamification.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.1.png}
+\caption*{Figure 5.1: Quizzes page.}
+\addcontentsline{lof}{figure}{Figure 5.1: Quizzes page.}
+\end{figure}
+
+\hypertarget{versioning-and-immutability-of-quiz-content}{%
+\section{5.1 Key User Journeys in the Quiz
+Service}\label{versioning-and-immutability-of-quiz-content}}
+
+For teachers, a key journey is versioning and attempt management of quizzes.
+
+\begin{enumerate}
+  \item Create the a quiz for a topic and learning objective.
+  \item Assign a selected quiz version to classes.
+  \item Review student attempts and performance on the assigned quiz.
+  \item Iterate on new versions of quizzes based on the review of student performance.
+\end{enumerate}
+
+For students, their key journey is with the attempting of quizzes.
+
+\begin{enumerate}
+  \item Discovering available quizzes to attempt.
+  \item Starting or resuming an attempt on a quiz.
+  \item Submitting the attempt after completion
+  \item Reviewing the results and feedback after submission.
+\end{enumerate}
+
+\hypertarget{quiz-formats}{%
+\section{5.2 Quiz Authoring Experience}\label{quiz-formats}}
+
+\hypertarget{iterative-authoring-and-versioning}{%
+\subsection{5.2.1 Iterative Authoring and Versioning}\label{iterative-authoring-and-versioning}}
+
+To support a smooth quiz management experience for teachers, the quiz service
+needs to support a intuitive iteration experience for created quiz content.
+
+As such, one of the key design decisions in the quiz system is to make
+quiz content immutable after creation. Instead of direct mutation when
+teachers iterate on a quiz, a versioning system is used instead,
+allowing teachers to update a quizzes without affecting historical attempts
+unless they explicitly choose to.
+
+The versioning links scheduled quizzes to a specific version of that quiz,
+and student attempts on that scheduel are tied to that quiz version. Meaning
+that students all recieve the same consistent quiz experience even as teachers
+update their quiz content after scheduling, and past attempts can still be
+reviewed without confusion even after content updates.
+
+\hypertarget{basic-quiz}{%
+\subsection{5.2.2 Quiz Type Variety}\label{basic-quiz}}
+
+Different topics and learning outcomes require different forms of
+retrieval practice. As such, the quiz service has been implemented with
+support for multuple quiz formats, each with different interaction
+patterns and content structures.
+
+\begin{enumerate}
+  \item \textbf{Basic Quiz}: a flexible format that supports a range of question types and structures, suitable for most use cases.
+  \item \textbf{Rapid Quiz}: a faster-paced format with a simpler interaction pattern of only multiple-choice questions, designed for fluency-oriented practice.
+  \item \textbf{Crossword Quiz}: a format that presents questions in a crossword puzzle format, adding a game-like interaction while still being retrieval-focused.
+  \item \textbf{True/False Quiz}: a format that only supports true/false questions, designed for quick fact-checking and reinforcement of key concepts.
+\end{enumerate}
+
+Additional quiz types were also implemented to reduce repetitive teacher
+work in cases where the question structure is predictable. These include
+
+\begin{enumerate}
+  \item \textbf{Rapid Arithmetic Quiz}: a format that automatically generates arithmetic questions based on
+  selected operations and ranges, designed for quick practice of basic math skills.
+  \item \textbf{Crossword Bank Quiz}: a format that allows teachers to provide a bank of terms and clues,
+  and generates multiple distinct crossword instances from that bank, allowing for efficient creation of many crossword quizzes.
+\end{enumerate}
+
+More detailed implementation for each quiz type can be found in
+Developer Guide, specifically Sections 4.7.4, 5.4, and 5.5.
+
+\hypertarget{generating-of-crossword-puzzles}{%
+\subsection{5.2.3 Crossword Generation Algorithm}\label{generating-of-crossword-puzzles}}
+
+Crossword quizzes are a unique format that requires an additional step which is
+the generation of a grid based on the provided words. Having teachers to
+manually create crossword grids would be too time consuming and technically
+challenging, which would severely hinder the usability of the crossword format and goes
+against the goal of making the platform as user-friendly and efficient for teachers as possible.
+
+As such, the platform includes an implementation of crossword generation that can generate
+crossword grids based on a list of words and clues provided by teachers.
+
+The crossword generation method used is self-developed as no suitable library
+or framework was found for this specific task.
+
+Here is the high level overview of the algorithm used for crossword generation:
+
+\begin{enumerate}
+  \item Sort the list of words by descending length.
+  \item Seed the grid with the longest word, placing it in the center.
+  \item For each remaining word, calculate potential placements based on overlaps with already placed words.
+  \item Sort potential placements by overlap potential and compactness.
+  \item Place the word in the best legal position based on the sorted potential placements.
+  \item If a full pass of the words results in no legal placements, start a second island and continue from there.
+  \item After all possible placements have been added to the grid, crop the grid to the minimal bounding box.
+\end{enumerate}
+
+The greedy logic used here is to find a solution that optimises for compactness and overlap,
+which are two key factors that contribute to the quality of a crossword grid.
+The algorithm is not guaranteed to find the optimal solution, but it is efficient and produces good results
+in practice for typical crossword sizes used in the platform. Lower-level generation logic and
+implementation details can be found in Developer Guide Section 3.2.5.
+
+
+\hypertarget{quiz-attempt-lifecycle}{%
+\section{5.3 Student Journey: Attempt Lifecycle in a Mobile
+System}\label{quiz-attempt-lifecycle}}
+
+\hypertarget{seamless-access-to-scheduled-quizzes}{%
+\subsection{5.3.1 Seamless Access to Scheduled
+Quizzes}\label{seamless-access-to-scheduled-quizzes}}
+
+The first step of the student user journey is finding the available quizzes.
+To make this as seamless as possible, The first screens that students see
+after login will immediately display the list of quizzes available for them to attempt.
+Only quizzes that are currently within their schedule windows and that the
+students have remaining attempts for are shown to the students. Any future or past quizzes, as well as
+quizzes with no attempts remaining, are compeltely hidden from view.
+
+From there, the students simply tap on the quiz they want to attempt,
+and they are taken to a screen where the basic details of the quiz are
+shown, such as the quiz title, the subject and topic, the number of
+attempts they have left, and the time remaining until the schedule
+window closes. This gives students a clear overview of the quiz before they start the attempt.
+
+This interface design is simple and focused, and it was intentionally made this
+was to reduce any potential confusion or extra cognitive load for students. With two
+taps, students can get from app launch into retreival practice, which is the main goal
+of the platform
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.17__Screenshot_20260401_050645_Expo_Go.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.17__Screenshot_20260401_050654_Expo_Go.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.17__Screenshot_20260401_050659_Expo_Go.jpg}
+\end{minipage}
+\caption*{Figure 5.2: Student home and quiz start screens.}
+\addcontentsline{lof}{figure}{Figure 5.2: Student home and quiz start screens.}
+\end{figure}
+
+\hypertarget{starting-resuming-and-completing-an-attempt}{%
+\subsection{5.3.2 Starting, Resuming, and Completing an
+Attempt}\label{starting-resuming-and-completing-an-attempt}}
+
+The second step of the student user journey is to start/resume the quiz
+they would like to attempt.
+
+Once the student enters the start screen, they can simply tap on the
+large ``Start Quiz'' button to start the attempt. If the student has an
+ongoing attempt that they haven't completed, they will see a ``Resume
+Quiz'' button instead, which allows them to continue from where they
+left off. The language and design of the buttons are intentionally
+simple and clear to minimise any confusion for students.
+
+During the attempt, answers are saved incrementally as students progress
+through the quiz, preventing any progression loss from unexpected
+interruptions.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.attempt-basic.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.attempt-rapid.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.attempt-crossword.jpg}
+\end{minipage}
+\caption*{Figure 5.3: Quiz attempt screens across Basic, Rapid, and Crossword quiz types.}
+\addcontentsline{lof}{figure}{Figure 5.3: Quiz attempt screens across Basic, Rapid, and Crossword quiz types.}
+\end{figure}
+
+
+\hypertarget{immediate-post-quiz-feedback-and-review}{%
+\subsection{5.3.3 Immediate Post-Quiz Feedback and
+Review}\label{immediate-post-quiz-feedback-and-review}}
+
+The final step of the student user journey is to review the results and
+feedback after submission. This interface supports this by providing
+a clear and immediate summary of the student's performance right after they submit their attempt,
+followed by a button to review the attempt in full detail. The review page
+allows Students to see the questions, their answers, and the correct
+answers.
+
+This immediate feedback loop supports the findings in Chapter
+2's literature review about the importance of timely feedback for
+effective retrieval practice.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.review-basic.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.review-rapid.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.29\textheight,keepaspectratio]{assets/main-report/figures__screenshots__5.review-crossword.jpg}
+\end{minipage}
+\caption*{Figure 5.4: Quiz review screens across Basic, Rapid, and Crossword quiz types.}
+\addcontentsline{lof}{figure}{Figure 5.4: Quiz review screens across Basic, Rapid, and Crossword quiz types.}
+\end{figure}
+
+\hypertarget{backend-managed-attempt-lifecycle}{%
+\subsection{5.3.4 Infrastructure to Support a Smooth Student
+Mobile Experience}\label{backend-managed-attempt-lifecycle}}
+
+A key consideration when designing the student experience was that it was phone-based.
+Mobile usage is natrually prone to interruptions, as students may switch apps, lose connectivity, or
+leave and return later. As such, the system needs to be designed to support a smooth experience even with
+connectivity and usage interruptions.
+
+Quiz attempt management is therefore handled entirely in the
+backend, with the phone interface serving mainly as just an interaction surface
+for students to submit answers and receive feedback.
+
+Attempt validation, grading, timers are all enforced in the backend, and the client application simply
+reflects the current state of the attempt as stored in the backend. This means that even if a student
+gets interrupted during an attempt, they can simply resume it later without losing their progress.
+For time-limited quizzes, the timers are also enforced in the backend through a Redis-based timing mechanism,
+which means that even if a student changes their device's clock, or exits and re-enters the quiz,
+the backend will still enforce the correct remaining time for the attempt.
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-5-16-attempt-lifecycle.drawio.png}
+\caption*{Figure 5.5: Backend-managed attempt lifecycle.}
+\addcontentsline{lof}{figure}{Figure 5.5: Backend-managed attempt lifecycle.}
+\end{figure}
+
+\hypertarget{randomised-quizzes}{%
+\section{5.4 Teacher Journey: Assigning Randomised Quizzes Fairly and
+Consistently}\label{randomised-quizzes}}
+
+For certain quiz types, such as the Rapid Arithmetic quiz and the
+Crossword Bank quiz, the system has to generate randomised content from
+the configuration provided by teachers. This means that multiple unique
+quizzes could be generated from the same quiz, which could lead to
+inconsistencies in the student experience if not handled carefully.
+
+To ensure a consistent experience, the quiz system
+generates quiz content when scheduled, rather than at
+attempt time. When a teacher schedules a quiz that requires
+randomisation, the specific quiz content for that
+schedule is generated and stored as part of the scheduled quiz record. All
+students who attempt that particular scheduled quiz then receives the same
+generated content.
+
+This approach is justified by two key usage concerns:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Fairness: Students in the same assignment context should not receive
+  arbitrarily different quiz content, especially when quiz scores feed
+  into overall progress and competitive leaderboards.
+\item
+  Analytics consistency: Teachers are shown per-question breakdowns in
+  the dashboard, and those breakdowns are much harder to interpret if
+  students receive different underlying questions.
+\end{enumerate}
+
+As such, assignment of randomised quizzes is ``schedule-anchored''. For
+any particular scheduled quiz, generated quiz content is fixed and
+shared across all students who attempt that scheduled quiz.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-5-18-schedule-anchored-randomisation.drawio.png}
+\caption*{Figure 5.6: Schedule-anchored randomisation flow.}
+\addcontentsline{lof}{figure}{Figure 5.6: Schedule-anchored randomisation flow.}
+\end{figure}
+
+\hypertarget{extensibility-and-modularity-of-the-quiz-system}{%
+\section{5.5 Maintainability Consideration: Extending Quiz Types}\label{extensibility-and-modularity-of-the-quiz-system}}
+
+Because retrieval practice can take many forms, the quiz system is
+purposefully designed to grow without requiring major refactors each
+time a new quiz format is introduced. This improves maintainability and
+allows the platform to evolve based on user feedback and changing
+educational needs.
+
+This is achieved through a registry-based system. A base quiz
+schema defines key quiz fields and logic such as versioning, scheduling,
+attempt management and event propagation,
+and then specific quiz types extends from the base schema.
+
+Each supported quiz type defines its own logic in its own file,
+and all defined quiz types are registered into the registry on system startup,
+extending from the base quiz schema. The registry is then used to route
+quiz-related operations such as quiz creation, retrieval, and grading to
+the correct quiz type logic based on the quiz type specified in the request.
+
+The quiz types also define structures for quiz specific analytic breadowns
+and AI generation prompts, which allow new quiz types to be easily integrated
+into analytics and AI generation features without needing to change the logic
+in Class and AI services.
+
+Overall, this structure keeps the teacher journey of quiz management stable over
+time. Even if new types of quizzes are added, the core management experience
+remain consistent as new quiz types extend from the same base schema and contract,
+and therefore integrate into exisitng worflows of creation, scheduling, attempt,
+analytics, and AI generation.
+
+\pagebreak
+
+\hypertarget{chapter-6-class-scheduling-and-analytics-system}{%
+\chapter{Chapter 6 --- Class, Scheduling and Analytics
+System}\label{chapter-6-class-scheduling-and-analytics-system}}
+
+The Class service manages class rosters, assignment schedules, and the
+teacher-facing analytics views. It acts as the operational layer that
+connects quiz content to specific classes with specific timing and
+monitoring contexts.
+
+This means that the class service needs to support both administration
+and coordination functions. Teachers need to create classes, maintain
+rosters, and assign quizzes to classes with specific windows. Students
+then depend on the service to know which quizzes are available to them,
+and the administrative details of those quizzes, such as when a schedule
+closes and how many attempts they have left.
+
+\hypertarget{class-and-roster-management}{%
+\section{6.1 Teacher Journey: Class Onboarding and Roster
+Management}\label{class-and-roster-management}}
+
+The key teacher journey here is class onboarding. A teacher creates a
+class, imports or refines the student list, and receives a usable set of
+student credentials that can be distributed immediately. This flow needs
+to be quick and seamless because it is one of the first things a teacher does
+before any quiz authoring or scheduling can even be done.
+
+The user flow for this journey is as follows:
+\begin{enumerate}
+  \item Create a class and set up the basic class information.
+  \item Import or refine the class roster of students.
+  \item Trigger student account provisioning for that class roster.
+  \item Receive generated student credentials after provisioning is complete.
+  \item Export and distribute generated credentials to students.
+\end{enumerate}
+
+To make the class onboarding flow as seamless and efficient as possible,
+the platform needs to support the importing of student lists into the class creation
+interface. All the teacher should need is a csv list of student names, and the system should be
+able to automatically generate all the needed student accounts and credentials.
+There should also be export functions for generated credentials so teachers can easily
+disseminate credentials to students.
+
+To support all these functionalities, Class Service manages the class and roster records,
+while coordinating with User Service to provision the student accounts. For each class created,
+User Service is called through a bulk account creation endpoint to create the student accounts,
+and the generated credentials are then returned to Class Service to be displayed in the dashboard for
+exporting.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/figures__screenshots__6.1.png}
+\caption*{Figure 6.1: Classes page.}
+\addcontentsline{lof}{figure}{Figure 6.1: Classes page.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/figures__screenshots__6.2.png}
+\caption*{Figure 6.2: Create class page.}
+\addcontentsline{lof}{figure}{Figure 6.2: Create class page.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/figures__screenshots__6.3.png}
+\caption*{Figure 6.3: Class students page.}
+\addcontentsline{lof}{figure}{Figure 6.3: Class students page.}
+\end{figure}
+
+\hypertarget{scheduling}{%
+\section{6.2 Teacher Journey: Scheduling Classroom Quiz
+Work}\label{scheduling}}
+
+After classes have been created, the teacher needs to be able to assign created quizzes to
+those classes for students to attempt. To make scheduling more accesible and intuitive,
+there are multiple journeys that teachers can take to schedule quizzes.
+
+Scheduling from quizzes page:
+
+\begin{enumerate}
+  \item Navigate to the quizzes page and find the quiz to assign.
+  \item Click on the calendar icon to the right of the quiz.
+  \item Fill up the scheduling details such as classes, schedule window, attempt limits, and score contribution.
+  \item Publish the schedule and verify it appears correctly on the scheduling board.
+\end{enumerate}
+
+Scheduling from the scheduling page:
+\begin{enumerate}
+  \item Click on "Schedule New Quiz".
+  \item Choose a scheduling path:
+  \begin{enumerate}
+    \item \textbf{Path 1 (Meny flow):} Click on a quiz to open the scheduling menu, then assign the quiz by filling in the schedule details.
+    \item \textbf{Path 2 (Drag-and-drop flow):} Drag and drop the quiz from the quiz list into the class calendar where it should be scheduled.
+  \end{enumerate}
+  \item Confirm the scheduled quiz appears in the class calendar.
+  \item Edit when needed by right-clicking the scheduled quiz to update details, or by dragging the ends of the scheduled quiz to adjust its schedule window.
+\end{enumerate}
+
+Scheduling was designed as a tab of its own, as it forms a critical part of the teacher journey in assigning retreival tests to students. Initial user
+testing revealed that the lack of a dedicated scheduling page, and having it as part of a class page, was confusing and made it less intuitive for
+teachers to find and manage the class schedules. As such, a full scheduling page with a calendar view for every class was implemented to make the
+scheduling journey far more intuitive and simple to use.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/figures__screenshots__6.4.png}
+\caption*{Figure 6.4: Scheduling board.}
+\addcontentsline{lof}{figure}{Figure 6.4: Scheduling board.}
+\end{figure}
+
+\hypertarget{schedule-crud-flow}{%
+\subsection{6.2.1 Scheduling Workflow}\label{schedule-crud-flow}}
+
+The teacher journey for scheduling is simple from the user perspective, as the teacher
+simply needs to assign quizzes on a single scheduling interface. But to support
+a consistent and reliable scheduling experience, the system needs to keep three connected
+parts of the system in sync. These include:
+
+\begin{enumerate}
+  \item Schedule metadata (Class Service): the schedule details such as which quiz is assigned to which class,
+  when the schedule window is, how many attempts are allowed, and how the quiz contributes to the overall score.
+  \item Quiz attempts (Quiz Service): the students' attempts on the scheduled quizzes, which need to be correctly
+  linked to the schedule stored in the Class Service.
+  \item Analytics reporting (Class Service): the teacher-facing analytics and reporting that are built from
+  the attempt data, which also need to be correctly linked to the schedule and updated when schedules are edited.
+\end{enumerate}
+
+As such, scheduling is a cross-domain workflow that requires careful coordination between Class and Quiz Service.
+To ensure consistency, an event driven approach is used to link the scheduling metadata, quiz attempts, and analytics reporting together.
+
+The following are the key steps in the scheduling workflow:
+
+\begin{enumerate}
+  \item When a quiz is scheduled, the schedule entry is created in the Class
+    Service with the relevant quiz identifiers, the schedule window, along
+    with other policy details such as attempt limits and score contribution.
+  \item When students try to attempt the quiz, Quiz Service checks the schedule
+    details from Class Service to determine if the quiz is currently available for the student,
+    and to enforce attempt limits.
+  \item On attempt completion, the Quiz Service emits attempt events that include the schedule identifiers,
+    which allows the Class Service to link the attempt outcomes back to the correct schedule for analytics compilation.
+\end{enumerate}
+
+Proper compensating events are also emitted when schedules and quizzes are edited or deleted.
+
+If a scheduled quiz is edited or deleted, a schedule change event is emitted by the class service,
+which is consumed by Quiz Service to invalidate attempts linked to that schedule as needed,
+and then invalidation events are passed back to Class Service again to update the analytics projections.
+
+If a quiz that is linked to an active schedule is deleted, a quiz deletion event is emitted by Quiz Service,
+which is consumed by Class Service to delete the schedules making use of that quiz.
+
+More specific details about the quiz/class linking and event flows can be found within Developer Guide Section 3.2.
+
+\hypertarget{analytics-and-projection-models}{%
+\section{6.3 Teacher Journey: Analytics Sense-Making with Projection
+Models}\label{analytics-and-projection-models}}
+
+After the students have worked through scheduled quizzes, the platform should
+provide the teacher with a tool for analyzing the class performance. It will allow the
+teacher to idenfity weak topics or students, and adjust/iterate on the quizzes to better
+target weak areas in the next round of scheduling.
+
+To support this, the platform needs to maintain analytics across different diensions such as
+student-based performance and schedule-based performance, These analytics need to be updated reasonably
+quickly, be accurate and consistent, while being able to scale as the number of students and attempts grow.
+
+To implement the analytics features, the key design decision was to use projection models that can be
+asynchronously update in the background rather than trying to compute all the analytics on demand at request time.
+This allows the analytics views to be responsive and up-to-date without putting too much load on the system at request time.
+
+For updating projections, class service consumes the attempt events emitted by quiz service, and calculates the
+appropriate deltas that should be applied to existing projections. Current analytics include student topic performance,
+subject performance and overall performance and participcation. Where multiple attempts are allowed for a schedule,
+the analytics are based on a single ``canonical'' attempt per student and schedule, which is currently defined as the
+best valid attempt.
+
+Attempt invalidation events are also handled in this pipeline. If
+attempts are edited or invalidated due to schedule or quiz changes,
+projection updates apply reverse aggregation so outdated results are
+removed from both all projections.
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/all-diagrams-figure-6-5-analytics-projection-sequence.drawio.png}
+\caption*{Figure 6.5: Analytics projection flow.}
+\addcontentsline{lof}{figure}{Figure 6.5: Analytics projection flow.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.34\textheight,keepaspectratio]{assets/main-report/figures__screenshots__6.7.1.png}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.34\textheight,keepaspectratio]{assets/main-report/figures__screenshots__6.7.2.png}
+\end{minipage}
+\caption*{Figure 6.6: Schedule-level analytics view.}
+\addcontentsline{lof}{figure}{Figure 6.6: Schedule-level analytics view.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.82\textheight,keepaspectratio]{assets/main-report/figures__screenshots__6.6.png}
+\caption*{Figure 6.7: Student-level analytics view.}
+\addcontentsline{lof}{figure}{Figure 6.7: Student-level analytics view.}
+\end{figure}
+
+\hypertarget{chapter-7-ai-assisted-quiz-generation}{%
+\chapter{Chapter 7 --- AI-Assisted Quiz
+Generation}\label{chapter-7-ai-assisted-quiz-generation}}
+
+One of the platform's main value propositions is its ability to support
+retrieval practice at scale. To make frequent quiz-based practice
+feasible in real classroom settings, the AI generation feature is
+designed to reduce the time and effort required for teachers to produce
+large volumes of quiz content.
+
+Section 2.3 of the literature review identified that LLMs can
+substantially reduce authoring time, but may also face risks such as
+drift from syllabus, ambiguity and factual errors.
+
+As such, the implementation decisions here follow a teacher-in-the-loop
+workflow in which AI assists with initial drafting, and the web
+interface then provides an intuitive interface for teachers to review
+and edit the generated content. To further mitigate the potential risks
+of syllabus drift and factual errors, the design of the generation
+workflow will use structured prompting, with generation constraints and
+narrow generation tasks for each request.
+
+\hypertarget{user-workflow-and-interface-design}{%
+\section{7.1 Teacher Journey: Configure and Launch AI
+Generation}\label{user-workflow-and-interface-design}}
+
+The main teacher journey in this chapter is to configure a generation
+request and launch it with enough constraints that the output is useful
+for classroom use. At a high level, the flow is:
+
+\begin{enumerate}
+  \item Open the AI generation wizard in the teacher dashboard.
+  \item Configure generation settings and optionally upload context documents.
+  \item Submit the generation job and monitor progress.
+  \item Return to review and edit generated drafts once processing completes.
+\end{enumerate}
+
+The AI generation workflow starts in the teacher-facing web dashboard.
+Teachers access a generation wizard where they can select or modify the
+following parameters for generation:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Quiz type: teachers can select the quiz format they want to generate
+  ("Basic", "Rapid", "Crossword" and
+  "True/False" are currently supported).
+\item
+  Subject: teachers can select the subject for which they want to
+  generate quiz content ("Math", "Science", and
+  "English" are currently supported).
+\item
+  Number of quizzes: teachers can specify how many quizzes they want to
+  generate in this batch.
+\item
+  Number of questions per quiz: teachers can specify how many questions
+  they want in each generated quiz.
+\item
+  Timer settings: teachers can choose between default (AI decided), no
+  timer, or forced timers for the generated quizzes.
+\item
+  Instructions: teachers can provide free-text instructions to guide the
+  generation.
+\item
+  Content documents: teachers can optionally upload up to 5 documents as
+  context for generation ("PDF", "DOCX", and "TXT"
+  formats are currently supported).
+\end{enumerate}
+
+Uploaded documents must be classified by the teacher as
+"syllabus", "question-bank", "subject-content", or
+"other" when they are uploaded. This classification determines
+how AI Service treats the extracted text during context construction.
+
+When the AI Service receives the generation request, it creates a
+generation job in the system with a "pending" state and queues an
+asynchronous task. When the worker begins processing the request the job
+state transitions to "processing". The worker then constructs the
+generation context and executes the generation by passing prompts to the
+LLM.
+
+As the generation is executing, teachers are shown a progress screen
+with a loading animation. If an unrecoverable error occurs anywhere in
+the pipeline, the job state transitions to "failed", and if the
+job completes with no errors, the job state transitions to
+"completed".
+
+During the generation process, the web dashboard polls the AI Service at
+regular intervals to retrieve the job status. The teacher is able to see
+that the generation is in progress, and is also able to see the
+generation status of each individual quiz.
+
+Because generation can take some time, especially when multiple quizzes
+are being generated, the workflow is intentionally asynchronous. The
+teacher can choose to exit the generation workflow while generation is
+still in progress, and can return later to continue from the generated
+results.
+
+\hypertarget{typed-document-parsing-and-context-construction}{%
+\section{7.2 Supporting Structure: Typed Document Grounding for
+Generation}\label{typed-document-parsing-and-context-construction}}
+
+This section explains the high-level structure that supports the journey
+above when teachers upload documents for context.
+
+When reference documents are uploaded, the documents are first run
+through a dedicated parsing stage before any LLM generation happens.
+This parsing stage extracts content from the uploaded files and
+constructs structured context blocks that are then fed into the
+generation pipeline. This stage helps to ensure that raw text from the
+documents is transformed into a format that is more suitable for
+prompting, and it also allows the system to apply different handling
+logic based on the declared type of each document.
+
+After the previous two steps, the extracted text is then concatenated
+together based on its document's declared type ("syllabus",
+"question-bank", "subject-content", or "other").
+Each document type is then handled in a different way during context
+construction.
+
+\begin{itemize}
+\tightlist
+\item
+  "syllabus": syllabus text is joined together and truncated, and
+  then used as a ``constraint'' block which is inserted in full as
+  context for generation in every single quiz. This means that context
+  extracted from syllabus documents will be present in the prompt for
+  every quiz. Syllabus is thus treated as an ``authoritative boundary'',
+  and the prompt template is designed such that the generation should
+  not stretch beyond the indicated syllabus content.
+\item
+  "question-bank": text extracted from question-bank documents is
+  split into smaller units, and the units of text are rotated and used
+  as context across the requested quizzes. This means that different
+  quizzes in the same batch will receive different subsets of the
+  question bank as context. The question bank context is treated as
+  style exemplars, and is mainly used to improve the relevance, quality,
+  and variety of the generated questions.
+\item
+  "subject-content": text extracted from subject-content
+  documents is also split into units, but is rotated across quizzes in
+  slightly larger chunks compared to question-bank text. Subject content
+  is meant to be the main factual grounding for generation, and it is
+  important that each quiz receives a coherent set of subject content as
+  context.
+\item
+  "other": text extracted from documents classified as
+  "other" is treated as supplementary context. It is chunked
+  conservatively and appended as additional reference notes at the end
+  of the prompt.
+\end{itemize}
+
+The typed approach helps the uploaded documents to be treated more
+appropriately. By having a proper processing system for different types
+of documents, the system can assign a clearer semantic role to each
+piece of context, which improves the relevance of generated items and
+reduces the risk of repeated content across quizzes in the same batch.
+The alternative of concatenating or chunking all extracted text into one
+large prompt might risk hitting token limits, and would also make it
+harder for the model to identify which pieces of context are most
+relevant.
+
+Following the logic above, a ``context block'' is created for each
+request quiz and stored in an array. In subsequent planning and quiz
+generation stages, the context blocks are used as supplementary material
+provided to the LLM together with the teacher instructions and the
+selected generation settings.
+
+The use of separate and distinct context blocks for each generated quiz
+is a deliberate choice. Instead of using all the extracted document
+material for every single quiz, the material is split among multiple
+quizzes. This helps to improve the variety of the quizzes, as the
+reference material for each quiz now varies.
+
+\hypertarget{generation-pipeline-and-prompting-strategies}{%
+\section{7.3 Supporting Structure: Two-Pass Generation Pipeline and
+Prompting}\label{generation-pipeline-and-prompting-strategies}}
+
+This section explains the orchestration structure that supports the same
+teacher generation journey at runtime.
+
+After the contexts for each quiz have been prepared, the AI Service
+prompts the LLM in two passes: a planning pass, and a generation pass.
+
+The planning pass is used to first create a blueprint for the entire
+batch. It first assigns each requested quiz with a quiz type based on
+the teacher's selection. If more than one quiz type is selected, the
+assignment is distributed across the batch in order.
+
+The planning prompt includes the following items structured in a neat
+format.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  The teacher's instructions
+\item
+  Up to 10 context blocks parsed from documents (as described in section
+  7.2)
+\item
+  The number of quizzes and their types
+\end{enumerate}
+
+The LLM is asked to return a strict JSON blueprint for the quizzes in
+the entire batch. Each blueprint item should specify the following:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Quiz number
+\item
+  Quiz type
+\item
+  Focus
+\item
+  Angle
+\item
+  Concepts to be covered
+\item
+  Concepts to avoid (prevent overlaps between quizzes in the same batch)
+\item
+  Optional title and topic hints
+\end{enumerate}
+
+AI Service then validates the returned blueprint before moving on.
+
+If the blueprint passes validation, AI Service will begin generating
+quizzes.
+
+For each quiz, the final prompt is assembled with the following items
+included.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  The blueprint for that particular quiz, retrieved from the planning
+  pass.
+\item
+  A singular context block that has been assigned to the quiz (processed
+  from the documents)
+\item
+  The prompts and structure specific to the quiz type being generated
+  (e.g.~basic, rapid, crossword), retrieved from quiz service and
+  defined as part of the quiz contract in the quiz-type registry.
+\item
+  Constraints based on the user-selected generation settings
+  (e.g.~number of questions to be included, title and topic generation
+  rules)
+\end{enumerate}
+
+An individual request is sent to the LLM for each requested quiz.
+Requests are sent to the LLM in parallel up to a configurable parallel
+limit (to prevent exceeding concurrency limits on LLM usage). A progress
+entry is created for each generation request and polls from the frontend
+will return the progress for each individual quiz.
+
+Both stages of the pipeline include retry handling. The planning pass
+retries the blueprint request on failure, and the generation pass
+retries failed quizzes individually on failure. Both allow for retries
+up to a configurable limit. Because the generation pass retries quizzes
+individually, a failure in one quiz does not immediately cause the whole
+batch to fail.
+
+This two pass method is used as it improves the overall quality of the generated quizzes.
+As the quizzes are generated in parallel, there is little content that seperates the quizzes
+between one another, which results in the generation of quizzes that are similar to one another.
+The planning pass thus helps to create clear stucture and differentiation between generated
+quizzes. This system also helps to better support the generation of larger batches, as the planning pass
+can create a clear blueprint for a large batch, and then the generation of individual quizzes
+can then be parallelised based on that blueprint.
+
+\hypertarget{output-normalisation-and-schema-alignment}{%
+\section{7.4 Teacher Journey: Review, Edit, and Approve Generated
+Drafts}\label{output-normalisation-and-schema-alignment}}
+
+After generation completes, the teacher enters the review journey:
+
+\begin{enumerate}
+  \item Open each generated quiz draft in the review interface.
+  \item Review and edit questions where needed.
+  \item Save approved quizzes into the teacher library, or discard unsuitable drafts.
+\end{enumerate}
+
+To support this review flow, AI Service normalises model outputs before
+they reach the teacher.
+
+The raw model response for each generated quiz is then normalised again
+by AI Service into a draft quiz format. This includes attaching
+temporary quiz ids, generating ids for items and sub-elements, and
+ensuring that metadata fields such as subject and topic are present.
+
+The system also ensures that the returned quiz format adheres to the
+schema of the quiz type that the quiz is being generated for. Question
+and answer objects are normalised into the supported formats for each
+quiz type. For example, crossword quizzes are normalised and the grid is
+separately generated under Quiz Service based on the word-clue pairings
+that the LLM has returned.
+
+After normalisation, the generated quizzes are stored in the generation
+job as draft results. These drafts are then returned to the teacher in
+the frontend where edits can be made. The generated quizzes stay in a
+draft state until the teacher chooses either to approve the quizzes or
+to discard them altogether. Approved quizzes are then saved into the
+teacher's quiz library where they can then be scheduled for students to
+attempt.
+
+This normalisation step serves as a good filter to the generated content,
+If the generated content does not fulfill the required structure, the normalisation
+will fail, and the system can then decide to retry the generation or to mark the quiz as failed.
+This hence gurantees the structural quality of the generated quizzes.
+
+\hypertarget{current-limitations}{%
+\section{7.5 Current Limitations}\label{current-limitations}}
+
+The current implementation still has some limitations. Only a limited
+set of types is currently supported for AI generation. The randomised
+quiz types (Rapid Arithmetic and Crossword Bank) are excluded from AI
+generation. Preliminary testing with those quiz types caused recurring
+errors during generation despite repeated attempts to optimise the
+prompt. As such, those quizzes were completely removed from the AI quiz
+generation pipeline to reduce the error rate. This decision was also
+reasonable on a usability perspective, as the excluded quizzes were
+relatively easy for teachers to create without LLM support. Rapid
+Arithmetic quizzes simply needed some parameter tuning, and Crossword
+Bank just requires a word/clue definition bank.
+
+There are also limitations on extracting and producing multi-modal
+content. The current document-processing pipeline is designed mainly for
+extracting text. Images contained within uploaded documents are not
+parsed as visual content, and generated quiz questions do not support
+image generation or retrieving images from external sources. This was an
+intentional design-choice tradeoff, as reliable multi-modal support
+would require additional vision-related components such as computer
+vision models. These would significantly increase system complexity and
+incur a lot of additional cost and latency. It would also make prompt
+construction and output validation a lot more complicated. As such, to
+make the generated quizzes more reliable at scale, the generation scope
+has been deliberately limited to text-based quizzes only. Lower-level
+runtime behaviour, OCR heuristics, and provider-specific details are
+documented in the separate Developer Guide, especially Sections 3.4.4
+and 3.4.5, and in the appendix on AI generation evaluation.
+
+
+\hypertarget{chapter-8-gamification-and-game-service-design}{%
+\chapter{Chapter 8 --- Gamification and Game Service
+Design}\label{chapter-8-gamification-and-game-service-design}}
+
+This chapter dives into the purpose, design, and implementation of the
+gamification system. The role of gamification in the platform is mainly
+to encourage repeated participation in retrieval practice by making
+overall progress in the application more visible, personal, and
+rewarding.
+
+\hypertarget{design-goals-of-the-gamification-subsystem}{%
+\section{8.1 Key Goals of the Gamification
+Subsystem}\label{design-goals-of-the-gamification-subsystem}}
+
+Following the findings in the literature review (Chapter 2.2), the key
+design goals of this gamification subsystem are as follows.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  Gamification should be tied to the main learning activity of the
+  application rather than have it be a competing objective. The
+  gamification system should offer rewards and progression together with
+  progression in retrieval practice, and it should not override or
+  affect the main academic activity in any other way.
+\item
+  Gamification should have a concrete progression system to encourage
+  students to return. The literature review points out that points,
+  rewards, leaderboards are clear signs of progression that should be
+  integrated into the gamification system, and any other reward logic
+  that encourages meaningless activities should be completely avoided.
+\item
+  Gamification should support self-expression. Avatar identification and
+  customisation have been found to improve intrinsic motivation towards
+  tasks. As such, a well-designed avatar system could be further tied
+  into the learning activity by linking the unlocking of avatar
+  customisation items to progress in the learning activity.
+\end{enumerate}
+
+Overall, the gamification features should generally be supportive
+elements that improve the learning experience rather than add a
+competing objective.
+
+\hypertarget{design-for-supportive-gamification}{%
+\section{8.2 Student Journey: Post-Attempt Feedback
+Flow}\label{design-for-supportive-gamification}}
+
+The most important feedback in this platform is still the academic
+feedback that students receive after each quiz attempt, which was
+discussed in detail in Chapter 5. To ensure that the gamification
+features do not compete with the academic feedback, the design of the
+post-attempt feedback flow is carefully structured.
+
+The post-attempt journey for gamification includes the following steps:
+
+\begin{enumerate}
+  \item The student submits their attempt.
+  \item The gamification layer evaluates the outcome of that attempt and updates the student's progression state.
+  \item The student is first shown the grade achieved for the attempt.
+  \item They are then shown any score progression and changes in leaderboard position linked to completing the attempt.
+  \item Finally, they are shown any rewards unlocked from that attempt, such as avatar items or badges.
+\end{enumerate}
+
+To support the post-attempt journey above without impacting the academic features of the app,
+the gamification system is designed to be largely detached from the learning records.
+Within Game service, each student is assigned a unique game profile that is updated
+based on events that are emitted by the Quiz and Class services. This means that
+gamification logic does not affect the core academic experience at all, and any
+gamification features can be added, removed, or redesigned without
+affecting the core learning activity.
+
+\hypertarget{leaderboards-streaks-and-overall-score}{%
+\section{8.3 Student Journey: Leaderboards and Streaks}\label{leaderboards-streaks-and-overall-score}}
+
+To support an engaging gamification experience, the gamification system
+is designed to reward students for their academic performance and
+consistency. This is done with two main segments, a progression system
+that tracks and rewards students' overall performance, and a consistency
+system that tracks and rewards students' regular engagement with the platform.
+
+Leaderboards and streaks fall under the consistency system, as they are designed to encourage consistent
+performance and regular engagement with the platform. The student journey for this flow can be summarised as:
+
+\begin{enumerate}
+  \item Student completes quizzes regularly and accumulates scores awarded by attempts.
+  \item Student climbs up the leaderboard in rank and increases their daily attempt streak.
+  \item Student receives rewards for reaching certain score milestones and streak milestones.
+  \item Student returns daily for more attempts to maintain streaks and ranking.
+\end{enumerate}
+
+The leaderboards rank students based on their score, which is
+accumulated from their performance in quiz attempts. There are three types of
+leaderboards, an overall one, a monthly one and a weekly one. The separation of
+leaderboards also allows for different time horizons of competition. This can be
+motivating in the short term for weaker students as they still have a chance to
+climb higher on the weekly and monthly leaderboards, even if they are far behind
+on the overall leaderboard.
+
+Streaks are also implemented to encourage consistency. A streak is
+defined as the number of consecutive days on which a student completes
+at least one quiz attempt. This provides students with a clear and
+simple measure of their regular engagement with the platform. Streaks
+can serve as a strong motivational cue, as missing a single day will
+break the streak and reset the count. It therefore encourages students
+to make quiz attempts a part of their daily routine, and it also
+provides a sense of accomplishment for maintaining a high streak count.
+
+The implementation of streaks and leaderboards are rather straightforward. Streaks are simply
+as part of an attendance ledger stored in the student's game profile in Game Service.
+The system stores the date of the student's last attempt, and the current streak count.
+When a new attempt event is received or when a request is made to retreive the streak count,
+the system checks the date of the last attempt to determine whether to increment the streak count or reset it.
+Since this logic only depends on a small and amount of states within each student's profile, both streak updates
+and streak retrieval can be performed in constant time. This makes the streak system computationally efficient,
+while also keeping the logic simple and easy to maintain.
+
+For leaderboards, the system simply stores a record of student overall, monthly and
+weekly scores in the game profile, and when a request is made to retreive the leaderboard,
+the system retrieves the relevant scores for all students and sorts them to produce the leaderboard rankings.
+
+\hypertarget{avatar-personalisation}{%
+\section{8.4 Student Journey: Progression Rewards, Avatar Personalisation, and Badge
+Displays}\label{avatar-personalisation}}
+
+On the progression side of the gamification system, two rule based reward types are implemented based on
+the findings in the literature review: avatar customisation and displayable badges.
+
+Both avatar items and badges are rewarded to students based on their performance in the platform, which
+includes reaching certain score milestones, maintaining high streaks and achieving high ranks on the leaderboards.
+
+These rewards serve as a more tangible way to complement the base
+consistency based gamification features of the leaderboard ranking and
+streaks. They provide students with specific goals to work towards and therefore encourage
+a progression loop in which students are motivated to continue engaging with the platform in
+order to unlock more rewards and further customise their avatar and profile.
+
+The user journey for this reward flow are as follows:
+
+\begin{enumerate}
+  \item Student receives progression updates after attempting quizzes.
+  \item Student unlocks rewards (avatar items and badges) based on milestone conditions.
+  \item Student views and applies customisation items and equips earned badges in the profiles.
+\end{enumerate}
+
+\hypertarget{supporting-infrastructure-for-avatar}{%
+\section{8.4.1 Supporting Infrastructure for Avatar and Badge
+Rewards}\label{supporting-infrastructure-for-avatar-and-badge-rewards}}
+
+To support the features listed above, a set of rules is defined in the Game Service that
+specifies the conditions under which students can unlock avatar items and earn badges.
+
+Avatar cosmetics are rewarded at certain point thresholds to provide a
+clear and consistent reward structure. For example, students might
+unlock a new avatar item for every 100 points they earn.
+
+Badges are awarded for specific achievements, such as maintaining a 30-day streak,
+being in the top 3 of the weekly/monthly leaderboard at the end of the
+period, or reaching a score milestone such as 1000 points.
+
+The specific thresholds and conditions for rewards can be adjusted by the teacher at
+a class level, allowing for some customisation based on the preferences
+and motivations of each class.
+
+At an implementation level, Game Service executes those rules by
+consuming attempt events emitted by Quiz Service. Scores and other
+relevant metrics are evaluated by Game Service against the defined reward rules,
+and if the system determines that a reward should be granted, the student's
+game profile is updated to reflect the new avatar items and badges.
+
+To ensure the best execution of the avatar system for self-expression,
+it was also designed to support a large variety of customisation options.
+Items include options such as hats, glasses, shirts, outerwear, shoes, accesories and even pets.
+As students are rewarded with more items, they can mix and match
+different items to create more unique looks for their avatar.
+
+\hypertarget{extensibility-of-assets}{%
+\section{8.4.3 Extensibility of Assets}\label{extensibility-of-assets}}
+
+The asset system (used for avatar cosmetics and badges) is designed with
+extensibility in mind. New items can be added to the system without
+needing to change the underlying rendering logic or data structures.
+This allows for the gamification system to evolve and expand over time,
+with new rewards and customisation options being added as needed without
+requiring significant development effort.
+
+For avatar cosmetics, the assets are organised into a fixed set of
+slots (base avatar, eyes, mouth, upperwear, lowerwear, hair, outerwear,
+shoes, accessories, pets). The assets are stored in a directory
+structure that reflects these slots with a manifest file, and Game Service scans the asset
+folders to build the item catalogue. This means that adding a new cosmetic item
+only requires placing the asset file in the correct slot
+folder and updating the manifest with the relevant metadata.
+
+Every cosmetic asset in the system is designed with a shared 800x800
+blueprint in mind. The artwork for each item is drawn in the correct
+position within this shared canvas, which means that the renderer can
+simply layer the equipped items on top of one another within the same
+800x800 canvas without needing any additional positioning logic for each
+item. As long as new items follow the blueprint, they can be added to
+the system and rendered correctly without changes to rendering code.
+
+The badge assets are similarly structured with extensibility in mind.
+Rather than a separate hand-drawn image for every single badge, the
+render makes use of a small number of reusable base assets and layered
+visual elements to create different badge meanings. This allows for new
+badges to be added by defining new combinations of existing visual
+components.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth,height=0.38\textheight,keepaspectratio]{assets/main-report/figures__rendered__figure-8-3-avatar-layering.pdf}
+\caption*{Figure 8.1: Avatar asset layering construction (from Developer Guide).}
+\addcontentsline{lof}{figure}{Figure 8.1: Avatar asset layering construction (from Developer Guide).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth,height=0.38\textheight,keepaspectratio]{assets/main-report/figures__rendered__figure-8-4-badge-layering.pdf}
+\caption*{Figure 8.2: Badge asset layering construction (from Developer Guide).}
+\addcontentsline{lof}{figure}{Figure 8.2: Badge asset layering construction (from Developer Guide).}
+\end{figure}
+
+\hypertarget{current-limitations-1}{%
+\section{8.5 Current Limitations}\label{current-limitations-1}}
+
+The current gamification system has some limitations. The reward
+structure is currently quite simple, with only two types of rewards
+(avatar items and badges) and a limited set of conditions for earning
+those rewards. There is also no social or collaborative element to the
+gamification system, such as team-based competitions. These features
+could be explored in future iterations of the platform to further
+enhance the motivational impact of the gamification system.
+
+There is also currently a limited variety of avatar customisation
+options, and the visual design of both the avatars and badges remains
+fairly basic. However, expanding the range and quality of these assets
+is mainly an art and asset-production effort, and was beyond the scope
+of this project. The current implementation should be seen as a proof of
+concept that demonstrates the technical viability of avatar
+personalisation as a motivational feature, with plenty of space for
+future expansion through improved artwork and a larger asset catalogue.
+
+\hypertarget{chapter-9-kafka-event-transport-and-cross-service-event-workflows}{%
+\chapter{Chapter 9 --- Kafka Event Transport and Cross-Service Event
+Workflows}\label{chapter-9-kafka-event-transport-and-cross-service-event-workflows}}
+
+Across this report, there have been multiple mentions of emitted events
+and asynchronous workflows that are triggered by certain actions in the
+system. This chapter dives into the details of the Kafka-based event
+transport mechanism, the design of key end-to-end workflows that involve
+multiple services, and how consistency is maintained across services in
+the face of potential failures.
+
+\hypertarget{kafka-based-event-transport}{%
+\section{9.1 Kafka-Based Event
+Transport}\label{kafka-based-event-transport}}
+
+An event-driven architecture was chosen for many of the cross-service
+interactions in the platform to allow for better decoupling between
+services, improved scalability, and more flexible workflows. Many
+actions in the system have implications that span across multiple
+services. For example, a finalised quiz attempt has implications for
+learning records in Quiz Service, analytics projections in Class
+Service, and gamification progression in Game Service. By emitting
+events for these actions, the system allows each service to
+independently consume the relevant events and update their own data and
+state accordingly, without needing to make synchronous calls to other
+services.
+
+This design was preferred over a tightly coupled synchronous API call
+approach, as request paths would become longer, more fragile, and more
+difficult to maintain as the number of cross-service interactions grows.
+It also allows for a more responsive user experience, as main
+user-facing actions can return immediately without needing downstream
+processing to complete.
+
+Kafka was chosen to be used as the backbone for event transport due to
+its high throughput, scalability, and durability. It is also well suited
+for a system where the same event might need to be consumed by multiple
+services, as Kafka's pub/sub model allows for multiple independent
+consumers to subscribe to the same event stream without interfering with
+each other.
+
+\hypertarget{durable-outbox-publication}{%
+\subsection{9.1.1 Durable Outbox
+Publication}\label{durable-outbox-publication}}
+
+Additionally, a durable outbox pattern is used with Kafka. Instead of
+emitting events directly to Kafka within the main request flow, events
+are first written to a durable outbox table in the emitter's database. A
+separate background worker then polls the outbox table for new events
+and emits them to Kafka. Events in the outbox are only marked as emitted
+after they have been successfully sent to Kafka, and the worker ensures
+that events are emitted in the correct order.
+
+\hypertarget{idempotency-ordering-and-replay-safety}{%
+\subsection{9.1.2 Idempotency, Ordering, and Replay
+Safety}\label{idempotency-ordering-and-replay-safety}}
+
+Consumers of the events are designed to be idempotent, so that if an
+event is accidentally emitted more than once due to a failure in the
+emission process, it will not cause inconsistent state in the consuming
+services. This is important for replay safety, as duplicate delivery or
+retries should not cause the same downstream update to be applied more
+than once.
+
+The main tradeoff in this design is that cross-service consistency is
+eventually consistent rather than strongly consistent. Downstream
+services will only react to emitted events after they have been emitted
+to Kafka, which means that there might be a delay between the original
+action and the downstream effects. However, downstream functionalities
+mainly consists of non-critical features such as analytics and
+gamification, so eventual consistency is an acceptable tradeoff for the
+improved decoupling and scalability.
+
+At a high level, the main role of this event layer is to keep attempt
+state, analytics, and gamification progression aligned without forcing
+every user-facing request to synchronously traverse multiple services.
+The tradeoff is additional operational and debugging complexity, since
+changes can span several services and may only fully settle after the
+relevant events have propagated. Even so, for this platform, that
+tradeoff was preferable to embedding these cross-domain workflows into
+longer and more fragile synchronous request chains.
+
+The more detailed topic catalogue and end-to-end workflow diagrams are
+documented in the separate Developer Guide, especially Sections 2.1 to
+2.5 and Sections 3.2.8 to 3.2.9.
+\hypertarget{chapter-10-evaluation-and-testing}{%
+\chapter{Chapter 10 --- Evaluation and
+Testing}\label{chapter-10-evaluation-and-testing}}
+
+\hypertarget{initial-user-testing}{%
+\section{10.1 Initial User Testing}\label{initial-user-testing}}
+
+\hypertarget{study-purpose-and-evaluation-scope}{%
+\subsection{10.1.1 Scope and Study
+Setup}\label{study-purpose-and-evaluation-scope}}
+
+The initial phase focused on core teacher workflows before AI generation
+and gamification were fully implemented. The scope was intentionally
+limited to class creation, quiz creation, and scheduling, while the
+student quiz experience was evaluated through a guided video walkthrough.
+
+After cleaning incomplete and duplicate responses, the dataset contained
+11 usable responses (9 fully completed and 2 partially completed). As
+with the rest of this evaluation chapter, this phase is exploratory and
+is used mainly to identify usability issues and guide iteration.
+
+The survey was hosted on Qualtrics, and the prototype platform was
+self-hosted with pre-created teacher accounts. Credentials were issued
+through an atomic credential issuer flow linked to the survey process,
+so participants could immediately log in and complete the assigned
+tasks.
+
+\hypertarget{survey-content-initial-phase}{%
+\subsection{10.1.2 Survey Content}\label{survey-content-initial-phase}}
+
+The full survey instrument is provided in \textbf{Appendix B}, and the
+cleaned structured results are provided in \textbf{Appendix C}. The
+survey content was organised around four scenario-based teacher journeys:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{Class Creation and Student Management}: create class, add
+  students, and review class roster.
+\item
+  \textbf{Quiz Creation and Management}: create quizzes and work through
+  question authoring interactions.
+\item
+  \textbf{Scheduling Quizzes}: assign quizzes to classes and manage
+  schedule windows.
+\item
+  \textbf{Student Quiz Experience}: review student attempt and feedback
+  flow through guided walkthrough.
+\end{enumerate}
+
+Each scenario was followed by Likert-scale items and open-ended prompts.
+Two additional blocks were included for overall platform value and
+attitudes toward AI-assisted quiz generation.
+
+\hypertarget{quantitative-results-summary}{%
+\subsection{10.1.3 Results Summary}\label{quantitative-results-summary}}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}p{0.31\textwidth}c c p{0.33\textwidth}@{}}
+\toprule
+Survey block & n & Mean / 5.00 & Main reading \\
+\midrule
+Class creation & 11 & 4.95 & Strongest workflow; onboarding was very clear. \\
+Quiz creation & 10 & 4.70 & Generally usable, but some first-use clarity issues remained. \\
+Scheduling and rescheduling & 9 & 4.51 & Weakest core workflow; discoverability and rescheduling were the main pain points. \\
+Student quiz experience & 9 & 4.81 & Teachers found the mobile flow suitable for short revision use. \\
+Overall platform value & 9 & 4.15 & Practical value was seen, but time-saving benefits were not yet convincing enough. \\
+AI attitudes & 9 & 4.80 & Teachers were positive about AI drafting, but still wanted oversight. \\
+\bottomrule
+\end{tabular}
+\caption*{Table 10.1: Summary of the initial user-testing results.}
+\addcontentsline{lot}{table}{Table 10.1: Summary of the initial user-testing results.}
+\end{table}
+
+Table 10.1 shows the aggregated averages from each block of the Likert-scale items.
+Cass creation was the strongest workflow (4.95).
+Quiz creation and student quiz experience were rated positively
+overall (4.70 and 4.81), and scheduling was the weakest core workflow
+(4.51). Teachers highlighted the rescheduling workflow as a main pain
+point, and some even described difficulty finding the scheduling
+interface to begin with.
+
+The overall platform value block (4.15) was significantly lower than the
+other blocks. Teachers generally agreed that the platform was practical
+and integrated reasonably well into classroom use, but many still had
+concerns about whether it would save time compared to existing
+workflows. This indicates that the workflows require further polishing
+and optimisation.
+
+AI attitudes (4.80) were positive, but responses reinforced that AI
+generation should be positioned as a drafting tool that still requires
+teacher review and editing.
+
+\hypertarget{key-takeaways-initial-user-testing}{%
+\subsection{10.1.4 Key Takeaways of Initial User Testing}\label{key-takeaways-initial-user-testing}}
+
+Overall, the findings from the initial survey pointed to a few clear
+priorities for the next iteration:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  The scheduling interface needed a redesign to improve discoverability
+  and ease of use, especially for rescheduling. Promoting scheduling into
+  a dedicated top-level workflow gives a clearer mental model than
+  keeping it a functionality behind class and quiz pages.
+\item
+  The quiz creation workflow needed clearer guidance for fields such as
+  the Basic quiz ``context'' item, so teachers can understand what to
+  enter and why.
+\item
+  The student app was generally usable, but still felt bland and less
+  engaging. The feedback indicated a need for a more child-friendly visual style
+  and stronger gamification support.
+\item
+  AI quiz generation was viewed as useful, but should remain
+  teacher-supervised. AI generation features should proceed with
+  a focus on supporting drafting and providing inspiration, rather
+  than as an autonomous quiz creation tool.
+\end{enumerate}
+
+
+
+\hypertarget{follow-up-user-testing}{%
+\section{10.2 Follow Up User Testing}\label{follow-up-user-testing}}
+
+After fully implementing the AI generation and gamification features, as
+well as making improvements to the core workflows based on the findings
+from the initial user testing, a secondary user testing phase was
+conducted to further evaluate the platform.
+
+\hypertarget{study-purpose-and-evaluation-scope-1}{%
+\subsection{10.2.1 Scope and Study
+Setup}\label{study-purpose-and-evaluation-scope-1}}
+
+The follow-up phase evaluated the redesigned scheduling workflow and the
+fully implemented AI generation and gamification features. This phase
+used 9 usable responses, all fully completed. Similar to phase one, this
+study is mainly exploratory and is intended to validate whether redesigns
+improved the weaker areas identified previously.
+
+The survey setup remained the same as phase one with a Qualtrics hosted survey,
+a self-hosted platform prototype (with the new features), and pre-created teacher accounts
+with credentials issued through an atomic credential issuer linked to the survey process.
+
+\hypertarget{survey-content-follow-up-phase}{%
+\subsection{10.2.2 Survey Content}\label{survey-content-follow-up-phase}}
+
+The full survey instrument is provided in \textbf{Appendix D}, and the
+structured results are provided in \textbf{Appendix E}. The follow-up
+survey was scenario-based and focused on three main user journeys:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{Scheduling and Rescheduling Quizzes}: Same core scheduling
+  tasks from phase one, used for direct comparison for validating the
+  scheduling redesign.
+\item
+  \textbf{AI Generation of Quiz Content}: Generate quizzes and evaluate
+  both workflow usability and output quality.
+\item
+  \textbf{Student App Experience with Gamification}: Review student flow
+  with leaderboard, badge, and avatar features.
+\end{enumerate}
+
+Each scenario was followed by Likert-scale items and open-ended prompts.
+
+\hypertarget{quantitative-results-summary-1}{%
+\subsection{10.2.3 Results Summary}\label{quantitative-results-summary-1}}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}p{0.31\textwidth}c c p{0.33\textwidth}@{}}
+\toprule
+Survey block & n & Mean / 5.00 & Main reading \\
+\midrule
+Scheduling and rescheduling & 9 & 4.63 & Better than the first phase overall, especially for discoverability. \\
+AI generation interface & 9 & 4.85 & The workflow itself was easy to find and easy to use. \\
+AI generated output & 9 & 4.40 & Output quality was usable, but still uneven. \\
+Gamification review & 9 & 4.67 & Teachers generally felt the features would motivate students. \\
+\bottomrule
+\end{tabular}
+\caption*{Table 10.2: Summary of the follow-up user-testing results.}
+\addcontentsline{lot}{table}{Table 10.2: Summary of the follow-up user-testing results.}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}p{0.40\textwidth}c c c@{}}
+\toprule
+Scheduling item & Initial mean & Follow-up mean & Change \\
+\midrule
+Location for scheduling was easy to identify & 4.33 & 5.00 & +0.67 \\
+Interface guided me naturally through scheduling & 4.67 & 4.89 & +0.22 \\
+Rescheduling a quiz was straightforward & 4.11 & 4.44 & +0.33 \\
+\bottomrule
+\end{tabular}
+\caption*{Table 10.3: Scheduling improvements between the two user-testing phases.}
+\addcontentsline{lot}{table}{Table 10.3: Scheduling improvements between the two user-testing phases.}
+\end{table}
+
+Table 10.2 shows the aggregated averages of each block of Likert questions
+and Table 10.3 shows a comparison of before/after ratings for scheduling after
+the redesign from feedback in the initial survey.
+
+There was generally good improvement across all aspects of the scheduling
+workflow, the largest improvement being discoverability (4.33 to 5.00),
+while other aspects such as ease of use and rescheduling worflows also
+improved in ratings. Teachers described scheduling
+as easier to find and clearer to use than in the initial phase, but
+multiple responses reported that the scheduling modal was clipped on
+smaller screens at 100\% zoom, which blocked task completion for some
+participants.
+
+The AI generation workflow scored very strongly on usability (4.85),
+but the output quality block was lower (4.40). The main concerned
+seemed to around accuracy and relevance (4.11) and clarity
+of answer options and correct answers (4.33). Open-ended responses
+indicated that some generation outputs were too simple, not well phrased
+for local context, and missing suitable notation support for question forms
+(mainly math for fractions and algebra). This suggests that the overall AI generation
+interface design and flow worked well with teachers, but the
+output consistency and quality still has much room for improvement.
+
+For gamification, feedback was generally positive with an aggregate average of 4.67
+for the gamification block. Teachers noted in responses that the features were suitable
+for motivating students, althought they would exercise caution with the leaderboard ranking
+features, as the additional competitive pressure might discourage weaker students. Some teachers
+also suggested that students should be allowed to select the rewards they get (perhaps thorugh
+a shop system with points as currency), rather than having rewards be randomly assigned.
+
+\hypertarget{key-takeaways-follow-up-user-testing}{%
+\subsection{10.2.4 Key Takeaways of Follow-up User Testing}\label{key-takeaways-follow-up-user-testing}}
+
+Overall, the follow-up findings showed that key redesigns were moving in
+the right direction, but there were still important issues to address:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  The dedicated scheduling page improved discoverability and general
+  scheduling usability, but there was a new modal clipping issue on smaller screens which is
+  a critical accessibility issue and needed to be immediately fixed.
+\item
+  AI generation features were well executed in terms of interface and
+  workflow, but output quality still had room for improvement. A more
+  systematic SME review process and further model/prompt iteration are
+  needed to improve accuracy and local relevance.
+\item
+  Gamification features were generally well received, but concerns about
+  competitive pressure remained. Additional non-competitive rewards, such
+  as shop-based customisation choices and teacher-created rewards, should
+  be explored in future iterations.
+\end{enumerate}
+
+\hypertarget{ai-generation-evaluation}{%
+\section{10.3 AI Generation Evaluation}\label{ai-generation-evaluation}}
+
+A separate evaluation was conducted to specifically assess the AI
+generation of quiz content. The main goal of this evaluation was to
+determine which of the many available LLMs would be best suited for the
+generation needs of this platform.
+
+\hypertarget{evaluation-setup-and-model-matrix}{%
+\subsection{10.3.1 Evaluation Setup}\label{evaluation-setup-and-model-matrix}}
+
+The detailed setup is documented in \textbf{Appendix F (AI Generation
+Evaluation Methodology and Test Matrix)}. In summary, three lower-cost
+models were tested under the same settings: OpenAI GPT-5 mini,
+Anthropic Claude Haiku 4.5, and Google Gemini 2.5 Flash.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}p{0.34\textwidth}p{0.50\textwidth}@{}}
+\toprule
+Evaluation item & Value \\
+\midrule
+Subjects and levels & Math, English, and Science across Primary 2, 4, and 6 \\
+Testcases per model & 24 \\
+Generated quizzes per testcase & 5 \\
+Questions per quiz & 10 \\
+Total generated quizzes per model & 120 \\
+\bottomrule
+\end{tabular}
+
+This evaluation focused on these main metrics for evaluating quality:
+
+\begin{itemize}
+\item \textbf{Reliability}: whether the model could consistently generate quizzes without errors, excessive retries, or incomplete outputs
+\item \textbf{Structural integrity}: whether the generated quizzes had the correct structure and format
+\item \textbf{Variety}: whether the generated quizzes showed enough variety across the 5 generated quizzes per testcase
+\end{itemize}
+
+\caption*{Table 10.4: Summary of the AI generation evaluation setup.}
+\addcontentsline{lot}{table}{Table 10.4: Summary of the AI generation evaluation setup.}
+\end{table}
+
+\hypertarget{comparative-results-across-models}{%
+\subsection{10.3.2 Comparative Results Across
+Models}\label{comparative-results-across-models}}
+
+For the main comparison, an overall score was computed by weighting
+reliability most heavily, then structural integrity, then variety. This
+weightage fits the practical considerations of the platform, as a model that is slow
+and unrealiable would be completely unsuited for this platform's use case.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}p{0.24\textwidth}c c c c@{}}
+\toprule
+Model & Overall score & Integrity & Variety & Mean cost / run (USD) \\
+\midrule
+Gemini 2.5 Flash & 89.8322 & 100.0000 & 82.2321 & 0.028908 \\
+Claude Haiku 4.5 & 88.9570 & 99.9013 & 82.3380 & 0.058409 \\
+GPT-5 mini & 86.1152 & 99.6340 & 83.8721 & 0.039730 \\
+\bottomrule
+\end{tabular}
+\caption*{Table 10.5: Overall comparison of the three tested models.}
+\addcontentsline{lot}{table}{Table 10.5: Overall comparison of the three tested models.}
+\end{table}
+
+\begin{table}[H]
+\centering
+\scriptsize
+\begin{tabular}{@{}p{0.24\textwidth}c c c c@{}}
+\toprule
+Model & Completion (\%) & Retries / run & Latency (s) & 24-run cost (USD) \\
+\midrule
+Gemini 2.5 Flash & 100.00 & 0.25 & 97.51 & 0.693788 \\
+Claude Haiku 4.5 & 99.17 & 0.75 & 59.15 & 1.401820 \\
+GPT-5 mini & 100.00 & 0.08 & 296.05 & 0.953512 \\
+\bottomrule
+\end{tabular}
+\caption*{Table 10.6: Operational comparison across the 24 testcase runs per model.}
+\addcontentsline{lot}{table}{Table 10.6: Operational comparison across the 24 testcase runs per model.}
+\end{table}
+
+Overall, the results suggest a tradeoff between using each model. GPT-5 mini
+achieved the highest deterministic variety score, but it was a lot slower
+on average. Claude Haiku 4.5 was the fastest on average, but it also
+had the weakest operational stability as it had many retries and even an
+incomplete run (indicating complete failure). Gemini 2.5 Flash gave thebest overall balance for
+this specific use case, and it was also the cheapest option in the tested set. Gemini 2.5 Flash was
+therefore selected as the model of choice for the secondary user testing phase.
+
+\hypertarget{evaluation-boundaries}{%
+\section{10.4 Evaluation Boundaries}\label{evaluation-boundaries}}
+
+These results should still be read with the right scope in mind. Both
+user-testing phases were exploratory and limited in scale and scope
+(11 usable responses in the initial phase, and 9 usable responses in the
+follow-up phase). The surveys mainly focused on the usability of key
+workflows and general attitudes towards the perceived value of the
+platform and its features. While this feedback was useful for
+identifying pain points and guiding development, it does not serve as a
+definitive assessment of platform value. More rigorous evaluation would
+still be needed, such as larger-scale studies and classroom deployment
+to gather real-world usage data from teachers and students.
+
+The AI generation feature also still has clear limitations in output
+quality. Prompting methods remain relatively basic, and adoption of more
+advanced prompting techniques or agentic approaches was limited at this
+stage by resource constraints (cost and computation power). The
+automated AI evaluation was also limited in scope, focusing mainly on
+structural validity, variety, and reliability metrics, which do not
+fully capture educational relevance and appropriateness of generated
+content.
+
+To fully assess the quality of AI-generated content, a more
+comprehensive human evaluation is still needed. From the deterministic
+evaluation pipeline, generated quiz samples already exist and can be
+used directly for SME review. Appendix F also includes a planned human
+evaluation framework for this next phase. The framework uses a 1--5
+rubric across four dimensions: alignment to prompt, alignment to
+syllabus/curriculum intent, question correctness, and question variety.
+Ratings are converted into a weighted manual score (with correctness
+weighted highest), and can then be combined with the automated score for
+a more complete overall assessment during future iterations.
+
+
+\hypertarget{chapter-11-discussion-limitations-and-future-work}{%
+\chapter{Chapter 11 --- Discussion, Future Work, and Final
+Remarks}\label{chapter-11-discussion-limitations-and-future-work}}
+
+\hypertarget{key-outcomes}{%
+\section{11.1 Key Outcomes}\label{key-outcomes}}
+
+This project set out to design and develop an education platform that
+leverages AI to assist teachers in creating a reliable retrieval
+practice tool for their students, with the goal of improving student
+learning outcomes and reducing teacher workload.
+
+The final prototype achieved a working end-to-end implementation of that
+idea, with a teacher-facing web dashboard, a student-facing mobile
+application, and backend services that support the core classroom
+workflow. Additionally, the two rounds of user testing helped
+to inform and refine key features to be more in line with user needs.
+A evaluation of different LLMs for the AI generation feature was also
+conducted to identify a good model candidate for the platform's specific use case.
+
+In summary, the main outcomes of this project include:
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  A full-stack quiz platform with working teacher and student clients,
+  implemented using an event-based microservices architecture.
+\item
+  A quiz model that supports multiple quiz types, scheduling policies,
+  versioning, and attempt tracking.
+\item
+  An AI-assisted quiz generation pipeline designed with
+  teacher-in-the-loop control, where generated content can be reviewed
+  and edited by teachers before being finalised.
+\item
+  A game service that supports student progress tracking with
+  leaderboards, streaks, cosmetic rewards, badges, avatar rendering, and
+  reward notifications.
+\item
+  A deterministic evaluation framework for testing AI-generated content
+  for reliability, structural errors, and variety.
+\item
+  Two rounds of user testing with teachers to evaluate the usability of
+  core workflows and the perceived value of the platform, which helped guide
+  iterative improvements to the design and features.
+\end{enumerate}
+
+\hypertarget{future-work-roadmap}{%
+\section{11.2 Future Work Roadmap}\label{future-work-roadmap}}
+
+\hypertarget{workflow-refinement-and-adoption-readiness}{%
+\subsection{11.2.1 Workflow Refinement and Adoption
+Readiness}\label{workflow-refinement-and-adoption-readiness}}
+
+An important next step would be to streamline the core workflows even
+further. Right now, the quiz creation menus are still somewhat
+cluttered, and it's a little difficult to create quizzes from scratch.
+It would be a good idea to include template quizzes that teachers can
+use as a starting point, which they can then edit and customise to their
+needs. This would allow teachers to pick up the quiz creation process
+more easily, and reduce the friction in creating quizzes from scratch.
+
+An additional improvement would be the support of rich text and/or LaTeX
+rendering in quizzes. This was a common pain point mentioned in the user
+testing, especially for subjects like Mathematics and Science where the
+ability to write in mathematical notation is crucial. However, it's not
+as simple as just adding a LaTeX renderer, as the AI generation schemas
+would need to be updated to support generating LaTeX, and the validity
+checks would also need to be updated to ensure that any generated LaTeX
+is valid and can be rendered properly. This improvement would
+significantly enhance the quality of quizzes in general, as it would
+allow for much more precise and clear phrasing of questions.
+\hypertarget{further-evaluation-and-experimental-testing}{%
+\subsection{11.2.2 Further Evaluation and Experimental
+Testing}\label{further-evaluation-and-experimental-testing}}
+
+Another important area of future work would be to conduct further
+evaluation and experimental testing of the platform to gather more
+conclusive evidence on its effectiveness and impact on student learning
+outcomes.
+
+A proper evaluation should be conducted in classrooms on whether the
+platform's implementation of retrieval practice is actually effective in
+improving learning outcomes. The current project uses existing
+literature on retrieval practice to justify its design, but retrieval
+practice can come in many forms, and this specific implementation of
+retrieval practice through a phone-based application with basic quiz
+features and a gamification layer for engagement is a specific
+interpretation of retrieval practice. As such, it would be good to
+conduct an experimental study to compare the learning outcomes of
+students using this platform against a control group that does not use
+the platform, or that uses a different form of retrieval practice.
+
+More experimentation should also be done on the AI generation workflow.
+The current AI workflow uses generic prompting techniques with two
+passes of generation and basic document processing methods. Future
+iterations could explore more advanced techniques such as
+retrieval-augmented generation, or agentic approaches where multiple
+models with different functionalities (such as a validator agent, a
+planning agent) work together to generate higher-quality content.
+Open-source models could also be fine-tuned with local educational
+content to potentially enhance the relevance and quality of generated
+content. With enough local syllabus and curriculum materials, there is
+also potential for the development of a custom model that is
+specifically trained on local educational content, or for large amounts
+of content to be indexed into a vector database to support
+retrieval-augmented generation. This would allow the model to reference
+more specific materials that are relevant to the teacher's prompt, which
+could further enhance the relevance and quality of the generated quizzes
+for the Singapore context.
+
+\hypertarget{final-remarks}{%
+\section{11.3 Final Remarks}\label{final-remarks}}
+
+This project was inspired by my own experiences as a student, as I found
+typical revision materials such as notes and other platforms to be
+insufficient and ineffective for me. I found that I was only able to
+truly learn and retain information when I was actively recalling and
+applying the knowledge. This project was an attempt to create a
+tool that could easily support this kind of active recall practice, and
+to leverage the potential of AI to ease the process of creating such
+materials for students. Overall, this project has been a valuable
+learning experience for me, as it required me to apply a wide range of
+skills and knowledge I had picked up over my time in university.
+Software design, system architecture, full-stack development, AI
+prompting, and user testing were all important areas in improving the
+quality of the final product, and I had to learn and apply new concepts
+and techniques to successfully complete the
+project.
+
+I also learnt quite a lot about the educational landscape in Singapore, especially in
+the context of primary education. And while this platform has already
+implemented many of the core features that I had envisioned for the project,
+there are still areas for improvement and further development.
+Even if this platform does not achieve widespread adoption, I believe that it
+can still serve as a useful prototype and proof of
+concept for how retrieval testing and AI generation can be used to
+support education in the future.
+
+\clearpage
+\hypertarget{bibliography}{%
+\chapter{Bibliography}\label{bibliography}}
+
+\begin{hangparas}{2em}{1}
+
+Al Shuraiqi, S., Aal Abdulsalam, A., Masters, K., Zidoum, H., \&
+AlZaabi, A. (2024). Automatic Generation of Medical Case-Based
+Multiple-Choice Questions (MCQs): A Review of Methodologies,
+Applications, Evaluation, and Future Directions. Big Data and Cognitive
+Computing, 8(10), 139. https://doi.org/10.3390/bdcc8100139
+
+An, Y., Liu, J., Acharya, N., \& Hashmi, R. (2025a). Enhancing Student
+Learning with LLM-Generated Retrieval Practice Questions: An Empirical
+Study in Data Science Courses (No.~arXiv:2507.05629). arXiv.
+https://doi.org/10.48550/arXiv.2507.05629
+
+An, Y., Liu, J., Acharya, N., \& Hashmi, R. (2025b). Enhancing Student
+Learning with LLM-Generated Retrieval Practice Questions: An Empirical
+Study in Data Science Courses (No.~arXiv:2507.05629). arXiv.
+https://doi.org/10.48550/arXiv.2507.05629
+
+Artsi, Y., Sorin, V., Konen, E., Glicksberg, B. S., Nadkarni, G., \&
+Klang, E. (2024). Large language models for generating medical
+examinations: Systematic review. BMC Medical Education, 24(1), 354.
+https://doi.org/10.1186/s12909-024-05239-y
+
+Balci, S., Secaur, J. M., \& Morris, B. J. (2022). Comparing the
+effectiveness of badges and leaderboards on academic performance and
+motivation of students in fully versus partially gamified online physics
+classes. Education and Information Technologies, 27(6), 8669--8704.
+https://doi.org/10.1007/s10639-022-10983-z Best practices for prompt
+engineering with the OpenAI API. (n.d.). OpenAI Help Center. Retrieved
+October 27, 2025, from https://help.openai.com/en/articles
+6654000-best-practices-for-prompt-engineering-with-the-openai-api
+
+Bhandari, S., Liu, Y., Kwak, Y., \& Pardos, Z. A. (2024). Evaluating the
+psychometric properties of ChatGPT-generated questions. Computers and
+Education: Artificial Intelligence, 7, 100284.
+https://doi.org/10.1016/j.caeai.2024.100284
+
+Black, P., \& Wiliam, D. (1998). Inside the Black Box: Raising Standards
+through Classroom Assessment. The Phi Delta Kappan, 80(2), 139--148.
+
+Blended Learning to Enhance Schooling Experience and Further Develop
+Students into Self-Directed Learners. (n.d.). Retrieved October 27,
+2025, from
+http://www.moe.gov.sg/news/press-releases/20201229-blended-learning-to-enhance-schooling-experience-and-further-develop-students-into-self-directed-learners
+
+Bouamor, H., Pino, J., \& Bali, K. (Eds.). (2023). Proceedings of the
+2023 Conference on Empirical Methods in Natural Language Processing.
+Association for Computational Linguistics.
+https://aclanthology.org/2023.emnlp-main.0/
+
+Cheung, B. H. H., Lau, G. K. K., Wong, G. T. C., Lee, E. Y. P.,
+Kulkarni, D., Seow, C. S., Wong, R., \& Co, M. T.-H. (2023). ChatGPT
+versus human in generating medical graduate exam multiple choice
+questions---A multinational prospective study (Hong Kong S.A.R.,
+Singapore, Ireland, and the United Kingdom). PLOS ONE, 18(8), e0290691.
+https://doi.org/10.1371/journal.pone.0290691
+
+Clark, D. B., Tanner-Smith, E. E., \& Killingsworth, S. S. (2016).
+Digital Games, Design, and Learning: A Systematic Review and
+Meta-Analysis. Review of Educational Research, 86(1), 79--122.
+https://doi.org/10.3102/0034654315582065
+
+Deterding, S., Dixon, D., Khaled, R., \& Nacke, L. (2011). From game
+design elements to gamefulness: Defining ``gamification.'' Proceedings
+of the 15th International Academic MindTrek Conference: Envisioning
+Future Media Environments, 9--15.
+https://doi.org/10.1145/2181037.2181040
+
+Elzayyat, M., Mohammad, J. N., \& Zaqout, S. (n.d.). Assessing
+LLM-generated vs.~expert-created clinical anatomy MCQs: A student
+perception-based comparative study in medical education. Medical
+Education Online, 30(1), 2554678.
+https://doi.org/10.1080/10872981.2025.2554678
+
+Firat, M., \& Kuzu, A. (2011). Semantic Web for E-Learning Bottlenecks:
+Disorientation and Cognitive Overload. International Journal of Web \&
+Semantic Technology, 2(4), 55--66.
+https://doi.org/10.5121/ijwest.2011.2404
+
+Florian, N. (2025). QUIZ GENERATOR USING LARGE LANGUAGE MODELS. PROMPT
+ENGINEERING EXAMPLE. 2. Fostering Intrinsic Motivation through Avatar
+Identification in Digital Games \textbar{} Proceedings of the 2016 CHI
+Conference on Human Factors in Computing Systems. (n.d.). Retrieved
+October 27, 2025, from
+https://dl.acm.org/doi/10.1145/2858036.2858062?utm\_source=chatgpt.com
+
+Hirsh-Pasek, K., Zosh, J. M., Golinkoff, R. M., Gray, J. H., Robb, M.
+B., \& Kaufman, J. (2015). Putting Education in ``Educational'' Apps:
+Lessons From the Science of Learning. Psychological Science in the
+Public Interest, 16(1), 3--34. https://doi.org/10.1177/1529100615569721
+
+Karpicke, J. D., \& Roediger, H. L. (2008). The Critical Importance of
+Retrieval for Learning. Science, 319(5865), 966--968.
+https://doi.org/10.1126/science.1152408
+
+Kıyak, Y. S., \& Emekli, E. (2024). ChatGPT prompts for generating
+multiple-choice questions in medical education and evidence on their
+validity: A literature review. Postgraduate Medical Journal, 100(1189),
+858--865. https://doi.org/10.1093/postmj/qgae065
+
+Law, A. K., So, J., Lui, C. T., Choi, Y. F., Cheung, K. H., Kei-ching
+Hung, K., \& Graham, C. A. (2025). AI versus human-generated
+multiple-choice questions for medical education: A cohort study in a
+high-stakes examination. BMC Medical Education, 25(1), 208.
+https://doi.org/10.1186/s12909-025-06796-6
+
+Martínez Serna, M. I., \& Parra Azor, J. F. (2011). Active learning:
+Creating interactive crossword puzzles. Universidad Politécnica de
+Cartagena. http://hdl.handle.net/10317/2237
+
+Masters, K. (2023). Medical Teacher's first ChatGPT's referencing
+hallucinations: Lessons for editors, reviewers, and teachers. Medical
+Teacher, 45(7), 673--675. https://doi.org/10.1080/0142159X.2023.2208731
+
+Mekler, E. D., Brühlmann, F., Tuch, A. N., \& Opwis, K. (2017). Towards
+understanding the effects of individual gamification elements on
+intrinsic motivation and performance. Computers in Human Behavior, 71,
+525--534. https://doi.org/10.1016/j.chb.2015.08.048
+
+OECD TALIS 2024 Study. (n.d.). Retrieved October 27, 2025, from
+http://www.moe.gov.sg/news/press-releases/20251007-singapore-teachers-embrace-digital-technologies-and-benefit-from-strong-professional-development-oecd-talis-2024-study
+
+Olszewski, F. (2025). Social gamification elements on user engagement
+and user retention in gamified learning apps {[}Thesis, Technische
+Universität Wien{]}. https://doi.org/10.34726/hss.2025.132021
+
+Özdemir, O., \& Seçkin, H. (2024). Quantifying cognitive and affective
+impacts of Quizlet on learning outcomes: A systematic review and
+comprehensive meta-analysis. Frontiers in Psychology, 15, 1349835.
+https://doi.org/10.3389/fpsyg.2024.1349835
+
+Sinha, P. (2025). Gamification in Technology-Integrated Education:
+Investigating Its Role in Boosting Engagement and Learning Effectiveness. International
+Journal of Engineering Research in Computer Science and Engineering, 12(07).
+
+Pyae, A. (2025). Understanding Students' Acceptance, Trust, and
+Attitudes towards AI-generated Images for Educational Purposes.
+Proceedings of the 2025 Conference on Creativity and Cognition,
+338--343. https://doi.org/10.1145/3698061.3734405
+
+Pyc, M. A., \& Rawson, K. A. (2012). Why is test--restudy practice
+beneficial for memory? An evaluation of the mediator shift hypothesis.
+Journal of Experimental Psychology: Learning, Memory, and Cognition,
+38(3), 737--746. https://doi.org/10.1037/a0026166
+
+Ratnam-Lim, C. T. L., \& Tan, K. H. K. (2015). Large-scale
+implementation of formative assessment practices in an
+examination-oriented culture. Assessment in Education: Principles,
+Policy \& Practice, 22(1), 61--78.
+https://doi.org/10.1080/0969594X.2014.1001319
+
+Roediger, H. L., \& Karpicke, J. D. (2006). Test-Enhanced Learning:
+Taking Memory Tests Improves Long-Term Retention. Psychological Science,
+17(3), 249--255. https://doi.org/10.1111/j.1467-9280.2006.01693.x
+
+Sailer, M., \& Homner, L. (2020). The Gamification of Learning: A
+Meta-analysis. Educational Psychology Review, 32(1), 77--112.
+https://doi.org/10.1007/s10648-019-09498-w
+
+Student Learning Space (SLS). (n.d.). Government Technology Agency of
+Singapore (GovTech Singapore). Retrieved October 27, 2025, from
+https://www.tech.gov.sg/products-and-services/for-citizens/education/student-learning-space/
+
+Turkay, S., \& Adinolf, S. (2015). The effects of customization on
+motivation in an extended study with a massively multiplayer online
+roleplaying game. Cyberpsychology: Journal of Psychosocial Research on
+Cyberspace, 9(3). https://doi.org/10.5817/CP2015-3-2
+
+Wang, A. I., \& Tahir, R. (2020). The effect of using Kahoot! For
+learning -- A literature review. Computers \& Education, 149, 103818.
+https://doi.org/10.1016/j.compedu.2020.103818
+
+Wise, A. F., \& Jung, Y. (2019). Teaching with Analytics: Towards a
+Situated Model of Instructional Decision-Making. Journal of Learning
+Analytics, 6(2), 53--69. https://doi.org/10.18608/jla.2019.62.4
+
+Zelikman, E., Ma, W., Tran, J., Yang, D., Yeatman, J., \& Haber, N.
+(2023). Generating and Evaluating Tests for K-12 Students with Language
+Model Simulations: A Case Study on Sentence Reading Efficiency.
+Proceedings of the 2023 Conference on Empirical Methods in Natural
+Language Processing, 2190--2205.
+https://doi.org/10.18653/v1/2023.emnlp-main.135
+
+\clearpage
+
+\end{hangparas}
+
+\input{final-report-appendices}
+
+\end{document}
