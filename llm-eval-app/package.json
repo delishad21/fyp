@@ -1,0 +1,28 @@
+{
+  "name": "llm-eval-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "eval:normalized": "node scripts/evaluate-normalized-outputs.mjs",
+    "eval:validate": "node scripts/validate-eval-artifacts.mjs"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.2",
+    "jszip": "^3.10.1",
+    "pako": "^1.0.11",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.10"
+  }
+}
