@@ -9,6 +9,7 @@ import {
 } from "@/services/class/actions/get-student-actions";
 import {
   getRewardsCatalogAction,
+  type StudentBadgeItem,
   getStudentBadgesAction,
   getStudentInventoryAction,
   updateStudentInventoryAction,
@@ -16,7 +17,6 @@ import {
 import { Cell, RowData } from "@/services/quiz/types/quiz-table-types";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-import { CardShell } from "@/components/ui/ui";
 
 export default async function StudentProfilePage({
   params,
@@ -138,15 +138,15 @@ export default async function StudentProfilePage({
     revalidatePath(pagePath);
   }
 
-  const badgeItemsById = new Map<string, any>();
+  const badgeItemsById = new Map<string, StudentBadgeItem>();
   for (const badge of catalogRes.data.badges || []) {
-    const id = String((badge as any).id || "").trim();
+    const id = String(badge.id || "").trim();
     if (!id) continue;
     badgeItemsById.set(id, {
       id,
-      name: String((badge as any).name || id),
-      description: String((badge as any).description || ""),
-      color: String((badge as any).color || "#64748B"),
+      name: String(badge.name || id),
+      description: String(badge.description || ""),
+      color: String(badge.color || "#64748B"),
       imageUrl: `/api/game/classes/${encodeURIComponent(
         classId,
       )}/badges/${encodeURIComponent(id)}/image.svg?v=1`,
@@ -166,7 +166,7 @@ export default async function StudentProfilePage({
     (badgeRes.ok ? badgeRes.data.ownedBadgeIds : []).map((id) => String(id)),
   );
   const ownedBadgeItems = mergedBadgeItems.filter((badge) =>
-    ownedBadgeIdSet.has(String((badge as any).id || "")),
+    ownedBadgeIdSet.has(String(badge.id || "")),
   );
 
   // Table columns

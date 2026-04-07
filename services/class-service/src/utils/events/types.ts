@@ -169,6 +169,7 @@ export type CanonicalUpsertedEvent = {
   classId: string;
   studentId: string;
   scheduleId: string;
+  contribution?: number;
   canonical: {
     attemptId: string;
     score: number;
@@ -186,6 +187,7 @@ export type CanonicalRemovedEvent = {
   classId: string;
   studentId: string;
   scheduleId: string;
+  contribution?: number;
 };
 
 export type CanonicalEvent = CanonicalUpsertedEvent | CanonicalRemovedEvent;

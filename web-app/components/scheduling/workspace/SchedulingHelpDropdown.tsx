@@ -25,7 +25,7 @@ export default function SchedulingHelpDropdown({
         </span>
       </summary>
       <div className="absolute right-0 z-20 mt-2 w-[min(92vw,32rem)] rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg1)] p-3 shadow-lg">
-        <ol className="space-y-1 text-xs leading-5 text-[var(--color-text-secondary)]">
+        <ol className="space-y-1 text-sm leading-5 text-[var(--color-text-primary)]">
           {tips.map((tip, index) => (
             <li key={`${index}-${tip}`}>
               {index + 1}. {tip}

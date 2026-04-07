@@ -502,6 +502,7 @@ export async function stats_onAttemptFinalized(payload: {
             classId: String(classId),
             studentId: String(studentId),
             scheduleId: String(scheduleId),
+            contribution: Number(contribution),
             attemptId: String(attemptId),
             score: Number(score),
             maxScore: Number(maxScore),
@@ -801,6 +802,7 @@ export async function stats_onAttemptInvalidated(payload: {
             classId: String(classId),
             studentId: String(studentId),
             scheduleId: String(scheduleId),
+            contribution: Number(contribution),
             attemptId: String(next.attemptId),
             score: Number(next.score),
             maxScore: Number(next.maxScore),
@@ -816,6 +818,7 @@ export async function stats_onAttemptInvalidated(payload: {
             classId: String(classId),
             studentId: String(studentId),
             scheduleId: String(scheduleId),
+            contribution: Number(contribution),
           },
           { session }
         );
@@ -953,6 +956,7 @@ export async function stats_onScheduleRemoved(
             classId: String(classId),
             studentId: String(row.studentId),
             scheduleId: String(scheduleId),
+            contribution: Number(contribution),
           },
           { session }
         );

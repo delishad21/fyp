@@ -16,6 +16,10 @@ import {
 
 type SubjectOption = { label: string; value: string; colorHex?: string };
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Please try again.";
+}
+
 export function SubjectManagerSection({
   subjects,
   refreshing,
@@ -74,10 +78,10 @@ export function SubjectManagerSection({
         description: `Added "${res.option.label}".`,
         variant: "success",
       });
-    } catch (e: any) {
+    } catch (error: unknown) {
       showToast({
         title: "Failed to add subject",
-        description: e?.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "error",
       });
     } finally {
@@ -124,10 +128,10 @@ export function SubjectManagerSection({
         description: `Updated to "${label}".`,
         variant: "success",
       });
-    } catch (e: any) {
+    } catch (error: unknown) {
       showToast({
         title: "Failed to update subject",
-        description: e?.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "error",
       });
     } finally {
@@ -161,10 +165,10 @@ export function SubjectManagerSection({
         description: `Removed "${label}".`,
         variant: "success",
       });
-    } catch (e: any) {
+    } catch (error: unknown) {
       showToast({
         title: "Cannot delete subject",
-        description: e?.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "error",
       });
     } finally {

@@ -50,6 +50,19 @@ export interface AvailableAIModel {
   description: string;
 }
 
+export interface GenerationQuotaStatus {
+  enabled: boolean;
+  maxGenerations: number | null;
+  generationsUsed: number;
+  generationsRemaining: number | null;
+  exhausted: boolean;
+  limits?: {
+    maxQuizzesPerGeneration: number;
+    minQuestionsPerQuiz: number;
+    maxQuestionsPerQuiz: number;
+  };
+}
+
 export interface GenerationJobStatus {
   id: string;
   status: "pending" | "processing" | "completed" | "failed";
@@ -183,6 +196,49 @@ export async function getAvailableModels(): Promise<{
       available: false,
       models: [],
       message: "An error occurred while fetching available models",
+    };
+  }
+}
+
+/**
+ * Get AI generation quota state for the current teacher
+ */
+export async function getGenerationQuota(): Promise<{
+  ok: boolean;
+  quota?: GenerationQuotaStatus;
+  message?: string;
+}> {
+  try {
+    const authHeader = await getAuthHeader();
+    if (!authHeader) {
+      return { ok: false, message: "Not authenticated" };
+    }
+
+    const response = await fetch(`${AI_SERVICE_URL}/quota/`, {
+      method: "GET",
+      headers: {
+        Authorization: authHeader,
+      },
+      cache: "no-store",
+    });
+
+    const data = await parseApiResponse(response);
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: data.message || "Failed to get generation quota",
+      };
+    }
+
+    return {
+      ok: true,
+      quota: data.data,
+    };
+  } catch (error) {
+    console.error("Get generation quota error:", error);
+    return {
+      ok: false,
+      message: "An error occurred while fetching generation quota",
     };
   }
 }

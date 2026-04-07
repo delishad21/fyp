@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/buttons/Button";
 import { Icon } from "@iconify/react";
@@ -46,6 +46,7 @@ interface GeneratedQuizReviewProps {
 export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
 
   const jobId = job.id;
   const [processing, setProcessing] = useState(false);
@@ -197,6 +198,10 @@ export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
     setProcessing(false);
   };
 
+  useEffect(() => {
+    previewScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [viewingQuiz]);
+
   if (error || status === "failed") {
     return (
       <div className="max-w-2xl mx-auto">
@@ -244,7 +249,7 @@ export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
   const currentQuiz = quizzes.find((q) => q.tempId === viewingQuiz);
 
   return (
-    <div className="space-y-6 max-w-full">
+    <div className="flex h-full min-h-0 max-w-full flex-col gap-6 overflow-hidden">
       {/* Header */}
       <div
         className="bg-[var(--color-bg2)] rounded-xl p-6 border border-[var(--color-bg4)]"
@@ -308,9 +313,9 @@ export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
       </div>
 
       {/* Split View: Quiz List (Left) and Preview (Right) */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid min-h-0 flex-1 grid-cols-12 gap-6 overflow-hidden">
         {/* Left Side: Quiz List */}
-        <div className="col-span-4 space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
+        <div className="col-span-4 min-h-0 space-y-3 overflow-y-auto pr-2">
           {quizzes.map((quiz, index) => (
             <QuizListItem
               key={quiz.tempId}
@@ -325,10 +330,10 @@ export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
         </div>
 
         {/* Right Side: Quiz Preview */}
-        <div className="col-span-8">
+        <div className="col-span-8 min-h-0">
           {currentQuiz ? (
             <div
-              className="bg-[var(--color-bg2)] rounded-xl p-6 border border-[var(--color-bg4)]"
+              className="flex h-full min-h-0 flex-col rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg2)] p-6"
               style={{ boxShadow: "var(--drop-shadow-sm)" }}
             >
               {/* Quiz Header */}
@@ -359,11 +364,15 @@ export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
               </div>
 
               {/* Quiz Content with Edit Buttons */}
-              <div className="max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
+              <div
+                ref={previewScrollRef}
+                className="min-h-0 flex-1 overflow-y-auto pr-2"
+              >
                 {currentQuiz.quizType === "basic" ||
                 currentQuiz.quizType === "rapid" ||
                 currentQuiz.quizType === "true-false" ? (
                   <BasicOrRapidQuizPreview
+                    key={currentQuiz.tempId}
                     data={currentQuiz as never}
                     showEditButtons={true}
                     onEditQuestion={(questionIndex) =>
@@ -374,6 +383,7 @@ export default function GeneratedQuizReview({ job }: GeneratedQuizReviewProps) {
                   />
                 ) : (
                   <CrosswordQuizPreview
+                    key={currentQuiz.tempId}
                     data={currentQuiz as never}
                     showEditButtons={false}
                     onEditQuestion={(questionIndex) =>

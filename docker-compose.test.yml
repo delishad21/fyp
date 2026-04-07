@@ -1,44 +1,41 @@
-# -----------------------------------------------------------------------------
-#   Deployment-ready compose stack for local hosting.
-#   Runs all services locally (web, microservices, mongo/redis/redpanda, phone frame + phone web app)
-#   and exposes only the public-facing ports needed by nginx.
-#
-#   Note: Build and push service images to registry before using this file.
-#
-# Usage:
-#   1) Copy existing root `.env` into same folder as this file.
-#   2) Start the stack:
-#        docker compose -f docker-compose.test.yml up -d
-#   3) Point host nginx to http://127.0.0.1:8085 (the gateway container).
-#
-# Notes:
-#   - The nginx container in this stack routes services as follows:
-#       /            -> web-app (port 3000)
-#       /api/user    -> user-service (port 7301)
-#       /api/quiz    -> quiz-service (port 7302)
-#       /api/class   -> class-service (port 7303)
-#       /api/ai      -> ai-service (port 7304)
-#       /phone-app   -> phone-frame (port 8080)
-#       /phone-web   -> phone-web-app (port 8080)
-#   - Uploads are persisted via named volumes:
-#       class-uploads, quiz-uploads, ai-uploads
-# -----------------------------------------------------------------------------
+x-restart-policy: &restart_policy
+  restart: unless-stopped
+
+x-mongo-common: &mongo_common
+  image: mongo:7
+  command:
+    - mongod
+    - --replSet
+    - rs0
+    - --keyFile
+    - /etc/mongo-keyfile
+    - --bind_ip_all
+    - --auth
+  environment: &mongo_env
+    MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
+    MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
+
 services:
   redis:
+    <<: *restart_policy
     image: redis:7-alpine
     command: >
       redis-server --appendonly yes --save 60 1000
       --requirepass ${REDIS_PASSWORD:-supersecret_please_change}
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-supersecret_please_change}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-supersecret_please_change}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - /srv/quizapp/redis:/data
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-supersecret_please_change}", "ping"]
       interval: 5s
       timeout: 2s
+      retries: 20
 
   redpanda:
+    <<: *restart_policy
     image: redpandadata/redpanda:latest
     command:
       - redpanda
@@ -49,93 +46,87 @@ services:
       - --reserve-memory=0M
       - --node-id=0
       - --check=false
-      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092,OUTSIDE://localhost:9094
-      - --kafka-addr=PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:9094
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
       - --advertise-rpc-addr=redpanda:33145
       - --rpc-addr=0.0.0.0:33145
     volumes:
-      - /srv/quizapp/redpanda:/var/lib/redpanda/data
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/redpanda:/var/lib/redpanda/data
     healthcheck:
       test: ["CMD", "bash", "-c", "rpk cluster health | grep -qE 'Healthy|Degraded'"]
       interval: 10s
       timeout: 5s
+      retries: 20
 
   gateway:
-    image: nginx:1.27-alpine
+    <<: *restart_policy
+    image: ${GATEWAY_IMAGE:-delishad21/fyp-gateway:latest}
     ports:
-      - "8085:8085"
-    volumes:
-      - /srv/quizapp/nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on: [web-app, user-service, quiz-service, class-service, ai-service, game-service, phone-frame, phone-web-app]
+      - "${GATEWAY_PORT:-8085}:8085"
+    depends_on:
+      web-app:
+        condition: service_started
+      user-service:
+        condition: service_started
+      quiz-service:
+        condition: service_started
+      class-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+      game-service:
+        condition: service_started
+      phone-frame:
+        condition: service_started
+      phone-web-app:
+        condition: service_started
 
   mongo-class:
-    image: mongo:7
-    container_name: mongodb-class
-    command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    <<: [*restart_policy, *mongo_common]
     ports:
-      - "27017:27017"
+      - "${MONGO_CLASS_PORT:-27017}:27017"
     volumes:
-      - /srv/quizapp/mongo/mongo-class-data:/data/db
-      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/mongo-class:/data/db
+      - ${MONGO_KEYFILE_HOST_PATH:-/srv/quizapp2/secrets/mongo-keyfile}:/etc/mongo-keyfile:ro
 
   mongo-user:
-    image: mongo:7
-    container_name: mongodb-user
-    command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    <<: [*restart_policy, *mongo_common]
     ports:
-      - "27018:27017"
+      - "${MONGO_USER_PORT:-27018}:27017"
     volumes:
-      - /srv/quizapp/mongo/mongo-user-data:/data/db
-      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/mongo-user:/data/db
+      - ${MONGO_KEYFILE_HOST_PATH:-/srv/quizapp2/secrets/mongo-keyfile}:/etc/mongo-keyfile:ro
 
   mongo-quiz:
-    image: mongo:7
-    container_name: mongodb-quiz
-    command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    <<: [*restart_policy, *mongo_common]
     ports:
-      - "27019:27017"
+      - "${MONGO_QUIZ_PORT:-27019}:27017"
     volumes:
-      - /srv/quizapp/mongo/mongo-quiz-data:/data/db
-      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
-
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/mongo-quiz:/data/db
+      - ${MONGO_KEYFILE_HOST_PATH:-/srv/quizapp2/secrets/mongo-keyfile}:/etc/mongo-keyfile:ro
 
   mongo-ai:
-    image: mongo:7
-    container_name: mongodb-ai
-    command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    <<: [*restart_policy, *mongo_common]
     ports:
-      - "27020:27017"
+      - "${MONGO_AI_PORT:-27020}:27017"
     volumes:
-      - /srv/quizapp/mongo/mongo-ai-data:/data/db
-      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/mongo-ai:/data/db
+      - ${MONGO_KEYFILE_HOST_PATH:-/srv/quizapp2/secrets/mongo-keyfile}:/etc/mongo-keyfile:ro
 
   mongo-game:
-    image: mongo:7
-    container_name: mongodb-game
-    command: ["--replSet","rs0","--keyFile","/etc/mongo-keyfile","--bind_ip_all","--auth"]
+    <<: [*restart_policy, *mongo_common]
     ports:
-      - "27021:27017"
+      - "${MONGO_GAME_PORT:-27021}:27017"
     volumes:
-      - /srv/quizapp/mongo/mongo-game-data:/data/db
-      - /srv/quizapp/mongo/mongo-secrets/mongo-keyfile:/etc/mongo-keyfile:ro
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-rootpassword}
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/mongo-game:/data/db
+      - ${MONGO_KEYFILE_HOST_PATH:-/srv/quizapp2/secrets/mongo-keyfile}:/etc/mongo-keyfile:ro
+
   mongo-init-class:
     image: mongo:7
-    depends_on: [mongo-class]
+    restart: "no"
+    depends_on:
+      mongo-class:
+        condition: service_started
     entrypoint: ["/bin/sh", "-c"]
     command: >
       "until mongosh --host mongo-class:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done;
@@ -143,7 +134,10 @@ services:
 
   mongo-init-user:
     image: mongo:7
-    depends_on: [mongo-user]
+    restart: "no"
+    depends_on:
+      mongo-user:
+        condition: service_started
     entrypoint: ["/bin/sh", "-c"]
     command: >
       "until mongosh --host mongo-user:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done;
@@ -151,30 +145,61 @@ services:
 
   mongo-init-quiz:
     image: mongo:7
-    depends_on: [mongo-quiz]
+    restart: "no"
+    depends_on:
+      mongo-quiz:
+        condition: service_started
     entrypoint: ["/bin/sh", "-c"]
     command: >
       "until mongosh --host mongo-quiz:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done;
       mongosh --host mongo-quiz:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'rs.initiate({_id: \"rs0\", members: [{ _id: 0, host: \"mongo-quiz:27017\" }]})' || true"
 
-
   mongo-init-ai:
     image: mongo:7
-    depends_on: [mongo-ai]
+    restart: "no"
+    depends_on:
+      mongo-ai:
+        condition: service_started
     entrypoint: ["/bin/sh", "-c"]
     command: >
       "until mongosh --host mongo-ai:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done;
-      mongosh --host mongo-ai:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'rs.initiate({_id: "rs0", members: [{ _id: 0, host: "mongo-ai:27017" }]})' || true"
+      mongosh --host mongo-ai:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'rs.initiate({_id: \"rs0\", members: [{ _id: 0, host: \"mongo-ai:27017\" }]})' || true"
 
   mongo-init-game:
     image: mongo:7
-    depends_on: [mongo-game]
+    restart: "no"
+    depends_on:
+      mongo-game:
+        condition: service_started
     entrypoint: ["/bin/sh", "-c"]
     command: >
       "until mongosh --host mongo-game:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done;
       mongosh --host mongo-game:27017 -u ${MONGO_ROOT_USERNAME:-root} -p ${MONGO_ROOT_PASSWORD:-rootpassword} --authenticationDatabase admin --eval 'rs.initiate({_id: \"rs0\", members: [{ _id: 0, host: \"mongo-game:27017\" }]})' || true"
+
+  user-service:
+    <<: *restart_policy
+    image: ${USER_SERVICE_IMAGE:-delishad21/fyp-user-service:latest}
+    environment:
+      NODE_ENV: production
+      USER_PORT: ${USER_PORT:-7301}
+      USER_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-user:27017/user?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
+      QUIZ_SVC_URL: http://quiz-service:7302
+      ENV: ${ENV:-PROD}
+      JWT_SECRET: ${JWT_SECRET}
+      QUIZ_WEBHOOK_SECRET: ${QUIZ_WEBHOOK_SECRET}
+      CLASS_SHARED_SECRET: ${CLASS_SHARED_SECRET}
+      GMAIL_USER: ${GMAIL_USER}
+      GMAIL_PASS: ${GMAIL_PASS}
+      GMAIL_NAME: ${GMAIL_NAME}
+      APP_NAME: ${APP_NAME:-Quiz App}
+      FRONTEND_URL: ${FRONTEND_URL}
+    depends_on:
+      mongo-init-user:
+        condition: service_completed_successfully
+
   class-service:
-    image: ${REGISTRY:-delishad21}/class-service:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${CLASS_SERVICE_IMAGE:-delishad21/fyp-class-service:latest}
     environment:
       NODE_ENV: production
       CLASS_PORT: ${CLASS_PORT:-7303}
@@ -184,19 +209,28 @@ services:
       ENV: ${ENV:-PROD}
       IMAGE_UPLOAD_URL: ${CLASS_IMAGE_UPLOAD_URL}
       QUIZ_WEBHOOK_SECRET: ${QUIZ_WEBHOOK_SECRET}
-      OUTBOX_PUBLISH_INTERVAL_MS: ${OUTBOX_PUBLISH_INTERVAL_MS}
-      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE}
+      OUTBOX_PUBLISH_INTERVAL_MS: ${OUTBOX_PUBLISH_INTERVAL_MS:-1000}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-50}
+      OUTBOX_STALE_LEASE_MS: ${OUTBOX_STALE_LEASE_MS:-120000}
       KAFKA_CLIENT_ID: ${CLASS_KAFKA_CLIENT_ID:-class-service}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_GROUP: ${CLASS_KAFKA_GROUP:-class-svc.v1}
-    ports:
-      - "7303:7303"
+      TOPIC_QUIZ_ATTEMPT: ${TOPIC_QUIZ_ATTEMPT:-quiz.attempt.v1}
+      TOPIC_QUIZ_LIFECYCLE: ${TOPIC_QUIZ_LIFECYCLE:-quiz.lifecycle.v1}
+      TOPIC_SCHEDULE_LIFECYCLE: ${TOPIC_SCHEDULE_LIFECYCLE:-class.schedule.v1}
+      TOPIC_CLASS_LIFECYCLE: ${TOPIC_CLASS_LIFECYCLE:-class.lifecycle.v1}
+      TOPIC_CLASS_CANONICAL: ${TOPIC_CLASS_CANONICAL:-class.canonical.v1}
     volumes:
-      - /srv/quizapp/uploads/class:/app/uploads
-    depends_on: [mongo-class, redpanda]
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/class-uploads:/app/uploads
+    depends_on:
+      mongo-init-class:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
 
   class-worker:
-    image: ${REGISTRY:-delishad21}/class-service:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${CLASS_SERVICE_IMAGE:-delishad21/fyp-class-service:latest}
     command: npm run start:worker
     environment:
       NODE_ENV: production
@@ -204,10 +238,21 @@ services:
       KAFKA_CLIENT_ID: ${CLASS_KAFKA_CLIENT_ID:-class-service}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_GROUP: ${CLASS_KAFKA_GROUP:-class-svc.v1}
-    depends_on: [mongo-class, redpanda]
+      TOPIC_QUIZ_ATTEMPT: ${TOPIC_QUIZ_ATTEMPT:-quiz.attempt.v1}
+      TOPIC_QUIZ_LIFECYCLE: ${TOPIC_QUIZ_LIFECYCLE:-quiz.lifecycle.v1}
+      TOPIC_SCHEDULE_LIFECYCLE: ${TOPIC_SCHEDULE_LIFECYCLE:-class.schedule.v1}
+      TOPIC_CLASS_LIFECYCLE: ${TOPIC_CLASS_LIFECYCLE:-class.lifecycle.v1}
+      TOPIC_CLASS_CANONICAL: ${TOPIC_CLASS_CANONICAL:-class.canonical.v1}
+      OUTBOX_STALE_LEASE_MS: ${OUTBOX_STALE_LEASE_MS:-120000}
+    depends_on:
+      mongo-init-class:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
 
   quiz-service:
-    image: ${REGISTRY:-delishad21}/quiz-service:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${QUIZ_SERVICE_IMAGE:-delishad21/fyp-quiz-service:latest}
     environment:
       NODE_ENV: production
       QUIZ_PORT: ${QUIZ_PORT:-7302}
@@ -217,20 +262,31 @@ services:
       ENV: ${ENV:-PROD}
       IMAGE_UPLOAD_URL: ${QUIZ_IMAGE_UPLOAD_URL}
       QUIZ_WEBHOOK_SECRET: ${QUIZ_WEBHOOK_SECRET}
-      OUTBOX_PUBLISH_INTERVAL_MS: ${OUTBOX_PUBLISH_INTERVAL_MS}
-      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE}
+      CLASS_SHARED_SECRET: ${CLASS_SHARED_SECRET}
+      OUTBOX_PUBLISH_INTERVAL_MS: ${OUTBOX_PUBLISH_INTERVAL_MS:-1000}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-50}
+      OUTBOX_STALE_LEASE_MS: ${OUTBOX_STALE_LEASE_MS:-120000}
       KAFKA_CLIENT_ID: ${QUIZ_KAFKA_CLIENT_ID:-quiz-service}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_GROUP: ${QUIZ_KAFKA_GROUP:-quiz-svc.v1}
+      TOPIC_QUIZ_ATTEMPT: ${TOPIC_QUIZ_ATTEMPT:-quiz.attempt.v1}
+      TOPIC_QUIZ_LIFECYCLE: ${TOPIC_QUIZ_LIFECYCLE:-quiz.lifecycle.v1}
+      TOPIC_SCHEDULE_LIFECYCLE: ${TOPIC_SCHEDULE_LIFECYCLE:-class.schedule.v1}
       ATTEMPT_REDIS_URL: redis://default:${REDIS_PASSWORD:-supersecret_please_change}@redis:6379/0
-    ports:
-      - "7302:7302"
+      CLASS_SVC_TIMEOUT_MS: ${CLASS_SVC_TIMEOUT_MS:-10000}
     volumes:
-      - /srv/quizapp/uploads/quiz:/app/uploads
-    depends_on: [mongo-quiz, redpanda, redis]
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/quiz-uploads:/app/uploads
+    depends_on:
+      mongo-init-quiz:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   quiz-worker:
-    image: ${REGISTRY:-delishad21}/quiz-service:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${QUIZ_SERVICE_IMAGE:-delishad21/fyp-quiz-service:latest}
     command: npm run start:worker
     environment:
       NODE_ENV: production
@@ -238,54 +294,55 @@ services:
       KAFKA_CLIENT_ID: ${QUIZ_KAFKA_CLIENT_ID:-quiz-service}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_GROUP: ${QUIZ_KAFKA_GROUP:-quiz-svc.v1}
+      TOPIC_QUIZ_ATTEMPT: ${TOPIC_QUIZ_ATTEMPT:-quiz.attempt.v1}
+      TOPIC_QUIZ_LIFECYCLE: ${TOPIC_QUIZ_LIFECYCLE:-quiz.lifecycle.v1}
+      TOPIC_SCHEDULE_LIFECYCLE: ${TOPIC_SCHEDULE_LIFECYCLE:-class.schedule.v1}
       ATTEMPT_REDIS_URL: redis://default:${REDIS_PASSWORD:-supersecret_please_change}@redis:6379/0
-    depends_on: [mongo-quiz, redpanda, redis]
-
-  user-service:
-    image: ${REGISTRY:-delishad21}/user-service:${IMAGE_TAG:-latest}
-    environment:
-      NODE_ENV: production
-      USER_PORT: ${USER_PORT:-7301}
-      USER_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-user:27017/user?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
-      QUIZ_SVC_URL: http://quiz-service:7302
-      ENV: ${ENV:-PROD}
-      JWT_SECRET: ${JWT_SECRET:-dev-secret}
-      QUIZ_WEBHOOK_SECRET: ${QUIZ_WEBHOOK_SECRET}
-      CLASS_SHARED_SECRET: ${CLASS_SHARED_SECRET}
-      GMAIL_USER: ${GMAIL_USER}
-      GMAIL_PASS: ${GMAIL_PASS}
-      GMAIL_NAME: ${GMAIL_NAME}
-      APP_NAME: ${APP_NAME}
-      FRONTEND_URL: ${FRONTEND_URL}
-    ports:
-      - "7301:7301"
-    depends_on: [mongo-user]
-
+      OUTBOX_STALE_LEASE_MS: ${OUTBOX_STALE_LEASE_MS:-120000}
+    depends_on:
+      mongo-init-quiz:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   ai-service:
-    image: ${REGISTRY:-delishad21}/ai-service:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${AI_SERVICE_IMAGE:-delishad21/fyp-ai-service:latest}
     environment:
       NODE_ENV: production
       AI_PORT: ${AI_PORT:-7304}
-      AI_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-ai:27017/ai?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
-      QUIZ_SVC_URL: http://quiz-service:7302
       PORT: ${AI_PORT:-7304}
+      AI_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-ai:27017/ai?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
       MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD:-rootpassword}@mongo-ai:27017/ai?replicaSet=rs0&authSource=admin&retryWrites=true&w=majority
+      USER_SVC_URL: http://user-service:7301
+      QUIZ_SVC_URL: http://quiz-service:7302
       QUIZ_SERVICE_URL: http://quiz-service:7302
+      QUIZ_WEBHOOK_SECRET: ${QUIZ_WEBHOOK_SECRET}
+      CLASS_SHARED_SECRET: ${CLASS_SHARED_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
       AI_ANALYTICS_SECRET: ${AI_ANALYTICS_SECRET}
-      JWT_SECRET: ${JWT_SECRET:-dev-secret}
-    ports:
-      - "7304:7304"
+      AI_TEACHER_GENERATION_QUOTA_ENABLED: ${AI_TEACHER_GENERATION_QUOTA_ENABLED:-false}
+      AI_TEACHER_GENERATION_QUOTA_MAX_JOBS: ${AI_TEACHER_GENERATION_QUOTA_MAX_JOBS:-1}
+      AI_MAX_QUIZZES_PER_GENERATION: ${AI_MAX_QUIZZES_PER_GENERATION:-5}
+      AI_MAX_QUESTIONS_PER_QUIZ: ${AI_MAX_QUESTIONS_PER_QUIZ:-10}
+      AI_PARALLEL_LIMIT: ${AI_PARALLEL_LIMIT:-1}
+      AI_PLANNING_MAX_RETRIES: ${AI_PLANNING_MAX_RETRIES:-3}
+      JWT_SECRET: ${JWT_SECRET}
+      UPLOAD_DIR: ${UPLOAD_DIR:-./uploads}
     volumes:
-      - /srv/quizapp/uploads/ai:/app/uploads
-    depends_on: [mongo-ai, quiz-service]
+      - ${HOST_DATA_ROOT:-/srv/quizapp2}/ai-uploads:/app/uploads
+    depends_on:
+      mongo-init-ai:
+        condition: service_completed_successfully
 
   game-service:
-    image: ${REGISTRY:-delishad21}/game-service:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${GAME_SERVICE_IMAGE:-delishad21/fyp-game-service:latest}
     environment:
       NODE_ENV: production
       GAME_PORT: ${GAME_PORT:-7305}
@@ -299,12 +356,34 @@ services:
       KAFKA_CLIENT_ID: ${GAME_KAFKA_CLIENT_ID:-game-service}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_GROUP: ${GAME_KAFKA_GROUP:-game-svc.v1}
-    ports:
-      - "7305:7305"
-    depends_on: [mongo-game, redpanda, redis]
+      TOPIC_QUIZ_ATTEMPT: ${TOPIC_QUIZ_ATTEMPT:-quiz.attempt.v1}
+      TOPIC_CLASS_LIFECYCLE: ${TOPIC_CLASS_LIFECYCLE:-class.lifecycle.v1}
+      TOPIC_CLASS_CANONICAL: ${TOPIC_CLASS_CANONICAL:-class.canonical.v1}
+      GAME_DEFAULT_CLASS_TIMEZONE: ${GAME_DEFAULT_CLASS_TIMEZONE:-Asia/Singapore}
+      GAME_DEFAULT_SCHEDULE_CONTRIBUTION: ${GAME_DEFAULT_SCHEDULE_CONTRIBUTION:-100}
+      GAME_SCORE_REWARD_STEP_DEFAULT: ${GAME_SCORE_REWARD_STEP_DEFAULT:-500}
+      GAME_AVATAR_ASSET_BASE_URL: ${GAME_AVATAR_ASSET_BASE_URL:-/api/game/avatar-assets}
+      GAME_AVATAR_RENDER_BASE_URL: ${GAME_AVATAR_RENDER_BASE_URL:-/api/game}
+      GAME_AVATAR_CATALOG_CACHE_MS: ${GAME_AVATAR_CATALOG_CACHE_MS:-10000}
+      GAME_BADGE_PERIOD_SCHEDULER_ENABLED: ${GAME_BADGE_PERIOD_SCHEDULER_ENABLED:-true}
+      GAME_BADGE_PERIOD_SCHEDULER_TICK_MS: ${GAME_BADGE_PERIOD_SCHEDULER_TICK_MS:-15000}
+      GAME_BADGE_PERIOD_SCHEDULER_CADENCE_SECONDS: ${GAME_BADGE_PERIOD_SCHEDULER_CADENCE_SECONDS:-300}
+      GAME_BADGE_PERIOD_SCHEDULER_SEED_INTERVAL_MS: ${GAME_BADGE_PERIOD_SCHEDULER_SEED_INTERVAL_MS:-60000}
+      GAME_BADGE_PERIOD_SCHEDULER_BATCH_SIZE: ${GAME_BADGE_PERIOD_SCHEDULER_BATCH_SIZE:-50}
+      GAME_BADGE_PERIOD_SCHEDULER_LOCK_TTL_SECONDS: ${GAME_BADGE_PERIOD_SCHEDULER_LOCK_TTL_SECONDS:-120}
+      GAME_BADGE_PERIOD_DUE_ZSET_KEY: ${GAME_BADGE_PERIOD_DUE_ZSET_KEY:-game:badge-period:due}
+      GAME_BADGE_PERIOD_LOCK_PREFIX: ${GAME_BADGE_PERIOD_LOCK_PREFIX:-game:badge-period:lock:}
+    depends_on:
+      mongo-init-game:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   game-worker:
-    image: ${REGISTRY:-delishad21}/game-service:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${GAME_SERVICE_IMAGE:-delishad21/fyp-game-service:latest}
     command: npm run start:worker
     environment:
       NODE_ENV: production
@@ -317,33 +396,56 @@ services:
       KAFKA_CLIENT_ID: ${GAME_KAFKA_CLIENT_ID:-game-service}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_GROUP: ${GAME_KAFKA_GROUP:-game-svc.v1}
-    depends_on: [mongo-game, redpanda, redis]
+      TOPIC_QUIZ_ATTEMPT: ${TOPIC_QUIZ_ATTEMPT:-quiz.attempt.v1}
+      TOPIC_CLASS_LIFECYCLE: ${TOPIC_CLASS_LIFECYCLE:-class.lifecycle.v1}
+      TOPIC_CLASS_CANONICAL: ${TOPIC_CLASS_CANONICAL:-class.canonical.v1}
+      GAME_BADGE_PERIOD_SCHEDULER_ENABLED: ${GAME_BADGE_PERIOD_SCHEDULER_ENABLED:-true}
+      GAME_BADGE_PERIOD_SCHEDULER_TICK_MS: ${GAME_BADGE_PERIOD_SCHEDULER_TICK_MS:-15000}
+      GAME_BADGE_PERIOD_SCHEDULER_CADENCE_SECONDS: ${GAME_BADGE_PERIOD_SCHEDULER_CADENCE_SECONDS:-300}
+      GAME_BADGE_PERIOD_SCHEDULER_SEED_INTERVAL_MS: ${GAME_BADGE_PERIOD_SCHEDULER_SEED_INTERVAL_MS:-60000}
+      GAME_BADGE_PERIOD_SCHEDULER_BATCH_SIZE: ${GAME_BADGE_PERIOD_SCHEDULER_BATCH_SIZE:-50}
+      GAME_BADGE_PERIOD_SCHEDULER_LOCK_TTL_SECONDS: ${GAME_BADGE_PERIOD_SCHEDULER_LOCK_TTL_SECONDS:-120}
+      GAME_BADGE_PERIOD_DUE_ZSET_KEY: ${GAME_BADGE_PERIOD_DUE_ZSET_KEY:-game:badge-period:due}
+      GAME_BADGE_PERIOD_LOCK_PREFIX: ${GAME_BADGE_PERIOD_LOCK_PREFIX:-game:badge-period:lock:}
+    depends_on:
+      mongo-init-game:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   web-app:
-    image: ${REGISTRY:-delishad21}/web-app:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${WEB_APP_IMAGE:-delishad21/fyp-web-app:latest}
     environment:
       NODE_ENV: production
-      JWT_SECRET: ${JWT_SECRET:-dev-secret}
-      USER_SVC_URL: ${NEXT_USER_URL}
-      QUIZ_SVC_URL: ${NEXT_QUIZ_URL}
-      CLASS_SVC_URL: ${NEXT_CLASS_URL}
-      AI_SVC_URL: ${NEXT_AI_URL}
-      GAME_SVC_URL: ${NEXT_GAME_URL}
-    ports:
-      - "3002:3000"
-    depends_on: [user-service]
+      JWT_SECRET: ${JWT_SECRET}
+      USER_SVC_URL: http://user-service:7301
+      QUIZ_SVC_URL: http://quiz-service:7302
+      CLASS_SVC_URL: http://class-service:7303
+      AI_SVC_URL: http://ai-service:7304
+      GAME_SVC_URL: http://game-service:7305
+    depends_on:
+      user-service:
+        condition: service_started
+      quiz-service:
+        condition: service_started
+      class-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+      game-service:
+        condition: service_started
 
   phone-frame:
-    image: ${REGISTRY:-delishad21}/phone-frame:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${PHONE_FRAME_IMAGE:-delishad21/fyp-phone-frame:latest}
     ports:
-      - "8088:8080"
-    depends_on: [web-app]
+      - "${PHONE_FRAME_PORT:-8088}:8080"
 
   phone-web-app:
-    image: ${REGISTRY:-delishad21}/phone-web-app:${IMAGE_TAG:-latest}
+    <<: *restart_policy
+    image: ${PHONE_WEB_APP_IMAGE:-delishad21/fyp-phone-web-app:latest}
     ports:
-      - "8089:8080"
-    depends_on: [web-app]
-
-volumes:
-  {}
+      - "${PHONE_WEB_APP_PORT:-8089}:8080"

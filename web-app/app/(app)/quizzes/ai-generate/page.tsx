@@ -3,12 +3,16 @@ import { Icon } from "@iconify/react";
 import GenerationWizard from "@/components/quizzes/ai-generation/GenerationWizard";
 import JobsSidebar from "@/components/quizzes/ai-generation/JobsSidebar";
 import { getFilterMeta } from "@/services/quiz/actions/quiz-metadata-actions";
-import { getAvailableModels } from "@/services/ai-generation/ai-generation-actions";
+import {
+  getAvailableModels,
+  getGenerationQuota,
+} from "@/services/ai-generation/ai-generation-actions";
 
 export default async function AIGeneratePage() {
-  const [meta, modelsResult] = await Promise.all([
+  const [meta, modelsResult, quotaResult] = await Promise.all([
     getFilterMeta(),
     getAvailableModels(),
+    getGenerationQuota(),
   ]);
   const availableModels = modelsResult.models || [];
   const aiGenerationAvailable =
@@ -37,10 +41,11 @@ export default async function AIGeneratePage() {
                 meta={meta}
                 availableModels={availableModels}
                 defaultModelId={modelsResult.defaultModelId}
+                quota={quotaResult.quota}
               />
             ) : (
               <div className="rounded-xl border border-[var(--color-bg4)] bg-[var(--color-bg1)] p-5">
-                <div className="flex items-start gap-3">
+                <div className="flex gap-3 items-center">
                   <Icon
                     icon="mingcute:warning-fill"
                     className="w-5 h-5 text-[var(--color-warning)] mt-0.5"
@@ -48,10 +53,6 @@ export default async function AIGeneratePage() {
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">
                       AI generation is currently not available
-                    </p>
-                    <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-                      Configure at least one model API key in the AI service
-                      environment to enable quiz generation.
                     </p>
                   </div>
                 </div>

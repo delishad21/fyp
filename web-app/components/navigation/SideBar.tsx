@@ -38,12 +38,12 @@ const items: NavItem[] = [
   { label: "Home", icon: "mingcute:home-2-line", href: "/home" },
   { label: "Quizzes", icon: "mingcute:book-2-line", href: "/quizzes" },
   { label: "Classes", icon: "mingcute:group-2-line", href: "/classes" },
-  { label: "Rewards", icon: "mingcute:gift-line", href: "/rewards" },
   {
     label: "Scheduling",
     icon: "mingcute:calendar-line",
     href: "/scheduling",
   },
+  { label: "Rewards", icon: "mingcute:gift-line", href: "/rewards" },
   {
     label: "Settings",
     icon: "mingcute:settings-2-line",

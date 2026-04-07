@@ -100,6 +100,7 @@ export type CanonicalEvent =
       classId: string;
       studentId: string;
       scheduleId: string;
+      contribution?: number;
       canonical: {
         attemptId: string;
         score: number;
@@ -116,6 +117,7 @@ export type CanonicalEvent =
       classId: string;
       studentId: string;
       scheduleId: string;
+      contribution?: number;
     };
 
 export const Topics = {

@@ -15,6 +15,10 @@ import {
 
 type TopicOption = { label: string; value: string };
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Please try again.";
+}
+
 export function TopicManagerSection({
   topics,
   refreshing,
@@ -65,10 +69,10 @@ export function TopicManagerSection({
         description: `Added "${res.option.label}".`,
         variant: "success",
       });
-    } catch (e: any) {
+    } catch (error: unknown) {
       showToast({
         title: "Failed to add topic",
-        description: e?.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "error",
       });
     } finally {
@@ -109,10 +113,10 @@ export function TopicManagerSection({
         description: `Updated to "${label}".`,
         variant: "success",
       });
-    } catch (e: any) {
+    } catch (error: unknown) {
       showToast({
         title: "Failed to update topic",
-        description: e?.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "error",
       });
     } finally {
@@ -145,10 +149,10 @@ export function TopicManagerSection({
         description: `Removed "${label}".`,
         variant: "success",
       });
-    } catch (e: any) {
+    } catch (error: unknown) {
       showToast({
         title: "Cannot delete topic",
-        description: e?.message || "Please try again.",
+        description: getErrorMessage(error),
         variant: "error",
       });
     } finally {

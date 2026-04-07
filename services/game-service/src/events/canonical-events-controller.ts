@@ -44,6 +44,10 @@ async function applyCanonicalEvent(payload: CanonicalEvent): Promise<boolean> {
       classId: payload.classId,
       studentId: payload.studentId,
       scheduleId: payload.scheduleId,
+      contribution:
+        typeof payload.contribution === "number"
+          ? payload.contribution
+          : undefined,
       canonical: {
         attemptId: payload.canonical.attemptId,
         score: Number(payload.canonical.score),
@@ -63,6 +67,10 @@ async function applyCanonicalEvent(payload: CanonicalEvent): Promise<boolean> {
       classId: payload.classId,
       studentId: payload.studentId,
       scheduleId: payload.scheduleId,
+      contribution:
+        typeof payload.contribution === "number"
+          ? payload.contribution
+          : undefined,
     });
     return true;
   }

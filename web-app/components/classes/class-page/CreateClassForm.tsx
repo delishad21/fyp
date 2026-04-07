@@ -116,7 +116,7 @@ export default function CreateClassForm() {
       username: s.username?.trim(),
     }))
   );
-  const imageJson = JSON.stringify(image ?? undefined);
+  const imageJson = JSON.stringify(image ?? null);
 
   if (hasCreds) {
     return (

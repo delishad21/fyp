@@ -90,25 +90,30 @@ export class QuizGeneratorService {
    * Pass 2) Generate each quiz in parallel, guided by its blueprint item.
    */
   async generateQuizzes(
-    contentOrInstructions: string,
+    instructions: string,
     config: IGenerationConfig,
     structureAndRules: QuizStructureAndRules,
     onProgress?: (progress: QuizGenerationProgress[]) => void,
     precomputedChunks?: string[],
   ): Promise<QuizBatchGenerationResult> {
     const selectedModel = this.resolveRuntimeModel(config);
+    const hasPrecomputedChunks =
+      Array.isArray(precomputedChunks) && precomputedChunks.length > 0;
     const chunks =
-      Array.isArray(precomputedChunks) && precomputedChunks.length > 0
+      hasPrecomputedChunks
         ? precomputedChunks
-        : this.splitContent(contentOrInstructions, config.numQuizzes);
+        : this.splitContent(instructions, config.numQuizzes);
     const requestedTypes = this.resolveRequestedQuizTypes(
       config,
       structureAndRules,
     );
     const quizTypePlan = this.buildQuizTypePlan(config.numQuizzes, requestedTypes);
     const planning = await this.buildBatchPlan(
-      contentOrInstructions,
+      instructions,
       chunks,
+      hasPrecomputedChunks
+        ? "Per-quiz context block"
+        : "Instruction-derived context slice",
       config,
       quizTypePlan,
       selectedModel,
@@ -290,14 +295,19 @@ export class QuizGeneratorService {
   }
 
   private async buildBatchPlan(
-    contentOrInstructions: string,
+    instructions: string,
     chunks: string[],
+    supportingContextLabel: string,
     config: IGenerationConfig,
     quizTypePlan: AIGeneratedQuizType[],
     selectedModel: { descriptor: AIModelDescriptor; apiKey: string },
   ): Promise<{ plan: BatchGenerationPlan; analytics: IPlanningPassAnalytics }> {
     const planningStartedAtMs = Date.now();
-    const planningContext = this.buildPlanningContext(contentOrInstructions, chunks);
+    const planningContext = this.buildPlanningContext(
+      instructions,
+      chunks,
+      supportingContextLabel,
+    );
     const planningAttempts: Array<{
       success: boolean;
       provider: "openai" | "anthropic" | "gemini";
@@ -459,24 +469,23 @@ export class QuizGeneratorService {
   }
 
   private buildPlanningContext(
-    contentOrInstructions: string,
+    instructions: string,
     chunks: string[],
+    supportingContextLabel: string,
   ): string {
     const contextParts: string[] = [];
     const maxChunkCount = Math.min(chunks.length, 10);
     const maxCharsPerChunk = 1200;
 
     contextParts.push(
-      `Teacher instructions (full or truncated):\n${String(
-        contentOrInstructions || "",
-      ).slice(0, 4000)}`,
+      `Teacher instructions:\n${String(instructions || "").slice(0, 4000)}`,
     );
 
     for (let i = 0; i < maxChunkCount; i++) {
       const chunk = chunks[i];
       if (!chunk) continue;
       contextParts.push(
-        `Context slice ${i + 1}:\n${chunk.slice(0, maxCharsPerChunk)}`,
+        `${supportingContextLabel} ${i + 1}:\n${chunk.slice(0, maxCharsPerChunk)}`,
       );
     }
 

@@ -8,8 +8,9 @@ import type { ClassItem } from "@/services/class/types/class-types";
 export default async function SchedulingPage({
   searchParams,
 }: {
-  searchParams?: { start?: string };
+  searchParams?: Promise<{ start?: string | string[] }>;
 }) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const [allRes, classesRaw, meta, quizRes] = await Promise.all([
     getAllClassesScheduleForDashboard(),
     getClasses(),
@@ -64,7 +65,9 @@ export default async function SchedulingPage({
     : [];
 
   const startParam =
-    typeof searchParams?.start === "string" ? searchParams.start.trim() : "";
+    typeof resolvedSearchParams?.start === "string"
+      ? resolvedSearchParams.start.trim()
+      : "";
   const initialCalendarStartKey = /^\d{4}-\d{2}-\d{2}$/.test(startParam)
     ? startParam
     : undefined;

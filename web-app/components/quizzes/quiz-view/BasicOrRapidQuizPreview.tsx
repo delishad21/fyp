@@ -314,7 +314,7 @@ function OpenAnswersPreview({
 
       {answerType === "exact" && (
         <ul className="space-y-2 text-sm text-[var(--color-text-primary)]">
-          {answers.map((ans, idx) => (
+          {answers.map((ans) => (
             <li
               key={ans.id}
               className="flex items-center justify-between rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] px-3 py-2"

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   startGeneration,
   getAvailableModels,
+  getGenerationQuota,
   getGenerationStatus,
   getGenerationJobs,
   updateDraftQuiz,
@@ -46,6 +47,9 @@ router.get(
 
 /** GET /generate/models — Available AI models based on configured API keys */
 router.get("/models", verifyAccessToken, verifyIsTeacher, getAvailableModels);
+
+/** GET /generate/quota — Current teacher AI generation quota state */
+router.get("/quota", verifyAccessToken, verifyIsTeacher, getGenerationQuota);
 
 /** DELETE /generate/cleanup — Cleanup old completed jobs (30+ days) */
 router.delete("/cleanup", verifyAccessToken, verifyIsTeacher, cleanupOldJobs);

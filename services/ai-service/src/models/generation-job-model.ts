@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+import { getGenerationLimits } from "../config/generation-limits";
 
 export interface IDraftQuiz {
   tempId: string;
@@ -197,7 +198,17 @@ const DraftQuizSchema = new Schema<IDraftQuiz>(
 const GenerationConfigSchema = new Schema<IGenerationConfig>(
   {
     instructions: { type: String, required: true }, // Required field
-    numQuizzes: { type: Number, required: true, min: 1, max: 20 },
+    numQuizzes: {
+      type: Number,
+      required: true,
+      min: 1,
+      validate: {
+        validator: (value: number) =>
+          value <= getGenerationLimits().maxQuizzesPerGeneration,
+        message: () =>
+          `Number of quizzes must be between 1 and ${getGenerationLimits().maxQuizzesPerGeneration}`,
+      },
+    },
     quizTypes: {
       type: [
         {
@@ -223,7 +234,17 @@ const GenerationConfigSchema = new Schema<IGenerationConfig>(
         "primary-6",
       ],
     },
-    questionsPerQuiz: { type: Number, required: true, min: 5, max: 20 },
+    questionsPerQuiz: {
+      type: Number,
+      required: true,
+      min: 5,
+      validate: {
+        validator: (value: number) =>
+          value <= getGenerationLimits().maxQuestionsPerQuiz,
+        message: () =>
+          `Questions per quiz must be between 5 and ${getGenerationLimits().maxQuestionsPerQuiz}`,
+      },
+    },
     aiModel: { type: String },
     subject: { type: String, required: true },
     timerSettings: {

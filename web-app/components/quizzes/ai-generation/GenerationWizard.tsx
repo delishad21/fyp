@@ -10,6 +10,7 @@ import { Icon } from "@iconify/react";
 import { FilterMeta } from "@/services/quiz/types/quiz-table-types";
 import {
   AvailableAIModel,
+  GenerationQuotaStatus,
   startGeneration,
 } from "@/services/ai-generation/ai-generation-actions";
 import { useToast } from "@/components/ui/toast/ToastProvider";
@@ -24,10 +25,14 @@ interface GenerationWizardProps {
   meta: FilterMeta;
   availableModels: AvailableAIModel[];
   defaultModelId?: string;
+  quota?: GenerationQuotaStatus;
 }
 
 const MAX_DOCUMENT_SIZE_MB = 20;
 const MAX_DOCUMENT_SIZE_BYTES = MAX_DOCUMENT_SIZE_MB * 1024 * 1024;
+const FALLBACK_MAX_QUIZZES_PER_GENERATION = 20;
+const FALLBACK_MIN_QUESTIONS_PER_QUIZ = 5;
+const FALLBACK_MAX_QUESTIONS_PER_QUIZ = 20;
 
 function guessDocumentType(file: File): UploadDocumentType {
   const name = file.name.toLowerCase();
@@ -60,6 +65,7 @@ export default function GenerationWizard({
   meta,
   availableModels,
   defaultModelId,
+  quota,
 }: GenerationWizardProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -75,7 +81,12 @@ export default function GenerationWizard({
 
   // Form state - instructions are now required, file is optional
   const [instructions, setInstructions] = useState("");
-  const [numQuizzes, setNumQuizzes] = useState(1);
+  const [numQuizzes, setNumQuizzes] = useState(
+    quota?.limits?.maxQuizzesPerGeneration ??
+      FALLBACK_MAX_QUIZZES_PER_GENERATION,
+  );
+  const [hasCustomizedNumQuizzes, setHasCustomizedNumQuizzes] =
+    useState(false);
   const [educationLevel, setEducationLevel] = useState<string>("primary-1");
   const [questionsPerQuiz, setQuestionsPerQuiz] = useState(10);
   const [selectedQuizTypes, setSelectedQuizTypes] = useState<string[]>([
@@ -101,6 +112,15 @@ export default function GenerationWizard({
 
   const hasPendingDocumentSelection =
     !!activeDocument || pendingDocumentQueue.length > 0;
+  const quotaEnabled = !!quota?.enabled;
+  const quotaExhausted = !!quota?.enabled && !!quota?.exhausted;
+  const maxQuizzesPerGeneration =
+    quota?.limits?.maxQuizzesPerGeneration ??
+    FALLBACK_MAX_QUIZZES_PER_GENERATION;
+  const minQuestionsPerQuiz =
+    quota?.limits?.minQuestionsPerQuiz ?? FALLBACK_MIN_QUESTIONS_PER_QUIZ;
+  const maxQuestionsPerQuiz =
+    quota?.limits?.maxQuestionsPerQuiz ?? FALLBACK_MAX_QUESTIONS_PER_QUIZ;
 
   const queueFilesForTyping = (incoming: File[]) => {
     if (incoming.length === 0) return;
@@ -138,6 +158,25 @@ export default function GenerationWizard({
       setActiveDocumentType(guessDocumentType(next));
     }
   }, [activeDocument, pendingDocumentQueue]);
+
+  useEffect(() => {
+    setNumQuizzes((current) => {
+      if (!hasCustomizedNumQuizzes) {
+        return maxQuizzesPerGeneration;
+      }
+
+      return Math.min(Math.max(1, current), maxQuizzesPerGeneration);
+    });
+  }, [hasCustomizedNumQuizzes, maxQuizzesPerGeneration]);
+
+  useEffect(() => {
+    setQuestionsPerQuiz((current) =>
+      Math.min(
+        Math.max(minQuestionsPerQuiz, current),
+        maxQuestionsPerQuiz,
+      ),
+    );
+  }, [maxQuestionsPerQuiz, minQuestionsPerQuiz]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -225,6 +264,16 @@ export default function GenerationWizard({
       showToast({
         title: "Model required",
         description: "Please select an AI model for generation",
+        variant: "error",
+      });
+      return;
+    }
+
+    if (quotaExhausted) {
+      showToast({
+        title: "Generation quota reached",
+        description:
+          "You have used all AI generation attempts allocated for this testing account.",
         variant: "error",
       });
       return;
@@ -330,6 +379,23 @@ export default function GenerationWizard({
           Generation Settings
         </h2>
 
+        {quotaEnabled ? (
+          <div className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg1)] px-4 py-3">
+            <p className="text-sm font-medium text-[var(--color-text-primary)]">
+              AI generation quota
+            </p>
+            <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+              {quotaExhausted
+                ? `Quota exhausted. You have used ${quota?.generationsUsed ?? 0} of ${quota?.maxGenerations ?? 0} allowed generation jobs.`
+                : `${quota?.generationsRemaining ?? 0} of ${quota?.maxGenerations ?? 0} generation job(s) remaining for this account.`}
+            </p>
+            <p className="text-xs text-[var(--color-text-secondary)] mt-2">
+              Current limits: up to {maxQuizzesPerGeneration} quiz(es) per
+              generation and up to {maxQuestionsPerQuiz} question(s) per quiz.
+            </p>
+          </div>
+        ) : null}
+
         {/* Model Selection */}
         <div>
           <Select
@@ -362,14 +428,17 @@ export default function GenerationWizard({
           <input
             type="range"
             min="1"
-            max="20"
+            max={String(maxQuizzesPerGeneration)}
             value={numQuizzes}
-            onChange={(e) => setNumQuizzes(Number(e.target.value))}
+            onChange={(e) => {
+              setHasCustomizedNumQuizzes(true);
+              setNumQuizzes(Number(e.target.value));
+            }}
             className="w-full"
           />
           <div className="flex justify-between text-xs text-[var(--color-text-secondary)] mt-1">
             <span>1</span>
-            <span>20</span>
+            <span>{maxQuizzesPerGeneration}</span>
           </div>
         </div>
 
@@ -414,18 +483,16 @@ export default function GenerationWizard({
           </label>
           <input
             type="range"
-            min="5"
-            max="20"
-            step="5"
+            min={String(minQuestionsPerQuiz)}
+            max={String(maxQuestionsPerQuiz)}
+            step="1"
             value={questionsPerQuiz}
             onChange={(e) => setQuestionsPerQuiz(Number(e.target.value))}
             className="w-full"
           />
           <div className="flex justify-between text-xs text-[var(--color-text-secondary)] mt-1">
-            <span>5</span>
-            <span>10</span>
-            <span>15</span>
-            <span>20</span>
+            <span>{minQuestionsPerQuiz}</span>
+            <span>{maxQuestionsPerQuiz}</span>
           </div>
         </div>
 
@@ -592,10 +659,16 @@ export default function GenerationWizard({
             !subject.trim() ||
             selectedQuizTypes.length === 0 ||
             isSubmitting ||
-            hasPendingDocumentSelection
+            hasPendingDocumentSelection ||
+            quotaExhausted
           }
         >
-          {isSubmitting ? (
+          {quotaExhausted ? (
+            <>
+              <Icon icon="mdi:lock" className="w-4 h-4 mr-2" />
+              Generation Quota Reached
+            </>
+          ) : isSubmitting ? (
             <>
               <Icon icon="mdi:loading" className="w-4 h-4 animate-spin mr-2" />
               Generating...

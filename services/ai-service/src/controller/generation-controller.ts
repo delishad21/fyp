@@ -29,6 +29,12 @@ import {
   sanitizeResultsForResponse,
   toDocumentMetaList,
 } from "./generation-controller-helpers";
+import {
+  consumeTeacherGenerationQuota,
+  getTeacherGenerationQuotaStatus,
+  releaseTeacherGenerationQuota,
+} from "../services/generation-quota";
+import { getGenerationLimits } from "../config/generation-limits";
 
 // Service instances (singleton-like)
 const documentParser = new DocumentParserService();
@@ -46,9 +52,9 @@ const ANALYTICS_SECRET = String(process.env.AI_ANALYTICS_SECRET || "").trim();
  *   File: multipart/form-data 'documents' (PDF, DOCX, or TXT, up to 5) - OPTIONAL
  *   Body: {
  *     instructions: string (REQUIRED),
- *     numQuizzes: number (1-20),
+ *     numQuizzes: number (1-max, controlled by ai-service env),
  *     educationLevel: 'primary-1' | 'primary-2' | ... | 'primary-6',
- *     questionsPerQuiz: number (5-20),
+ *     questionsPerQuiz: number (5-max, controlled by ai-service env),
  *     aiModel?: string (optional, defaults to first configured model),
  *     quizTypes: ('basic' | 'rapid' | 'crossword' | 'true-false')[],
  *     documentTypes?: ('syllabus' | 'question-bank' | 'subject-content' | 'other')[],
@@ -77,7 +83,10 @@ const ANALYTICS_SECRET = String(process.env.AI_ANALYTICS_SECRET || "").trim();
  *   500 internal server error
  */
 export async function startGeneration(req: CustomRequest, res: Response) {
+  let quotaReserved = false;
+  let reservedTeacherId: string | null = null;
   try {
+    const generationLimits = getGenerationLimits();
     const teacherId = req.teacherId;
     if (!teacherId) {
       return res.status(401).json({ ok: false, message: "Unauthorized" });
@@ -141,10 +150,14 @@ export async function startGeneration(req: CustomRequest, res: Response) {
 
     const config: IGenerationConfig = {
       instructions,
-      numQuizzes: parseInt(req.body.numQuizzes) || 10,
+      numQuizzes:
+        parseInt(String(req.body.numQuizzes ?? ""), 10) ||
+        generationLimits.maxQuizzesPerGeneration,
       quizTypes: requestedQuizTypes,
       educationLevel: req.body.educationLevel || "primary-1",
-      questionsPerQuiz: parseInt(req.body.questionsPerQuiz) || 10,
+      questionsPerQuiz:
+        parseInt(String(req.body.questionsPerQuiz ?? ""), 10) ||
+        Math.min(10, generationLimits.maxQuestionsPerQuiz),
       aiModel: selectedModel.id,
       subject,
       timerSettings: req.body.timerSettings
@@ -153,10 +166,23 @@ export async function startGeneration(req: CustomRequest, res: Response) {
     };
 
     // Validate configuration
-    if (config.numQuizzes < 1 || config.numQuizzes > 20) {
+    if (
+      config.numQuizzes < 1 ||
+      config.numQuizzes > generationLimits.maxQuizzesPerGeneration
+    ) {
       return res.status(400).json({
         ok: false,
-        message: "Number of quizzes must be between 1 and 20",
+        message: `Number of quizzes must be between 1 and ${generationLimits.maxQuizzesPerGeneration}`,
+      });
+    }
+
+    if (
+      config.questionsPerQuiz < generationLimits.minQuestionsPerQuiz ||
+      config.questionsPerQuiz > generationLimits.maxQuestionsPerQuiz
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: `Questions per quiz must be between ${generationLimits.minQuestionsPerQuiz} and ${generationLimits.maxQuestionsPerQuiz}`,
       });
     }
 
@@ -174,6 +200,18 @@ export async function startGeneration(req: CustomRequest, res: Response) {
         message: "Invalid education level. Must be primary-1 through primary-6",
       });
     }
+
+    const quotaStatus = await consumeTeacherGenerationQuota(teacherId);
+    if (quotaStatus.enabled && !quotaStatus.acquired) {
+      return res.status(429).json({
+        ok: false,
+        message:
+          "AI generation quota reached for this teacher. Please contact an administrator if you need more generations.",
+        quota: quotaStatus,
+      });
+    }
+    quotaReserved = quotaStatus.enabled && quotaStatus.acquired;
+    reservedTeacherId = teacherId;
 
     // Create generation job
     const jobData: any = {
@@ -219,10 +257,67 @@ export async function startGeneration(req: CustomRequest, res: Response) {
       message: "Generation job started",
     });
   } catch (error) {
+    if (quotaReserved && reservedTeacherId) {
+      try {
+        await releaseTeacherGenerationQuota(reservedTeacherId);
+      } catch (releaseError) {
+        console.error("Failed to release generation quota after start failure:", releaseError);
+      }
+    }
     console.error("Start generation error:", error);
     res.status(500).json({
       ok: false,
       message: "Failed to start generation",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+}
+
+/**
+ * @route  GET /generate/quota
+ * @auth   verifyAccessToken + verifyIsTeacher
+ *
+ * @notes
+ *   - Returns the effective AI generation quota state for the authenticated teacher.
+ *   - Quota enforcement is controlled entirely by env variables in ai-service.
+ *   - If quota is disabled, `enabled` is false and generation remains unrestricted.
+ *
+ * @returns 200 {
+ *   ok: true,
+ *   data: {
+ *     enabled: boolean,
+ *     maxGenerations: number | null,
+ *     generationsUsed: number,
+ *     generationsRemaining: number | null,
+ *     exhausted: boolean
+ *   }
+ * }
+ *
+ * @errors
+ *   401 unauthenticated
+ *   500 internal server error
+ */
+export async function getGenerationQuota(req: CustomRequest, res: Response) {
+  try {
+    const generationLimits = getGenerationLimits();
+    const teacherId = req.teacherId;
+    if (!teacherId) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
+
+    const quota = await getTeacherGenerationQuotaStatus(teacherId);
+    return res.json({
+      ok: true,
+      data: {
+        ...quota,
+        limits: generationLimits,
+      },
+    });
+  } catch (error) {
+    console.error("Get generation quota error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to get generation quota",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
@@ -816,8 +911,6 @@ async function processGenerationJob(jobId: string) {
       console.log(`All documents parsed: ${documentMetaList.length} file(s)`);
 
       precomputedContexts = contextBuild.perQuizContexts;
-      contentForGeneration =
-        precomputedContexts[0] || job.config.instructions;
     } else {
       console.log("Generating from instructions only (no documents provided)");
     }

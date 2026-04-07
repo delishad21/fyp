@@ -355,12 +355,12 @@ export default async function RewardsScoreSettingsPage({
         </div>
       )}
 
-      <div className="space-y-2 rounded-sm border border-yellow-500/35 bg-yellow-500/10 p-3 text-xs text-yellow-200">
-        <p>
+      <div className="space-y-2 rounded-sm border border-[var(--color-warning)] bg-[color-mix(in_srgb,var(--color-warning)_12%,var(--color-bg2))] p-3 text-xs text-[var(--color-text-primary)]">
+        <p className="leading-5">
           Score reward threshold changes do not backfill past item rewards. Only the next
           forward threshold is used.
         </p>
-        <p>
+        <p className="leading-5 text-[var(--color-text-secondary)]">
           Badge overall/streak threshold changes trigger class-wide badge recalculation based
           on the new thresholds.
         </p>

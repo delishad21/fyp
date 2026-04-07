@@ -133,7 +133,7 @@ function buildClassPayload(formData: FormData) {
   if (color) payload.metadata.color = color;
   if (timezone) payload.timezone = timezone;
   if (Array.isArray(students)) payload.students = students;
-  if (image && typeof image === "object") payload.image = image;
+  if (formData.has("imageJson")) payload.image = image ?? null;
   if (Array.isArray(schedule)) payload.schedule = schedule;
 
   return payload;

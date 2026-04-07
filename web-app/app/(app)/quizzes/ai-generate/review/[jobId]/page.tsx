@@ -18,7 +18,7 @@ export default async function Page({
   const meta = await getFilterMeta();
 
   return (
-    <div className="min-h-screen px-10 pt-5">
+    <div className="h-full min-h-0 overflow-hidden px-10 pt-5 pb-5">
       <GeneratedQuizReview job={result.job} meta={meta} />
     </div>
   );

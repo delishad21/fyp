@@ -11,5 +11,6 @@ uploads
 issued-credentials.csv
 archive
 teacher-credentials.csv
+seeding
 docs
 llm-eval-app

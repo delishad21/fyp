@@ -21,7 +21,10 @@ export default async function OverviewPage({ params }: PageProps) {
   const initialSchedule = schedRes?.ok ? schedRes.data ?? [] : [];
   const leaders = topRes?.ok ? topRes.data : null;
 
-  const classTimezone = cls?.ok ? cls.data.timezone : "UTC";
+  const classTimezone =
+    typeof cls?.timezone === "string" && cls.timezone
+      ? cls.timezone
+      : "Asia/Singapore";
 
   return (
     <div className="space-y-6 p-4">

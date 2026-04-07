@@ -19,6 +19,27 @@ import {
   emitClassUpdated,
 } from "../utils/events/class-lifecycle-events";
 
+function uploadBaseUrl() {
+  return (process.env.IMAGE_UPLOAD_URL || "").replace(/\/+$/, "");
+}
+
+function defaultClassImage(baseURL: string) {
+  return {
+    url: `${baseURL}/default-class.png`,
+    filename: "default-class.png",
+  };
+}
+
+function defaultStudentPhotoUrl(baseURL: string) {
+  return `${baseURL}/default-student.png`;
+}
+
+function resolveClassImage(image: unknown, baseURL: string) {
+  return image && typeof image === "object"
+    ? image
+    : defaultClassImage(baseURL);
+}
+
 /**
  * @route  POST /classes
  * @auth   verifyAccessToken (any authenticated user)
@@ -111,9 +132,8 @@ export async function createClass(req: CustomRequest, res: Response) {
     const schedule: any[] = [];
 
     // Image defaults
-    const baseURL = (process.env.IMAGE_UPLOAD_URL || "").replace(/\/+$/, "");
-    const defaultClassImage = `${baseURL}/default-class.png`;
-    const defaultStudentPhoto = `${baseURL}/default-student.png`;
+    const baseURL = uploadBaseUrl();
+    const defaultStudentPhoto = defaultStudentPhotoUrl(baseURL);
 
     // Map created students in user service to student entries in class
     const studentDocs = createdStudents.map((s) => ({
@@ -124,10 +144,7 @@ export async function createClass(req: CustomRequest, res: Response) {
     }));
 
     //
-    const image = req.body.image ?? {
-      url: defaultClassImage,
-      filename: "default-class.png",
-    };
+    const image = resolveClassImage(req.body.image, baseURL);
 
     let createdClassId: mongoose.Types.ObjectId | null = null;
 
@@ -251,6 +268,8 @@ export async function updateClass(req: CustomRequest, res: Response) {
       return res.status(404).json({ ok: false, message: "Class not found" });
     }
 
+    const baseURL = uploadBaseUrl();
+
     let updated: any;
     await session.withTransaction(async () => {
       const update: any = {};
@@ -259,7 +278,9 @@ export async function updateClass(req: CustomRequest, res: Response) {
         update.name = String(req.body.name).trim();
       if (typeof req.body.level === "string")
         update.level = String(req.body.level).trim();
-      if (req.body.image !== undefined) update.image = req.body.image;
+      if (req.body.image !== undefined) {
+        update.image = resolveClassImage(req.body.image, baseURL);
+      }
       if (req.body.metadata !== undefined) update.metadata = req.body.metadata;
       if (typeof req.body.timezone === "string" && req.body.timezone.trim()) {
         update.timezone = String(req.body.timezone).trim();

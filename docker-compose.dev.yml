@@ -259,6 +259,10 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
       AI_ANALYTICS_SECRET: ${AI_ANALYTICS_SECRET}
+      AI_TEACHER_GENERATION_QUOTA_ENABLED: ${AI_TEACHER_GENERATION_QUOTA_ENABLED:-false}
+      AI_TEACHER_GENERATION_QUOTA_MAX_JOBS: ${AI_TEACHER_GENERATION_QUOTA_MAX_JOBS:-1}
+      AI_MAX_QUIZZES_PER_GENERATION: ${AI_MAX_QUIZZES_PER_GENERATION:-10}
+      AI_MAX_QUESTIONS_PER_QUIZ: ${AI_MAX_QUESTIONS_PER_QUIZ:-15}
       AI_SVC_URL: ${NEXT_AI_URL:-http://ai-service:7304}
       USER_SVC_URL: http://user-service:7301
       QUIZ_SERVICE_URL: http://quiz-service:7302
@@ -267,7 +271,6 @@ services:
       CLASS_SHARED_SECRET: ${CLASS_SHARED_SECRET}
       MAX_FILE_SIZE_MB: 10
       MAX_CONCURRENT_JOBS: 3
-      MAX_QUIZZES_PER_REQUEST: 20
       UPLOAD_DIR: ./uploads
     ports:
       - "7304:7304"
@@ -330,7 +333,7 @@ services:
   phone-app:
     build:
       context: ./phone-app
-    command: npm run start -- --host lan --port 8081
+    command: sh /app/dev-start.sh
     env_file:
       - .env
     stdin_open: true

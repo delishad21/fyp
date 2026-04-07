@@ -56,6 +56,7 @@ type CanonicalUpsertPayload = {
   classId: string;
   studentId: string;
   scheduleId: string;
+  contribution?: number;
   canonical: CanonicalSnapshot;
 };
 
@@ -63,6 +64,7 @@ type CanonicalRemovedPayload = {
   classId: string;
   studentId: string;
   scheduleId: string;
+  contribution?: number;
 };
 
 type RankSnapshot = {
@@ -213,7 +215,8 @@ async function applyCanonicalState(
   studentId: string,
   scheduleId: string,
   next: CanonicalSnapshot | null,
-  session: ClientSession
+  session: ClientSession,
+  contributionOverride?: number
 ) {
   const classObjId = toClassObjectId(classId);
 
@@ -231,7 +234,9 @@ async function applyCanonicalState(
     return;
   }
 
-  const contribution = await getScheduleContribution(classId, scheduleId, session);
+  const contribution = Number.isFinite(Number(contributionOverride))
+    ? Math.max(0, Number(contributionOverride))
+    : await getScheduleContribution(classId, scheduleId, session);
   const prevPct = prev ? toPct(prev.score, prev.maxScore) : 0;
   const nextPct = next ? toPct(next.score, next.maxScore) : 0;
   const deltaOverall = (nextPct - prevPct) * contribution;
@@ -504,7 +509,8 @@ export async function game_onCanonicalUpserted(payload: CanonicalUpsertPayload) 
         payload.studentId,
         payload.scheduleId,
         payload.canonical,
-        session
+        session,
+        payload.contribution
       );
 
       await evaluateStudentRewardRules({
@@ -542,7 +548,8 @@ export async function game_onCanonicalRemoved(payload: CanonicalRemovedPayload) 
         payload.studentId,
         payload.scheduleId,
         null,
-        session
+        session,
+        payload.contribution
       );
 
       await evaluateStudentRewardRules({

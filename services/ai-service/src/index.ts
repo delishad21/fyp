@@ -13,6 +13,14 @@ app.use(express.json());
 app.use(cors());
 
 /**
+ * Container health probe must be registered before the generation router.
+ * Otherwise /health is matched by the router's dynamic /:jobId route.
+ */
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+/**
  * Route mounts (prefix → router)
  * - /  -> generationRoutes (mounted at root for consistent proxy pattern)
  */

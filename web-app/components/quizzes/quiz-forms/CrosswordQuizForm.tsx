@@ -186,7 +186,6 @@ export default function CrosswordQuizForm({
   currentVersion,
   isClone = false,
   typeColorHex,
-  initialQuestionIndex: _initialQuestionIndex, // accepted for consistency but not used
 }: Props) {
   const initial: CreateQuizState = {
     ok: false,

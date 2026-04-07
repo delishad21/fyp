@@ -14,6 +14,7 @@ export async function emitCanonicalUpserted(
     classId: string;
     studentId: string;
     scheduleId: string;
+    contribution: number;
     attemptId: string;
     score: number;
     maxScore: number;
@@ -31,6 +32,7 @@ export async function emitCanonicalUpserted(
     classId: args.classId,
     studentId: args.studentId,
     scheduleId: args.scheduleId,
+    contribution: Number(args.contribution),
     canonical: {
       attemptId: args.attemptId,
       score: args.score,
@@ -49,6 +51,7 @@ export async function emitCanonicalRemoved(
     classId: string;
     studentId: string;
     scheduleId: string;
+    contribution: number;
     occurredAt?: string;
   },
   opts?: EmitOpts
@@ -60,6 +63,7 @@ export async function emitCanonicalRemoved(
     classId: args.classId,
     studentId: args.studentId,
     scheduleId: args.scheduleId,
+    contribution: Number(args.contribution),
   };
 
   await enqueueEvent("CanonicalRemoved", evt, opts);

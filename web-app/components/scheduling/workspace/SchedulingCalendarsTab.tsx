@@ -13,6 +13,7 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { Icon } from "@iconify/react";
 import { createPortal } from "react-dom";
 import Button from "@/components/ui/buttons/Button";
 import DateField from "@/components/ui/selectors/DateField";
@@ -57,6 +58,7 @@ import type { ScheduleClassBundle } from "../types";
 import { makeCellDropId, parseCellDropId } from "../helpers/drop-target-ids";
 import SchedulingControlsBar from "./SchedulingControlsBar";
 import SchedulingHelpDropdown from "./SchedulingHelpDropdown";
+import SchedulingDeleteDropzone from "./SchedulingDeleteDropzone";
 
 type PreviewByClass = Record<
   string,
@@ -128,6 +130,7 @@ export default function SchedulingCalendarsTab({
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null);
   const [previewByClassId, setPreviewByClassId] = useState<PreviewByClass>({});
   const resizeStateRef = useRef<ResizeState | null>(null);
+  const lastOverIdRef = useRef<string | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editClassId, setEditClassId] = useState("");
@@ -174,6 +177,8 @@ export default function SchedulingCalendarsTab({
     return { classId: activeDrag.classId, clientId: activeDrag.clientId };
   }, [activeDrag]);
 
+  const showDeleteDropzone = activeDrag?.kind === "pill";
+
   const clearPreview = useCallback(() => setPreviewByClassId({}), []);
 
   const shiftWindowOneDay = useCallback(
@@ -217,6 +222,7 @@ export default function SchedulingCalendarsTab({
   const handleDragStart = useCallback(
     (e: DragStartEvent) => {
       const drag = (e.active?.data?.current as DragData | undefined) ?? null;
+      lastOverIdRef.current = null;
       setActiveDrag(drag);
       if (drag?.kind === "quiz-row") {
         setQuizDrawerOpen(false);
@@ -251,6 +257,9 @@ export default function SchedulingCalendarsTab({
 
   const handleDragOver = useCallback(
     (e: DragOverEvent) => {
+      lastOverIdRef.current =
+        typeof e.over?.id === "string" ? e.over.id : null;
+
       const drag = e.active?.data?.current as DragData | undefined;
       if (!drag || drag.kind !== "pill-resize") return;
 
@@ -323,11 +332,14 @@ export default function SchedulingCalendarsTab({
   const handleDragEnd = useCallback(
     async (e: DragEndEvent) => {
       const drag = (e.active?.data?.current ?? null) as DragData | null;
-      const overId = typeof e.over?.id === "string" ? e.over.id : null;
+      const overId =
+        (typeof e.over?.id === "string" ? e.over.id : null) ??
+        lastOverIdRef.current;
       const target = overId ? parseCellDropId(overId) : null;
 
       setActiveDrag(null);
       clearPreview();
+      lastOverIdRef.current = null;
 
       if (!drag) {
         resizeStateRef.current = null;
@@ -576,6 +588,50 @@ export default function SchedulingCalendarsTab({
       }
 
       if (drag.kind === "pill") {
+        if (overId === "trash") {
+          const fallback = findItemAcrossClasses(drag.clientId);
+          const sourceClassId = drag.classId || fallback?.classId;
+          if (!sourceClassId) return;
+
+          const sourceClass = classMap.get(sourceClassId) || fallback?.cls;
+          const currentItem =
+            sourceClass?.schedule.find((it) => it.clientId === drag.clientId) ||
+            fallback?.item;
+          if (!sourceClass || !currentItem) return;
+
+          if (!currentItem._id) {
+            showToast({
+              title: "Failed",
+              description: "Schedule item id is missing.",
+              variant: "error",
+            });
+            return;
+          }
+
+          onReplaceItem(sourceClassId, currentItem.clientId, null);
+          const res = await deleteClassScheduleItemById(
+            sourceClassId,
+            currentItem._id,
+          );
+
+          if (!res.ok) {
+            onReplaceItem(sourceClassId, currentItem.clientId, currentItem);
+            showToast({
+              title: "Failed",
+              description: res.message || "Could not delete schedule item.",
+              variant: "error",
+            });
+            return;
+          }
+
+          showToast({
+            title: "Removed",
+            description: "Schedule item deleted.",
+            variant: "success",
+          });
+          return;
+        }
+
         if (!target) return;
 
         const fallback = findItemAcrossClasses(drag.clientId);
@@ -828,6 +884,7 @@ export default function SchedulingCalendarsTab({
     setActiveDrag(null);
     clearPreview();
     resizeStateRef.current = null;
+    lastOverIdRef.current = null;
   }, [clearPreview]);
 
   const handleOpenEdit = useCallback(
@@ -1007,122 +1064,134 @@ export default function SchedulingCalendarsTab({
         onDragCancel={handleDragCancel}
       >
         <div className="flex min-h-0 flex-1 flex-col gap-4 pl-16 pr-6 pt-5 pb-3">
-            <SchedulingControlsBar
-              left={
-                <>
-                  <Button
-                    variant="primary"
-                    className="h-10 px-4 text-sm"
-                    onClick={() => setQuizDrawerOpen((prev) => !prev)}
-                    title={
-                      quizDrawerOpen
-                        ? "Hide quiz drawer"
-                        : "Open quiz drawer from left"
-                    }
-                  >
-                    + Schedule New Quiz
-                  </Button>
-                  <DateField
-                    label="Go to date"
-                    value={startKey}
-                    onChange={(next) => {
-                      if (next) onStartKeyChange(next);
-                    }}
-                  />
+          <SchedulingControlsBar
+            left={
+              <>
+                <Button
+                  variant="primary"
+                  className="h-10 px-4 text-sm"
+                  onClick={() => setQuizDrawerOpen((prev) => !prev)}
+                  title={
+                    quizDrawerOpen
+                      ? "Hide quiz drawer"
+                      : "Open quiz drawer from left"
+                  }
+                >
+                  + Schedule New Quiz
+                </Button>
+                <DateField
+                  label="Go to date"
+                  value={startKey}
+                  onChange={(next) => {
+                    if (next) onStartKeyChange(next);
+                  }}
+                />
 
-                  <div className="min-w-[300px]">
-                    <MultiSelect
-                      label="Visible classes"
-                      options={classOptions(classes)}
-                      value={selectedClassIds}
-                      onChange={setSelectedClassIds}
-                      placeholder="All classes"
-                      searchable
-                      className="w-full"
-                    />
-                  </div>
-                </>
-              }
-              right={
-                <>
-                  <SchedulingHelpDropdown
-                    title="How to use"
-                    tips={[
-                      'Click "Schedule New Quiz" to open the quiz drawer from the left.',
-                      "Click a quiz row to schedule it with the modal, or drag a quiz onto any class/day to schedule instantly.",
-                      "Hover any scheduled quiz to view details, and right-click it to edit schedule information.",
-                      "Drag scheduled quizzes to move them between days/classes, or drag their left/right edges to adjust duration.",
-                    ]}
+                <div className="min-w-[300px]">
+                  <MultiSelect
+                    label="Visible classes"
+                    options={classOptions(classes)}
+                    value={selectedClassIds}
+                    onChange={setSelectedClassIds}
+                    placeholder="All classes"
+                    searchable
+                    className="w-full"
                   />
-                </>
-              }
-            />
-
-            <section
-              ref={dragSlideHostRef}
-              className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 pb-3"
-            >
-              {visibleClasses.length ? (
-                visibleClasses.map((cls) => (
-                  <SevenDayCalendar
-                    key={cls.classId}
-                    schedule={cls.schedule}
-                    previewById={previewByClassId?.[cls.classId]}
-                    draggingQuizId={
-                      draggingPill?.classId === cls.classId
-                        ? draggingPill.clientId
-                        : undefined
-                    }
-                    resizingQuizId={
-                      resizingPill?.classId === cls.classId
-                        ? resizingPill.clientId
-                        : undefined
-                    }
-                    classTimezone={cls.classTimezone}
-                    onEditRequest={(clientId) => {
-                      const item = cls.schedule.find(
-                        (it) => it.clientId === clientId,
-                      );
-                      if (!item) return;
-                      handleOpenEdit({
-                        classId: cls.classId,
-                        classTimezone: cls.classTimezone,
-                        item,
-                      });
-                    }}
-                    titleComponent={
-                      <div className="flex min-w-0 items-center gap-2 px-1">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full shrink-0"
-                          style={{
-                            background: cls.colorHex || "var(--color-primary)",
-                          }}
-                        />
-                        <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
-                          {cls.className || "Untitled class"}
-                        </p>
-                        <span className="truncate text-xs text-[var(--color-text-secondary)]">
-                          {cls.classTimezone}
-                        </span>
-                      </div>
-                    }
-                    showGoToDate={false}
-                    dragClassId={cls.classId}
-                    dayDropIdForDate={(dayKey) =>
-                      makeCellDropId(cls.classId, dayKey)
-                    }
-                    startKeyOverride={startKey}
-                    onStartKeyChange={onStartKeyChange}
-                    onShiftWindowRequest={(dir) => shiftWindowOneDay(dir)}
-                    enableAutoSlideMonitor={false}
-                  />
-                ))
-              ) : (
-                <div className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] p-4 text-sm text-[var(--color-text-secondary)]">
-                  No classes match the current selection.
                 </div>
-              )}
-            </section>
+              </>
+            }
+            right={
+              <>
+                <SchedulingDeleteDropzone visible={showDeleteDropzone} />
+                <SchedulingHelpDropdown
+                  title="How to use"
+                  tips={[
+                    'Click "Schedule New Quiz" to open the quiz drawer from the left.',
+                    "Click on any quiz to schedule it for multiple classes, or drag a quiz onto any class/day to schedule instantly.",
+                    "Hover any scheduled quiz to view details, and right-click scheduled quizzes to edit quiz information.",
+                    "Drag scheduled quizzes to move them between days/classes, or drag their left/right edges to adjust duration.",
+                  ]}
+                />
+              </>
+            }
+          />
+
+          <div className="flex items-start gap-2 rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg1)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+            <Icon
+              icon="mingcute:information-line"
+              className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-icon)]"
+            />
+            <p>
+              Hover over a scheduled quiz to view its full details. Right-click
+              a scheduled quiz to edit its settings.
+            </p>
+          </div>
+
+          <section
+            ref={dragSlideHostRef}
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 pb-3"
+          >
+            {visibleClasses.length ? (
+              visibleClasses.map((cls) => (
+                <SevenDayCalendar
+                  key={cls.classId}
+                  schedule={cls.schedule}
+                  previewById={previewByClassId?.[cls.classId]}
+                  draggingQuizId={
+                    draggingPill?.classId === cls.classId
+                      ? draggingPill.clientId
+                      : undefined
+                  }
+                  resizingQuizId={
+                    resizingPill?.classId === cls.classId
+                      ? resizingPill.clientId
+                      : undefined
+                  }
+                  classTimezone={cls.classTimezone}
+                  onEditRequest={(clientId) => {
+                    const item = cls.schedule.find(
+                      (it) => it.clientId === clientId,
+                    );
+                    if (!item) return;
+                    handleOpenEdit({
+                      classId: cls.classId,
+                      classTimezone: cls.classTimezone,
+                      item,
+                    });
+                  }}
+                  titleComponent={
+                    <div className="flex min-w-0 items-center gap-2 px-1">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{
+                          background: cls.colorHex || "var(--color-primary)",
+                        }}
+                      />
+                      <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
+                        {cls.className || "Untitled class"}
+                      </p>
+                      <span className="truncate text-xs text-[var(--color-text-secondary)]">
+                        {cls.classTimezone}
+                      </span>
+                    </div>
+                  }
+                  showGoToDate={false}
+                  dragClassId={cls.classId}
+                  dayDropIdForDate={(dayKey) =>
+                    makeCellDropId(cls.classId, dayKey)
+                  }
+                  startKeyOverride={startKey}
+                  onStartKeyChange={onStartKeyChange}
+                  onShiftWindowRequest={(dir) => shiftWindowOneDay(dir)}
+                  enableAutoSlideMonitor={false}
+                />
+              ))
+            ) : (
+              <div className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)] p-4 text-sm text-[var(--color-text-secondary)]">
+                No classes match the current selection.
+              </div>
+            )}
+          </section>
         </div>
 
         <div
@@ -1149,9 +1218,7 @@ export default function SchedulingCalendarsTab({
             "flex flex-col transition-transform duration-200 ease-out",
           ].join(" ")}
           style={{
-            transform: quizDrawerOpen
-              ? "translateX(0)"
-              : "translateX(-100%)",
+            transform: quizDrawerOpen ? "translateX(0)" : "translateX(-100%)",
           }}
         >
           <button
@@ -1168,38 +1235,39 @@ export default function SchedulingCalendarsTab({
             Quizzes
           </button>
 
-            <div className="flex items-center justify-between border-b border-[var(--color-bg4)] px-4 py-3">
-              <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
-                Quizzes
-              </h3>
-              <Button
-                variant="ghost"
-                className="px-3 py-1.5 text-sm"
-                onClick={() => setQuizDrawerOpen(false)}
-                title="Close quizzes drawer"
-              >
-                Close
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <QuizzesTable
-                initial={quizTableInitial}
-                columns={QUIZ_COLUMNS}
-                draggable
-                editable={false}
-                schedulable
-                scheduleOnRowClick
-                onScheduleAttemptComplete={onScheduleAttemptComplete}
-                showViewClassScheduleButtons={false}
-                paginationPlacement="bottom"
-                schedulingHint={
-                  <p className="text-sm text-[var(--color-text-secondary)]">
-                    Click any quiz to schedule with the modal, or drag a quiz
-                    handle onto any class calendar day.
-                  </p>
-                }
-              />
-            </div>
+          <div className="flex items-center justify-between border-b border-[var(--color-bg4)] px-4 py-3">
+            <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+              Quizzes
+            </h3>
+            <Button
+              variant="ghost"
+              className="px-3 py-1.5 text-sm"
+              onClick={() => setQuizDrawerOpen(false)}
+              title="Close quizzes drawer"
+            >
+              Close
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <QuizzesTable
+              initial={quizTableInitial}
+              columns={QUIZ_COLUMNS}
+              draggable
+              editable={false}
+              schedulable
+              scheduleOnRowClick
+              onScheduleAttemptComplete={onScheduleAttemptComplete}
+              showViewClassScheduleButtons={false}
+              paginationPlacement="bottom"
+              schedulingHint={
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Click any quiz to schedule for multiple classes, or drag a
+                  quiz onto the calendar using the handle on the left of each
+                  row.
+                </p>
+              }
+            />
+          </div>
         </aside>
 
         <DragAutoSlideMonitor

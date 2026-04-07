@@ -56,7 +56,7 @@ export default function EditClassForm({
     },
   });
 
-  const imageJson = JSON.stringify(image ?? undefined);
+  const imageJson = JSON.stringify(image ?? null);
 
   // Delete + modal state
   const [isDeleting, startDelete] = useTransition();
