@@ -1,6 +1,6 @@
-# Final Year Project (Gamified AI-Powered Mobile Learning Platform)
+# Ember
 
-This repository contains the full stack for the project:
+This repository contains the full stack for my final year project (Gamified AI-Powered Mobile Learning Platform), currently codenamed as "Ember". The project is structured into several directories for different components of the system:
 
 - `web-app` for the teacher-facing dashboard
 - `phone-app` for the student mobile app
@@ -10,7 +10,7 @@ This repository contains the full stack for the project:
 
 ## Project Overview
 
-The platform is built around a quiz workflow for teachers and students. Teachers can create classes, create quizzes, schedule quizzes, review AI-generated content, and track results. Students use the mobile app to attempt quizzes and view feedback. The backend is split into microservices so the each domain can be developed and scaled independently.
+Ember is built around a quiz workflow for teachers and students. Teachers can create classes, create quizzes, schedule quizzes, use AI to generate content, and track student results. Students use the mobile app to attempt quizzes and view feedback. The backend is split into microservices so the each domain can be developed and scaled independently.
 
 The following directories are the main components of the project:
 

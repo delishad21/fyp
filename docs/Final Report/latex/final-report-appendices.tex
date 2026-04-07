@@ -31,7 +31,7 @@ U5 & The service shall support teacher sign-up with full name, honorific, userna
 U6 & The service shall support teacher email verification via OTP with expiry and attempt limits. & Includes lockout after too many failed attempts. \\ \hline
 U7 & The service shall support resend of teacher email verification OTP with cooldown control. & Prevents OTP spam and token abuse. \\ \hline
 U8 & The service shall support teacher sign-in using email or username as identifier. & Password validation is required. \\ \hline
-U9 & The service shall support forgot-password request with non-enumerating response behavior. & Generic response regardless of account existence. \\ \hline
+U9 & The service shall support forgot-password request with non-enumerating response behaviour. & Generic response regardless of account existence. \\ \hline
 U10 & The service shall support password reset completion using selector/validator token flow. & Reset tokens are time-bound and single-use. \\ \hline
 U11 & The service shall support teacher password re-verification for sensitive profile actions. & Used before protected profile edits. \\ \hline
 U12 & The service shall support teacher profile update flows (name, honorific, email, password). & Email-change requires OTP verification. \\ \hline
@@ -67,7 +67,7 @@ Q3 & The service shall support quiz version families (\texttt{rootQuizId}) and i
 Q4 & The service shall support quiz retrieval by family with latest or specific version selection. & Includes version list metadata in response. \\ \hline
 Q5 & The service shall support quiz cloning into a new family. & Clone starts at version 1 in new family. \\ \hline
 Q6 & The service shall support quiz patch/edit with validation and no-op detection. & Returns structured field/question validation errors. \\ \hline
-Q7 & The service shall support quiz family deletion and related attempt purge behavior. & Includes lifecycle event emission. \\ \hline
+Q7 & The service shall support quiz family deletion and related attempt purge behaviour. & Includes lifecycle event emission. \\ \hline
 Q8 & The service shall support quiz listing with pagination and filters (name, subject, topic, type, date). & Used by web quiz table and search UX. \\ \hline
 Q9 & The service shall support quiz type registry-driven architecture with dynamic type resolution. & \texttt{getQuizTypeDef} contract drives validation/spec flows. \\ \hline
 Q10 & The service shall support quiz types: \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, \texttt{true-false}. & Type keys are shared across authoring/attempt/render APIs. \\ \hline
@@ -77,9 +77,9 @@ Q13 & The service shall support standard crossword quiz entry/grid workflows. & 
 Q14 & The service shall support rapid-arithmetic blueprint-based quiz generation fields. & Includes operators and per-operation settings. \\ \hline
 Q15 & The service shall support crossword-bank blueprint fields (\texttt{entriesBank}, \texttt{wordsPerQuiz}) for randomized schedule variants. & Generation occurs per schedule variant. \\ \hline
 Q16 & The service shall support true/false quiz schema with strict two-option structure. & Reuses rapid-style attempt flow semantics. \\ \hline
-Q17 & The service shall support quiz metadata storage for subjects/topics and per-type colors. & Per-user metadata document model is used. \\ \hline
+Q17 & The service shall support quiz metadata storage for subjects/topics and per-type colours. & Per-user metadata document model is used. \\ \hline
 Q18 & The service shall support internal metadata bootstrap endpoint to seed default subjects/topics. & Protected by shared secret header. \\ \hline
-Q19 & The service shall support subject color resolution with defaults and deterministic fallback. & Used during create/batch create/update flows. \\ \hline
+Q19 & The service shall support subject colour resolution with defaults and deterministic fallback. & Used during create/batch create/update flows. \\ \hline
 Q20 & The service shall support attempt lifecycle endpoints for start, save progress, finalize, and invalidate. & Attempt documents snapshot quiz version context. \\ \hline
 Q21 & The service shall support retrieval of attempts by teacher/student and class-linked filters. & Drives teacher review and analytics views. \\ \hline
 Q22 & The service shall enforce schedule-based student access constraints for attempting quizzes. & Prevents unauthorized early access patterns. \\ \hline
@@ -151,7 +151,7 @@ A7 & The service shall support document type tagging per file (\texttt{syllabus}
 A8 & The service shall parse supported document formats (PDF, DOCX, TXT, CSV). & Text is normalized before context assembly. \\ \hline
 A9 & The service shall run OCR fallback for low-text/sparse-text PDF cases according to parser thresholds. & OCR use is recorded in parse metadata/logs. \\ \hline
 A10 & The service shall build typed per-quiz context packets from teacher instructions and parsed documents. & Different handling for syllabus vs question-bank vs content docs. \\ \hline
-A11 & The service shall run a planning pass before generation pass. & Planning failure causes job failure (strict behavior). \\ \hline
+A11 & The service shall run a planning pass before generation pass. & Planning failure causes job failure (strict behaviour). \\ \hline
 A12 & The service shall run per-quiz generation attempts with retry limits and analytics capture. & Retry count and attempt metadata are persisted. \\ \hline
 A13 & The service shall normalize and validate generated quiz payloads to quiz-service contract shape before approval. & Includes type-specific item normalization. \\ \hline
 A14 & The service shall persist generation drafts for teacher review/edit before approval. & Drafts carry temp IDs and status fields. \\ \hline
@@ -234,7 +234,7 @@ M3 & The app shall provide tab navigation for Home, Leaderboard, History, and Pr
 M4 & The home screen shall display student summary and streak-related feedback from game-service profile payloads. & Streak ownership moves out of class-service. \\ \hline
 M5 & The app shall list available scheduled quizzes and allow entering quiz start/play flows. & Routed through attempt spec fetch/start APIs. \\ \hline
 M6 & The app shall support attempt play for \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, and \texttt{true-false}. & \texttt{rapid-arithmetic} and \texttt{true-false} follow rapid-style interaction. \\ \hline
-M7 & The app shall support timer-aware progression behavior for timed quizzes. & Timer semantics come from attempt spec snapshots. \\ \hline
+M7 & The app shall support timer-aware progression behaviour for timed quizzes. & Timer semantics come from attempt spec snapshots. \\ \hline
 M8 & The app shall support save/resume of in-progress attempts via backend attempt APIs. & Recoverable after app close/network interruptions. \\ \hline
 M9 & The app shall display post-attempt results/review for completed attempts. & Includes correctness and score data. \\ \hline
 M10 & The history screen shall support filtering by quiz name, subject, topic, and date window. & Server-side schedule summary filters are wired. \\ \hline
@@ -268,17 +268,17 @@ W5 & The quiz management module shall support create/view/edit/clone/delete oper
 W6 & The quiz creation module shall support \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, and \texttt{true-false} forms. & Includes type-specific constraints and payload mapping. \\ \hline
 W7 & The basic quiz form shall support MC, open-ended, context blocks, and optional image attachments. & Open-ended answer models are structured. \\ \hline
 W8 & The crossword-bank form shall support row-based entry editing and CSV import workflow. & Includes words-per-quiz and entry bank validation UX. \\ \hline
-W9 & The quizzes table shall support search, filter, tag display, and type color display. & Includes random/type tagging updates. \\ \hline
+W9 & The quizzes table shall support search, filter, tag display, and type colour display. & Includes random/type tagging updates. \\ \hline
 W10 & The AI generation wizard shall support model selection from available backend models. & Unavailable models are hidden by backend filtering. \\ \hline
 W11 & The AI generation wizard shall support per-file document type selection via modal before submission. & Document type notes/warnings are surfaced in UI. \\ \hline
 W12 & The AI review flow shall support draft edit/view and selective approval. & Approved drafts persist through quiz-service batch route. \\ \hline
 W13 & Class management shall support class creation, class editing, student management, and class deletion flows. & Integrates with user-service student provisioning APIs. \\ \hline
 W14 & Class pages shall support overview, students, scheduling, results, and rewards tabs. & Rewards tab is class-scoped and teacher-facing. \\ \hline
-W15 & Scheduling UI shall support assigning/removing quizzes and handling conflict behaviors by quiz type. & Randomized quiz duplicate behavior is reflected by backend logic. \\ \hline
+W15 & Scheduling UI shall support assigning/removing quizzes and handling conflict behaviours by quiz type. & Randomized quiz duplicate behaviour is reflected by backend logic. \\ \hline
 W16 & Results pages shall support schedule-level and student-level attempt review. & Includes attempt detail routes by student/attempt IDs. \\ \hline
 W17 & Settings shall support account updates (name/email/password workflows). & Re-auth + verification pathways included. \\ \hline
-W18 & Settings shall support subject/topic management and subject color assignment. & Includes dedicated accounts/subjects tabs. \\ \hline
-W19 & Navigation/breadcrumbs shall reflect nested class/settings routes consistently. & Includes settings > accounts/subjects behavior. \\ \hline
+W18 & Settings shall support subject/topic management and subject colour assignment. & Includes dedicated accounts/subjects tabs. \\ \hline
+W19 & Navigation/breadcrumbs shall reflect nested class/settings routes consistently. & Includes settings > accounts/subjects behaviour. \\ \hline
 W20 & The rewards tab shall allow teachers to manage class reward catalogs for cosmetics, accessories, pets, and badges. & Includes create/edit/activate/deactivate/delete flows. \\ \hline
 W21 & The rewards tab shall allow teachers to configure class-specific reward conditions/rules from default templates. & Rule types include streak, score, and leaderboard milestones. \\ \hline
 W22 & The rewards tab shall allow teachers to inspect and modify each student’s inventory and equipped loadout. & Teacher edits must be audited. \\ \hline

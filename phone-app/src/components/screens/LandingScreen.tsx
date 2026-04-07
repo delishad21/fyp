@@ -3,7 +3,7 @@ import { useEntranceAnimation } from "@/src/hooks/useEntranceAnimation";
 import { useTheme } from "@/src/theme";
 import { googlePalette } from "@/src/theme/google-palette";
 import React from "react";
-import { Animated, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LandingScreen() {
@@ -27,7 +27,12 @@ export default function LandingScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Animated.View style={[styles.topArea, topMotion]}>
-          <Text style={styles.title}>Quiz App</Text>
+          <Image
+            source={require("../../../assets/images/ember-logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>Ember</Text>
           <Text style={styles.subtitle}>
             Learn faster with daily quizzes and track your streak.
           </Text>
@@ -58,6 +63,11 @@ const getStyles = (colors: any) =>
       paddingHorizontal: 12,
       alignItems: "center",
       gap: 10,
+    },
+    logo: {
+      width: 88,
+      height: 88,
+      marginBottom: 4,
     },
     title: {
       fontSize: 40,

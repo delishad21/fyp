@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "phone-app",
-    "slug": "phone-app",
+    "name": "Ember",
+    "slug": "ember",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "phoneapp",
+    "scheme": "ember",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {

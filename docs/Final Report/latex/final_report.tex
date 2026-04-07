@@ -1008,7 +1008,7 @@ and credentials are disseminated by teachers, students simply use the
 teacher-provided credentials for first time access to the platform.
 
 As such, student accounts are modelled differently from teacher accounts. Each
-student account is technically "owned" by a teacher. Account management flows
+student account is technically ``owned'' by a teacher. Account management flows
 hence mostly go through the teacher rather than the students. This design
 was chosen as the platform is mainly targeted at primary school students,
 who might not yet have the technical knowledge to manage their own account
@@ -1200,7 +1200,7 @@ Here is the high level overview of the algorithm used for crossword generation:
 
 \begin{enumerate}
   \item Sort the list of words by descending length.
-  \item Seed the grid with the longest word, placing it in the center.
+  \item Seed the grid with the longest word, placing it in the centre.
   \item For each remaining word, calculate potential placements based on overlaps with already placed words.
   \item Sort potential placements by overlap potential and compactness.
   \item Place the word in the best legal position based on the sorted potential placements.
@@ -1528,7 +1528,7 @@ Scheduling from quizzes page:
 
 Scheduling from the scheduling page:
 \begin{enumerate}
-  \item Click on "Schedule New Quiz".
+  \item Click on ``Schedule New Quiz''.
   \item Choose a scheduling path:
   \begin{enumerate}
     \item \textbf{Path 1 (Meny flow):} Click on a quiz to open the scheduling menu, then assign the quiz by filling in the schedule details.
@@ -1599,7 +1599,7 @@ More specific details about the quiz/class linking and event flows can be found 
 Models}\label{analytics-and-projection-models}}
 
 After the students have worked through scheduled quizzes, the platform should
-provide the teacher with a tool for analyzing the class performance. It will allow the
+provide the teacher with a tool for analysing the class performance. It will allow the
 teacher to idenfity weak topics or students, and adjust/iterate on the quizzes to better
 target weak areas in the next round of scheduling.
 
@@ -1698,12 +1698,12 @@ following parameters for generation:
 \tightlist
 \item
   Quiz type: teachers can select the quiz format they want to generate
-  ("Basic", "Rapid", "Crossword" and
-  "True/False" are currently supported).
+  (``Basic'', ``Rapid'', ``Crossword'' and
+  ``True/False'' are currently supported).
 \item
   Subject: teachers can select the subject for which they want to
-  generate quiz content ("Math", "Science", and
-  "English" are currently supported).
+  generate quiz content (``Math'', ``Science'', and
+  ``English'' are currently supported).
 \item
   Number of quizzes: teachers can specify how many quizzes they want to
   generate in this batch.
@@ -1718,27 +1718,27 @@ following parameters for generation:
   generation.
 \item
   Content documents: teachers can optionally upload up to 5 documents as
-  context for generation ("PDF", "DOCX", and "TXT"
+  context for generation (``PDF'', ``DOCX'', and ``TXT''
   formats are currently supported).
 \end{enumerate}
 
 Uploaded documents must be classified by the teacher as
-"syllabus", "question-bank", "subject-content", or
-"other" when they are uploaded. This classification determines
+``syllabus'', ``question-bank'', ``subject-content'', or
+``other'' when they are uploaded. This classification determines
 how AI Service treats the extracted text during context construction.
 
 When the AI Service receives the generation request, it creates a
-generation job in the system with a "pending" state and queues an
+generation job in the system with a ``pending'' state and queues an
 asynchronous task. When the worker begins processing the request the job
-state transitions to "processing". The worker then constructs the
+state transitions to ``processing''. The worker then constructs the
 generation context and executes the generation by passing prompts to the
 LLM.
 
 As the generation is executing, teachers are shown a progress screen
 with a loading animation. If an unrecoverable error occurs anywhere in
-the pipeline, the job state transitions to "failed", and if the
+the pipeline, the job state transitions to ``failed'', and if the
 job completes with no errors, the job state transitions to
-"completed".
+``completed''.
 
 During the generation process, the web dashboard polls the AI Service at
 regular intervals to retrieve the job status. The teacher is able to see
@@ -1768,15 +1768,15 @@ prompting, and it also allows the system to apply different handling
 logic based on the declared type of each document.
 
 After the previous two steps, the extracted text is then concatenated
-together based on its document's declared type ("syllabus",
-"question-bank", "subject-content", or "other").
+together based on its document's declared type (``syllabus'',
+``question-bank'', ``subject-content'', or ``other'').
 Each document type is then handled in a different way during context
 construction.
 
 \begin{itemize}
 \tightlist
 \item
-  "syllabus": syllabus text is joined together and truncated, and
+  ``syllabus'': syllabus text is joined together and truncated, and
   then used as a ``constraint'' block which is inserted in full as
   context for generation in every single quiz. This means that context
   extracted from syllabus documents will be present in the prompt for
@@ -1784,7 +1784,7 @@ construction.
   and the prompt template is designed such that the generation should
   not stretch beyond the indicated syllabus content.
 \item
-  "question-bank": text extracted from question-bank documents is
+  ``question-bank'': text extracted from question-bank documents is
   split into smaller units, and the units of text are rotated and used
   as context across the requested quizzes. This means that different
   quizzes in the same batch will receive different subsets of the
@@ -1792,15 +1792,15 @@ construction.
   style exemplars, and is mainly used to improve the relevance, quality,
   and variety of the generated questions.
 \item
-  "subject-content": text extracted from subject-content
+  ``subject-content'': text extracted from subject-content
   documents is also split into units, but is rotated across quizzes in
   slightly larger chunks compared to question-bank text. Subject content
   is meant to be the main factual grounding for generation, and it is
   important that each quiz receives a coherent set of subject content as
   context.
 \item
-  "other": text extracted from documents classified as
-  "other" is treated as supplementary context. It is chunked
+  ``other'': text extracted from documents classified as
+  ``other'' is treated as supplementary context. It is chunked
   conservatively and appended as additional reference notes at the end
   of the prompt.
 \end{itemize}
@@ -2144,7 +2144,7 @@ The user journey for this reward flow are as follows:
 \end{enumerate}
 
 \hypertarget{supporting-infrastructure-for-avatar}{%
-\section{8.4.1 Supporting Infrastructure for Avatar and Badge
+\subsection{8.4.1 Supporting Infrastructure for Avatar and Badge
 Rewards}\label{supporting-infrastructure-for-avatar-and-badge-rewards}}
 
 To support the features listed above, a set of rules is defined in the Game Service that
@@ -2175,7 +2175,7 @@ As students are rewarded with more items, they can mix and match
 different items to create more unique looks for their avatar.
 
 \hypertarget{extensibility-of-assets}{%
-\section{8.4.3 Extensibility of Assets}\label{extensibility-of-assets}}
+\subsection{8.4.2 Extensibility of Assets}\label{extensibility-of-assets}}
 
 The asset system (used for avatar cosmetics and badges) is designed with
 extensibility in mind. New items can be added to the system without
