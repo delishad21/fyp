@@ -19,33 +19,33 @@
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-U1 & The service shall provide a public health endpoint. & Root health route is exposed. \\ \hline
-U2 & The service shall issue JWT access tokens for authenticated teacher and student sessions. & Access tokens carry role identity and context. \\ \hline
-U3 & The service shall provide token identity resolution (\texttt{/auth/me}) for downstream services and clients. & Used for delegated verification by class/quiz/ai services. \\ \hline
-U4 & The service shall provide lightweight token verification (\texttt{HEAD /auth/verify}). & Enables low-payload auth checks. \\ \hline
-U5 & The service shall support teacher sign-up with full name, honorific, username, email, and password. & Account is created in unverified state until OTP verification. \\ \hline
-U6 & The service shall support teacher email verification via OTP with expiry and attempt limits. & Includes lockout after too many failed attempts. \\ \hline
-U7 & The service shall support resend of teacher email verification OTP with cooldown control. & Prevents OTP spam and token abuse. \\ \hline
-U8 & The service shall support teacher sign-in using email or username as identifier. & Password validation is required. \\ \hline
-U9 & The service shall support forgot-password request with non-enumerating response behavior. & Generic response regardless of account existence. \\ \hline
-U10 & The service shall support password reset completion using selector/validator token flow. & Reset tokens are time-bound and single-use. \\ \hline
-U11 & The service shall support teacher password re-verification for sensitive profile actions. & Used before protected profile edits. \\ \hline
-U12 & The service shall support teacher profile update flows (name, honorific, email, password). & Email-change requires OTP verification. \\ \hline
-U13 & The service shall support teacher account deletion by authenticated owner/admin flows. & Permanent deletion endpoint exists. \\ \hline
-U14 & The service shall persist teacher auth tokens with purpose-specific metadata (\texttt{email\_verify}, \texttt{password\_reset}, \texttt{email\_change}). & Token TTL and used-at semantics are enforced. \\ \hline
-U15 & The service shall support student sign-in with username and password. & Student token includes teacher linkage and \texttt{mustChangePassword}. \\ \hline
-U16 & The service shall enforce student password change on first login/reset when \texttt{mustChangePassword} is true. & Student change-password endpoint clears this flag. \\ \hline
-U17 & The service shall support teacher-managed student creation (single student). & Returns temporary password for teacher distribution. \\ \hline
-U18 & The service shall support teacher-managed student bulk creation with row-level validation reporting. & Max batch constraints are enforced. \\ \hline
-U19 & The service shall support teacher-managed student update (name, username, optional email, status fields). & Ownership checks apply. \\ \hline
-U20 & The service shall support teacher-managed student deletion (single and bulk). & Includes ownership/admin checks. \\ \hline
-U21 & The service shall support teacher-managed student password reset to temporary credentials. & Reset sets \texttt{mustChangePassword=true}. \\ \hline
-U22 & The service shall expose teacher-owned student listing endpoints. & Teacher can list and manage only own students by default. \\ \hline
-U23 & The service shall bootstrap default quiz metadata for teachers through quiz-service internal integration. & Triggered at account creation/sign-in/verification lifecycle points. \\ \hline
+U1 & The service shall provide a public health endpoint. \\ \hline
+U2 & The service shall issue JWT access tokens for authenticated teacher and student sessions. \\ \hline
+U3 & The service shall provide token identity resolution (\texttt{/auth/me}) for downstream services and clients. \\ \hline
+U4 & The service shall provide lightweight token verification (\texttt{HEAD /auth/verify}). \\ \hline
+U5 & The service shall support teacher sign-up with full name, honorific, username, email, and password. \\ \hline
+U6 & The service shall support teacher email verification via OTP with expiry and attempt limits. \\ \hline
+U7 & The service shall support resend of teacher email verification OTP with cooldown control. \\ \hline
+U8 & The service shall support teacher sign-in using email or username as identifier. \\ \hline
+U9 & The service shall support forgot-password request with non-enumerating response behavior. \\ \hline
+U10 & The service shall support password reset completion using selector/validator token flow. \\ \hline
+U11 & The service shall support teacher password re-verification for sensitive profile actions. \\ \hline
+U12 & The service shall support teacher profile update flows (name, honorific, email, password). \\ \hline
+U13 & The service shall support teacher account deletion by authenticated owner/admin flows. \\ \hline
+U14 & The service shall persist teacher auth tokens with purpose-specific metadata (\texttt{email\_verify}, \texttt{password\_reset}, \texttt{email\_change}). \\ \hline
+U15 & The service shall support student sign-in with username and password. \\ \hline
+U16 & The service shall enforce student password change on first login/reset when \texttt{mustChangePassword} is true. \\ \hline
+U17 & The service shall support teacher-managed student creation (single student). \\ \hline
+U18 & The service shall support teacher-managed student bulk creation with row-level validation reporting. \\ \hline
+U19 & The service shall support teacher-managed student update (name, username, optional email, status fields). \\ \hline
+U20 & The service shall support teacher-managed student deletion (single and bulk). \\ \hline
+U21 & The service shall support teacher-managed student password reset to temporary credentials. \\ \hline
+U22 & The service shall expose teacher-owned student listing endpoints. \\ \hline
+U23 & The service shall bootstrap default quiz metadata for teachers through quiz-service internal integration. \\ \hline
 \end{xltabular}
 }
 
@@ -57,41 +57,41 @@ U23 & The service shall bootstrap default quiz metadata for teachers through qui
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-Q1 & The service shall provide a public health endpoint. & Root health route is exposed. \\ \hline
-Q2 & The service shall support quiz creation with ownership binding to the authenticated teacher. & Owner is derived from auth context. \\ \hline
-Q3 & The service shall support quiz version families (\texttt{rootQuizId}) and immutable version increments on content change. & \texttt{version} is tracked per family. \\ \hline
-Q4 & The service shall support quiz retrieval by family with latest or specific version selection. & Includes version list metadata in response. \\ \hline
-Q5 & The service shall support quiz cloning into a new family. & Clone starts at version 1 in new family. \\ \hline
-Q6 & The service shall support quiz patch/edit with validation and no-op detection. & Returns structured field/question validation errors. \\ \hline
-Q7 & The service shall support quiz family deletion and related attempt purge behavior. & Includes lifecycle event emission. \\ \hline
-Q8 & The service shall support quiz listing with pagination and filters (name, subject, topic, type, date). & Used by web quiz table and search UX. \\ \hline
-Q9 & The service shall support quiz type registry-driven architecture with dynamic type resolution. & \texttt{getQuizTypeDef} contract drives validation/spec flows. \\ \hline
-Q10 & The service shall support quiz types: \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, \texttt{true-false}. & Type keys are shared across authoring/attempt/render APIs. \\ \hline
-Q11 & The service shall support basic quiz items with MC, open-ended, and context structures. & Open-ended supports exact/keywords/list grading structures. \\ \hline
-Q12 & The service shall support rapid quiz timed MC flows. & Per-question timing semantics are enforced at attempt layer. \\ \hline
-Q13 & The service shall support standard crossword quiz entry/grid workflows. & Grid generation route and validation are provided. \\ \hline
-Q14 & The service shall support rapid-arithmetic blueprint-based quiz generation fields. & Includes operators and per-operation settings. \\ \hline
-Q15 & The service shall support crossword-bank blueprint fields (\texttt{entriesBank}, \texttt{wordsPerQuiz}) for randomized schedule variants. & Generation occurs per schedule variant. \\ \hline
-Q16 & The service shall support true/false quiz schema with strict two-option structure. & Reuses rapid-style attempt flow semantics. \\ \hline
-Q17 & The service shall support quiz metadata storage for subjects/topics and per-type colors. & Per-user metadata document model is used. \\ \hline
-Q18 & The service shall support internal metadata bootstrap endpoint to seed default subjects/topics. & Protected by shared secret header. \\ \hline
-Q19 & The service shall support subject color resolution with defaults and deterministic fallback. & Used during create/batch create/update flows. \\ \hline
-Q20 & The service shall support attempt lifecycle endpoints for start, save progress, finalize, and invalidate. & Attempt documents snapshot quiz version context. \\ \hline
-Q21 & The service shall support retrieval of attempts by teacher/student and class-linked filters. & Drives teacher review and analytics views. \\ \hline
-Q22 & The service shall enforce schedule-based student access constraints for attempting quizzes. & Prevents unauthorized early access patterns. \\ \hline
-Q23 & The service shall support read-only review access to completed attempts. & Student and teacher review flows rely on this. \\ \hline
-Q24 & The service shall support schedule-anchored variant persistence for randomized quiz types. & Variant key: schedule + root + version. \\ \hline
-Q25 & The service shall purge schedule variants when schedule lifecycle events invalidate them. & Triggered on schedule delete/version change events. \\ \hline
-Q26 & The service shall expose internal schema/rules endpoint for AI generation contracts. & \texttt{/quiz/structure-and-rules} is source of truth for AI prompt rules. \\ \hline
-Q27 & The service shall expose internal batch create endpoint for AI-approved quiz persistence. & Used by ai-service approval pipeline. \\ \hline
-Q28 & The service shall support crossword generation endpoint for AI and manual workflows. & Used to generate valid crossword grids from entries. \\ \hline
-Q29 & The service shall publish and consume quiz/attempt/schedule events via Kafka using outbox pattern. & Supports eventual consistency with class-service. \\ \hline
-Q30 & The service shall maintain worker processes for outbox publishing and expiry/event consumers. & Enables horizontal runtime separation from HTTP handlers. \\ \hline
-Q31 & Attempt events shall preserve fields required by downstream game-service projections (\texttt{attemptId}, \texttt{attemptVersion}, \texttt{classId}, \texttt{scheduleId}, \texttt{studentId}, \texttt{score}, \texttt{maxScore}, \texttt{finishedAt}, \texttt{subject}, \texttt{topic}). & Contract stability is required for streak/leaderboard migration. \\ \hline
+Q1 & The service shall provide a public health endpoint. \\ \hline
+Q2 & The service shall support quiz creation with ownership binding to the authenticated teacher. \\ \hline
+Q3 & The service shall support quiz version families (\texttt{rootQuizId}) and immutable version increments on content change. \\ \hline
+Q4 & The service shall support quiz retrieval by family with latest or specific version selection. \\ \hline
+Q5 & The service shall support quiz cloning into a new family. \\ \hline
+Q6 & The service shall support quiz patch/edit with validation and no-op detection. \\ \hline
+Q7 & The service shall support quiz family deletion and related attempt purge behavior. \\ \hline
+Q8 & The service shall support quiz listing with pagination and filters (name, subject, topic, type, date). \\ \hline
+Q9 & The service shall support quiz type registry-driven architecture with dynamic type resolution. \\ \hline
+Q10 & The service shall support quiz types: \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, \texttt{true-false}. \\ \hline
+Q11 & The service shall support basic quiz items with MC, open-ended, and context structures. \\ \hline
+Q12 & The service shall support rapid quiz timed MC flows. \\ \hline
+Q13 & The service shall support standard crossword quiz entry/grid workflows. \\ \hline
+Q14 & The service shall support rapid-arithmetic blueprint-based quiz generation fields. \\ \hline
+Q15 & The service shall support crossword-bank blueprint fields (\texttt{entriesBank}, \texttt{wordsPerQuiz}) for randomized schedule variants. \\ \hline
+Q16 & The service shall support true/false quiz schema with strict two-option structure. \\ \hline
+Q17 & The service shall support quiz metadata storage for subjects/topics and per-type colors. \\ \hline
+Q18 & The service shall support internal metadata bootstrap endpoint to seed default subjects/topics. \\ \hline
+Q19 & The service shall support subject color resolution with defaults and deterministic fallback. \\ \hline
+Q20 & The service shall support attempt lifecycle endpoints for start, save progress, finalize, and invalidate. \\ \hline
+Q21 & The service shall support retrieval of attempts by teacher/student and class-linked filters. \\ \hline
+Q22 & The service shall enforce schedule-based student access constraints for attempting quizzes. \\ \hline
+Q23 & The service shall support read-only review access to completed attempts. \\ \hline
+Q24 & The service shall support schedule-anchored variant persistence for randomized quiz types. \\ \hline
+Q25 & The service shall purge schedule variants when schedule lifecycle events invalidate them. \\ \hline
+Q26 & The service shall expose internal schema/rules endpoint for AI generation contracts. \\ \hline
+Q27 & The service shall expose internal batch create endpoint for AI-approved quiz persistence. \\ \hline
+Q28 & The service shall support crossword generation endpoint for AI and manual workflows. \\ \hline
+Q29 & The service shall publish and consume quiz/attempt/schedule events via Kafka using outbox pattern. \\ \hline
+Q30 & The service shall maintain worker processes for outbox publishing and expiry/event consumers. \\ \hline
+Q31 & Attempt events shall preserve fields required by downstream game-service projections (\texttt{attemptId}, \texttt{attemptVersion}, \texttt{classId}, \texttt{scheduleId}, \texttt{studentId}, \texttt{score}, \texttt{maxScore}, \texttt{finishedAt}, \texttt{subject}, \texttt{topic}). \\ \hline
 \end{xltabular}
 }
 
@@ -103,29 +103,29 @@ Q31 & Attempt events shall preserve fields required by downstream game-service p
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-C1 & The service shall provide a public health endpoint. & Root health route is exposed. \\ \hline
-C2 & The service shall support class creation with teacher ownership and metadata fields. & Includes name, level, timezone, image, metadata. \\ \hline
-C3 & The service shall support class update and deletion with owner/admin authorization. & Ownership checks enforced via middleware. \\ \hline
-C4 & The service shall support class list views for owner/teacher and admin contexts. & Includes my-classes and admin list endpoints. \\ \hline
-C5 & The service shall support integrated student provisioning during class creation through user-service. & Includes optional issued credentials return. \\ \hline
-C6 & The service shall support class roster management (add/edit/remove students) via user-service integration. & Keeps class roster and student accounts synchronized. \\ \hline
-C7 & The service shall support class schedule creation, editing, moving, and deletion. & Calendar-centric schedule model. \\ \hline
-C8 & The service shall block duplicate same-day scheduling conflicts for non-randomized quizzes. & Conflict check uses canonical quiz identity. \\ \hline
-C9 & The service shall bypass duplicate same-day conflict rule for randomized quiz types (\texttt{rapid-arithmetic}, \texttt{crossword-bank}). & Supports repeated randomized assignments. \\ \hline
-C10 & The service shall persist quiz snapshot metadata on schedule rows (\texttt{subject}, \texttt{topic}, \texttt{quizType}, etc.). & Used by results and student-facing lists. \\ \hline
-C11 & The service shall expose class-level derived statistics endpoints. & Participation, score distributions, engagement summaries. \\ \hline
-C12 & The service shall expose student-level academic summaries within class context. & Attempt summaries and score analytics remain in class-service; gamification streak/rank ownership moves to game-service. \\ \hline
-C13 & The service shall expose per-schedule stats for assigned quizzes. & Supports results table and schedule details. \\ \hline
-C14 & The service shall maintain per-student/per-class and per-schedule analytics models needed for non-gamified reporting. & Updated from canonical attempt lifecycle events. \\ \hline
-C15 & The service shall consume quiz and attempt events from Kafka for eventual consistency. & Inbound event log and handlers exist. \\ \hline
-C16 & The service shall publish schedule lifecycle updates via outbox/Kafka for quiz-service consumers. & Keeps attempt validity and variants synchronized. \\ \hline
-C17 & The service shall maintain HTTP and worker process separation for event/stats pipelines. & Worker bootstraps consumers/publishers independently. \\ \hline
-C18 & The service shall provide Game Service access to class context required for gamification projection (timezone, contribution, roster membership, schedule lifecycle). & Implemented via events and/or internal helper endpoints. \\ \hline
-C19 & The service shall support immediate de-ownership of streak and leaderboard computation once Game Service is deployed. & Legacy class-service gamification code can be removed in the same migration window. \\ \hline
+C1 & The service shall provide a public health endpoint. \\ \hline
+C2 & The service shall support class creation with teacher ownership and metadata fields. \\ \hline
+C3 & The service shall support class update and deletion with owner/admin authorization. \\ \hline
+C4 & The service shall support class list views for owner/teacher and admin contexts. \\ \hline
+C5 & The service shall support integrated student provisioning during class creation through user-service. \\ \hline
+C6 & The service shall support class roster management (add/edit/remove students) via user-service integration. \\ \hline
+C7 & The service shall support class schedule creation, editing, moving, and deletion. \\ \hline
+C8 & The service shall block duplicate same-day scheduling conflicts for non-randomized quizzes. \\ \hline
+C9 & The service shall bypass duplicate same-day conflict rule for randomized quiz types (\texttt{rapid-arithmetic}, \texttt{crossword-bank}). \\ \hline
+C10 & The service shall persist quiz snapshot metadata on schedule rows (\texttt{subject}, \texttt{topic}, \texttt{quizType}, etc.). \\ \hline
+C11 & The service shall expose class-level derived statistics endpoints. \\ \hline
+C12 & The service shall expose student-level academic summaries within class context. \\ \hline
+C13 & The service shall expose per-schedule stats for assigned quizzes. \\ \hline
+C14 & The service shall maintain per-student/per-class and per-schedule analytics models needed for non-gamified reporting. \\ \hline
+C15 & The service shall consume quiz and attempt events from Kafka for eventual consistency. \\ \hline
+C16 & The service shall publish schedule lifecycle updates via outbox/Kafka for quiz-service consumers. \\ \hline
+C17 & The service shall maintain HTTP and worker process separation for event/stats pipelines. \\ \hline
+C18 & The service shall provide Game Service access to class context required for gamification projection (timezone, contribution, roster membership, schedule lifecycle). \\ \hline
+C19 & The service shall support immediate de-ownership of streak and leaderboard computation once Game Service is deployed. \\ \hline
 \end{xltabular}
 }
 
@@ -137,31 +137,31 @@ C19 & The service shall support immediate de-ownership of streak and leaderboard
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-A1 & The service shall support asynchronous generation jobs with persisted status lifecycle (\texttt{pending}, \texttt{processing}, \texttt{completed}, \texttt{failed}). & Job polling model is used by web app. \\ \hline
-A2 & The service shall support generation start requests with required fields: \texttt{instructions}, \texttt{subject}, \texttt{quizTypes}, \texttt{educationLevel}, \texttt{numQuizzes}, \texttt{questionsPerQuiz}. & Input validation rejects incomplete/invalid requests. \\ \hline
-A3 & The service shall support teacher-selected quiz type subsets for generation (\texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{true-false}). & Type distribution is deterministic and explicit. \\ \hline
-A4 & The service shall support teacher-selected model IDs and dynamic model availability listing by configured API keys. & OpenAI/Anthropic/Gemini providers are supported. \\ \hline
-A5 & The service shall reject generation when no configured model/provider key is available. & Frontend consumes model availability endpoint. \\ \hline
-A6 & The service shall support multi-file upload (up to 5 files) with per-file size limit of 20MB. & Enforced by multer configuration. \\ \hline
-A7 & The service shall support document type tagging per file (\texttt{syllabus}, \texttt{question-bank}, \texttt{subject-content}, \texttt{other}). & Used to build typed context blocks. \\ \hline
-A8 & The service shall parse supported document formats (PDF, DOCX, TXT, CSV). & Text is normalized before context assembly. \\ \hline
-A9 & The service shall run OCR fallback for low-text/sparse-text PDF cases according to parser thresholds. & OCR use is recorded in parse metadata/logs. \\ \hline
-A10 & The service shall build typed per-quiz context packets from teacher instructions and parsed documents. & Different handling for syllabus vs question-bank vs content docs. \\ \hline
-A11 & The service shall run a planning pass before generation pass. & Planning failure causes job failure (strict behavior). \\ \hline
-A12 & The service shall run per-quiz generation attempts with retry limits and analytics capture. & Retry count and attempt metadata are persisted. \\ \hline
-A13 & The service shall normalize and validate generated quiz payloads to quiz-service contract shape before approval. & Includes type-specific item normalization. \\ \hline
-A14 & The service shall persist generation drafts for teacher review/edit before approval. & Drafts carry temp IDs and status fields. \\ \hline
-A15 & The service shall support teacher approval of selected drafts into quiz-service via internal batch create endpoint. & Partial success handling is supported. \\ \hline
-A16 & The service shall keep selected subject fixed from teacher input for generated quizzes. & Subject is required and not inferred from model output. \\ \hline
-A17 & The service shall allow model-generated topics and pass topics through to quiz persistence. & Topic values are consumed by quiz-service topic upsert. \\ \hline
-A18 & The service shall expose generation job listing, status polling, job deletion, and old-job cleanup endpoints. & Used by review history workflows. \\ \hline
-A19 & The service shall record analytics at planning and generation levels (attempts, retries, latency, tokens). & Stored in job and draft analytics structures. \\ \hline
-A20 & The service shall gate analytics exposure behind a secret query key. & Analytics is not returned to normal users without secret. \\ \hline
-A21 & The service shall not compute provider pricing/cost internally. & Cost is computed externally (evaluator/tooling). \\ \hline
+A1 & The service shall support asynchronous generation jobs with persisted status lifecycle (\texttt{pending}, \texttt{processing}, \texttt{completed}, \texttt{failed}). \\ \hline
+A2 & The service shall support generation start requests with required fields: \texttt{instructions}, \texttt{subject}, \texttt{quizTypes}, \texttt{educationLevel}, \texttt{numQuizzes}, \texttt{questionsPerQuiz}. \\ \hline
+A3 & The service shall support teacher-selected quiz type subsets for generation (\texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{true-false}). \\ \hline
+A4 & The service shall support teacher-selected model IDs and dynamic model availability listing by configured API keys. \\ \hline
+A5 & The service shall reject generation when no configured model/provider key is available. \\ \hline
+A6 & The service shall support multi-file upload (up to 5 files) with per-file size limit of 20MB. \\ \hline
+A7 & The service shall support document type tagging per file (\texttt{syllabus}, \texttt{question-bank}, \texttt{subject-content}, \texttt{other}). \\ \hline
+A8 & The service shall parse supported document formats (PDF, DOCX, TXT, CSV). \\ \hline
+A9 & The service shall run OCR fallback for low-text/sparse-text PDF cases according to parser thresholds. \\ \hline
+A10 & The service shall build typed per-quiz context packets from teacher instructions and parsed documents. \\ \hline
+A11 & The service shall run a planning pass before generation pass. \\ \hline
+A12 & The service shall run per-quiz generation attempts with retry limits and analytics capture. \\ \hline
+A13 & The service shall normalize and validate generated quiz payloads to quiz-service contract shape before approval. \\ \hline
+A14 & The service shall persist generation drafts for teacher review/edit before approval. \\ \hline
+A15 & The service shall support teacher approval of selected drafts into quiz-service via internal batch create endpoint. \\ \hline
+A16 & The service shall keep selected subject fixed from teacher input for generated quizzes. \\ \hline
+A17 & The service shall allow model-generated topics and pass topics through to quiz persistence. \\ \hline
+A18 & The service shall expose generation job listing, status polling, job deletion, and old-job cleanup endpoints. \\ \hline
+A19 & The service shall record analytics at planning and generation levels (attempts, retries, latency, tokens). \\ \hline
+A20 & The service shall gate analytics exposure behind a secret query key. \\ \hline
+A21 & The service shall not compute provider pricing/cost internally. \\ \hline
 \end{xltabular}
 }
 
@@ -173,46 +173,46 @@ A21 & The service shall not compute provider pricing/cost internally. & Cost is 
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-G1 & The service shall provide a public health endpoint. & \texttt{GET /health} returns service name, status, version, and timestamp. \\ \hline
-G2 & The service shall run separate HTTP and worker processes. & HTTP bootstraps Express; worker bootstraps Kafka consumers and badge-period scheduling. \\ \hline
-G3 & The HTTP service shall expose the game API under both \texttt{/} and \texttt{/api/game}. & Avatar assets are also served statically from \texttt{/avatar-assets} and \texttt{/api/game/avatar-assets}. \\ \hline
-G4 & The worker shall consume quiz attempt events from Kafka topic \texttt{quiz.attempt.v1}. & Handles \texttt{AttemptFinalized} and \texttt{AttemptInvalidated}. \\ \hline
-G5 & The worker shall consume class lifecycle events from Kafka topic \texttt{class.lifecycle.v1}. & Handles class, student, and schedule creation/update/deletion events. \\ \hline
-G6 & The worker shall consume canonical class projection events from Kafka topic \texttt{class.canonical.v1}. & Handles \texttt{CanonicalUpserted} and \texttt{CanonicalRemoved}. \\ \hline
-G7 & The service shall persist inbound event dedupe state keyed by \texttt{eventId}. & Separate inbound collections are maintained for attempt, class, and canonical event streams. \\ \hline
-G8 & The service shall reject out-of-order attempt events using \texttt{attemptVersion} ordering. & Prevents stale attempt updates from overwriting newer projection state. \\ \hline
-G9 & The service shall maintain an attempt projection collection for processed quiz attempts. & Stores validity, score/maxScore, subject/topic, timestamps, and attempt version. \\ \hline
-G10 & The service shall maintain a class-state projection containing class name, timezone, student roster, and schedule metadata. & Schedule rows include quiz root/version, contribution, and date range. \\ \hline
-G11 & The service shall seed per-class defaults when a class is created. & Default reward rules, score-threshold config, badge config, and student inventory rows are initialized from the worker. \\ \hline
-G12 & The service shall remove class-scoped game data when a class is deleted or a student is removed from a class. & Deletes projections, attempts, inventories, reward grants, notifications, and badge-period award rows. \\ \hline
-G13 & The service shall maintain per-student canonical best-attempt state per schedule. & \texttt{canonicalBySchedule} drives overall score, participation, and downstream reward evaluation. \\ \hline
-G14 & The service shall compute overall score as contribution-weighted canonical schedule performance. & Schedule contribution updates trigger recomputation of affected student scores. \\ \hline
-G15 & The service shall maintain timezone-aware attendance and streak projections. & Attendance is keyed by class-local day; current streak, best streak, and last streak date are derived from attendance days. \\ \hline
-G16 & Attempt invalidation shall not revoke earned attendance or streak history. & Invalidation recomputes canonical score state only; attendance/streak are sticky once earned. \\ \hline
-G17 & The service shall expose class leaderboard endpoints. & Supports full leaderboard rows and pre-sliced top lists. \\ \hline
-G18 & The leaderboard API shall support \texttt{overall}, \texttt{week}, and \texttt{month} periods. & Weekly and monthly periods are computed from valid attempts in the current class-local window. \\ \hline
-G19 & Leaderboard ranking shall sort deterministically by overall score, current streak, then student ID. & Top-list variants also expose participation- and streak-focused slices. \\ \hline
-G20 & The service shall expose class-scoped student profile payloads. & Profile includes rank, score, participation, streak, avatar, owned/displayed badges, equipped cosmetics, and score-threshold progress. \\ \hline
-G21 & The service shall persist processed attempt outcome summaries. & Stores per-attempt before/after overall score and rank deltas for reveal screens. \\ \hline
-G22 & The service shall expose a protected attempt outcome endpoint. & Ownership/teacher/admin checks are enforced via user-service and class-service helper verification. \\ \hline
-G23 & The service shall expose a rewards catalog endpoint. & Returns avatar catalog summary, cosmetics, badges, and default reward-rule templates. \\ \hline
-G24 & The service shall support class-level score-threshold reward configuration. & Current implementation stores \texttt{enabled} and \texttt{pointsPerReward}. \\ \hline
-G25 & The service shall support class-level badge configuration. & Current implementation stores weekly/monthly-top toggles and overall-score/streak threshold toggles and step sizes. \\ \hline
-G26 & The service shall support class reward rules with configurable automatic grant conditions. & Supported trigger types are \texttt{overall\_score\_gte}, \texttt{best\_streak\_gte}, and \texttt{participation\_count\_gte}. \\ \hline
-G27 & The service shall maintain per-student inventory state. & Inventory stores owned cosmetics, owned badges, displayed badges, equipped slots, avatar spec, and avatar URL. \\ \hline
-G28 & Inventory and equip updates shall validate catalog IDs, ownership, compulsory slots, and legacy slot aliases. & Invalid cosmetic/badge IDs and invalid equipped states are rejected. \\ \hline
-G29 & The service shall expose class inventory and per-student inventory/badge endpoints. & Supports inventory listing, badge listing, and displayed-badge updates. \\ \hline
-G30 & The service shall support manual reward mutations for student inventories. & Teacher reward grants currently allow cosmetics only; badge grants are intentionally blocked and badge revokes happen through inventory updates. \\ \hline
-G31 & The service shall automatically grant rewards from class rules and score-threshold progression. & Grant rows record source, optional trigger attempt, threshold points, and metadata. \\ \hline
-G32 & The service shall manage threshold badges and recurring weekly/monthly top badges. & Threshold badges are recomputed transactionally; top badges are finalized by a Redis-backed worker scheduler. \\ \hline
-G33 & The service shall expose protected attempt-reward reveal and acknowledgement endpoints. & Returns attempt-linked grant payloads and marks them acknowledged. \\ \hline
-G34 & The service shall expose protected per-student notification feed and acknowledgement endpoints. & Notifications are created for manual grants/revokes and other non-attempt reward changes. \\ \hline
-G35 & The service shall render avatar, avatar-profile, badge, and cosmetic SVG assets dynamically. & Avatar/profile SVGs are composed from equipped layers; badge SVGs support dynamic engravings for threshold and period badges. \\ \hline
-G36 & The current route wiring shall apply JWT/ownership middleware only to protected attempt outcome, attempt reward, and notification endpoints. & Most leaderboard, profile, catalog, config, and inventory routes are currently mounted without route-level auth middleware. \\ \hline
+G1 & The service shall provide a public health endpoint. \\ \hline
+G2 & The service shall run separate HTTP and worker processes. \\ \hline
+G3 & The HTTP service shall expose the game API under both \texttt{/} and \texttt{/api/game}. \\ \hline
+G4 & The worker shall consume quiz attempt events from Kafka topic \texttt{quiz.attempt.v1}. \\ \hline
+G5 & The worker shall consume class lifecycle events from Kafka topic \texttt{class.lifecycle.v1}. \\ \hline
+G6 & The worker shall consume canonical class projection events from Kafka topic \texttt{class.canonical.v1}. \\ \hline
+G7 & The service shall persist inbound event dedupe state keyed by \texttt{eventId}. \\ \hline
+G8 & The service shall reject out-of-order attempt events using \texttt{attemptVersion} ordering. \\ \hline
+G9 & The service shall maintain an attempt projection collection for processed quiz attempts. \\ \hline
+G10 & The service shall maintain a class-state projection containing class name, timezone, student roster, and schedule metadata. \\ \hline
+G11 & The service shall seed per-class defaults when a class is created. \\ \hline
+G12 & The service shall remove class-scoped game data when a class is deleted or a student is removed from a class. \\ \hline
+G13 & The service shall maintain per-student canonical best-attempt state per schedule. \\ \hline
+G14 & The service shall compute overall score as contribution-weighted canonical schedule performance. \\ \hline
+G15 & The service shall maintain timezone-aware attendance and streak projections. \\ \hline
+G16 & Attempt invalidation shall not revoke earned attendance or streak history. \\ \hline
+G17 & The service shall expose class leaderboard endpoints. \\ \hline
+G18 & The leaderboard API shall support \texttt{overall}, \texttt{week}, and \texttt{month} periods. \\ \hline
+G19 & Leaderboard ranking shall sort deterministically by overall score, current streak, then student ID. \\ \hline
+G20 & The service shall expose class-scoped student profile payloads. \\ \hline
+G21 & The service shall persist processed attempt outcome summaries. \\ \hline
+G22 & The service shall expose a protected attempt outcome endpoint. \\ \hline
+G23 & The service shall expose a rewards catalog endpoint. \\ \hline
+G24 & The service shall support class-level score-threshold reward configuration. \\ \hline
+G25 & The service shall support class-level badge configuration. \\ \hline
+G26 & The service shall support class reward rules with configurable automatic grant conditions. \\ \hline
+G27 & The service shall maintain per-student inventory state. \\ \hline
+G28 & Inventory and equip updates shall validate catalog IDs, ownership, compulsory slots, and legacy slot aliases. \\ \hline
+G29 & The service shall expose class inventory and per-student inventory/badge endpoints. \\ \hline
+G30 & The service shall support manual reward mutations for student inventories. \\ \hline
+G31 & The service shall automatically grant rewards from class rules and score-threshold progression. \\ \hline
+G32 & The service shall manage threshold badges and recurring weekly/monthly top badges. \\ \hline
+G33 & The service shall expose protected attempt-reward reveal and acknowledgement endpoints. \\ \hline
+G34 & The service shall expose protected per-student notification feed and acknowledgement endpoints. \\ \hline
+G35 & The service shall render avatar, avatar-profile, badge, and cosmetic SVG assets dynamically. \\ \hline
+G36 & The current route wiring shall apply JWT/ownership middleware only to protected attempt outcome, attempt reward, and notification endpoints. \\ \hline
 \end{xltabular}
 }
 
@@ -224,27 +224,27 @@ G36 & The current route wiring shall apply JWT/ownership middleware only to prot
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-M1 & The app shall provide student login using username/password credentials issued by teachers. & Backed by user-service student auth. \\ \hline
-M2 & The app shall enforce forced password change when \texttt{mustChangePassword} is set. & Redirect to password change flow before main tabs. \\ \hline
-M3 & The app shall provide tab navigation for Home, Leaderboard, History, and Profile. & Expo-router tab layout is implemented. \\ \hline
-M4 & The home screen shall display student summary and streak-related feedback from game-service profile payloads. & Streak ownership moves out of class-service. \\ \hline
-M5 & The app shall list available scheduled quizzes and allow entering quiz start/play flows. & Routed through attempt spec fetch/start APIs. \\ \hline
-M6 & The app shall support attempt play for \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, and \texttt{true-false}. & \texttt{rapid-arithmetic} and \texttt{true-false} follow rapid-style interaction. \\ \hline
-M7 & The app shall support timer-aware progression behavior for timed quizzes. & Timer semantics come from attempt spec snapshots. \\ \hline
-M8 & The app shall support save/resume of in-progress attempts via backend attempt APIs. & Recoverable after app close/network interruptions. \\ \hline
-M9 & The app shall display post-attempt results/review for completed attempts. & Includes correctness and score data. \\ \hline
-M10 & The history screen shall support filtering by quiz name, subject, topic, and date window. & Server-side schedule summary filters are wired. \\ \hline
-M11 & The profile area shall display student avatar, badges, and equipped cosmetics while retaining account settings actions. & Profile combines identity settings and gamification state. \\ \hline
-M12 & The leaderboard tab shall render live class rankings from game-service. & Replaces current placeholder screen. \\ \hline
-M13 & The app shall display quiz-type-specific labels for newer types (e.g., True/False, Rapid Arithmetic, Crossword Bank). & Implemented in quiz start/play UI logic. \\ \hline
-M14 & The app shall allow students to open classmate profile pages from leaderboard entries. & Classmate profile is read-only and policy-scoped. \\ \hline
-M15 & Classmate profile pages shall display avatar, badge collection, and leaderboard context fields (rank/streak/score). & Enables social visibility without exposing sensitive account controls. \\ \hline
-M16 & The profile area shall allow students to equip and unequip owned cosmetics/accessories/pets. & Equip attempts for unowned items must be rejected with clear errors. \\ \hline
-M17 & The app shall consume avatar image/hash payloads and refresh cached avatar art after loadout changes. & Prevents stale profile pictures across tabs/screens. \\ \hline
+M1 & The app shall provide student login using username/password credentials issued by teachers. \\ \hline
+M2 & The app shall enforce forced password change when \texttt{mustChangePassword} is set. \\ \hline
+M3 & The app shall provide tab navigation for Home, Leaderboard, History, and Profile. \\ \hline
+M4 & The home screen shall display student summary and streak-related feedback from game-service profile payloads. \\ \hline
+M5 & The app shall list available scheduled quizzes and allow entering quiz start/play flows. \\ \hline
+M6 & The app shall support attempt play for \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, and \texttt{true-false}. \\ \hline
+M7 & The app shall support timer-aware progression behavior for timed quizzes. \\ \hline
+M8 & The app shall support save/resume of in-progress attempts via backend attempt APIs. \\ \hline
+M9 & The app shall display post-attempt results/review for completed attempts. \\ \hline
+M10 & The history screen shall support filtering by quiz name, subject, topic, and date window. \\ \hline
+M11 & The profile area shall display student avatar, badges, and equipped cosmetics while retaining account settings actions. \\ \hline
+M12 & The leaderboard tab shall render live class rankings from game-service. \\ \hline
+M13 & The app shall display quiz-type-specific labels for newer types (e.g., True/False, Rapid Arithmetic, Crossword Bank). \\ \hline
+M14 & The app shall allow students to open classmate profile pages from leaderboard entries. \\ \hline
+M15 & Classmate profile pages shall display avatar, badge collection, and leaderboard context fields (rank/streak/score). \\ \hline
+M16 & The profile area shall allow students to equip and unequip owned cosmetics/accessories/pets. \\ \hline
+M17 & The app shall consume avatar image/hash payloads and refresh cached avatar art after loadout changes. \\ \hline
 \end{xltabular}
 }
 
@@ -256,35 +256,35 @@ M17 & The app shall consume avatar image/hash payloads and refresh cached avatar
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-W1 & The web app shall provide public landing and authenticated app route separation. & Unauthenticated users are redirected to auth routes. \\ \hline
-W2 & The web app shall support teacher sign-up, sign-in, OTP verify, and password reset flows. & Uses user-service APIs. \\ \hline
-W3 & The web app shall maintain authenticated service access using JWT-bearing server actions. & Delegated auth for user/quiz/class/ai service calls. \\ \hline
-W4 & The home dashboard shall display current and upcoming scheduling summaries. & Includes class/schedule overview widgets. \\ \hline
-W5 & The quiz management module shall support create/view/edit/clone/delete operations across quiz versions. & Root-version model is exposed to UI. \\ \hline
-W6 & The quiz creation module shall support \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, and \texttt{true-false} forms. & Includes type-specific constraints and payload mapping. \\ \hline
-W7 & The basic quiz form shall support MC, open-ended, context blocks, and optional image attachments. & Open-ended answer models are structured. \\ \hline
-W8 & The crossword-bank form shall support row-based entry editing and CSV import workflow. & Includes words-per-quiz and entry bank validation UX. \\ \hline
-W9 & The quizzes table shall support search, filter, tag display, and type color display. & Includes random/type tagging updates. \\ \hline
-W10 & The AI generation wizard shall support model selection from available backend models. & Unavailable models are hidden by backend filtering. \\ \hline
-W11 & The AI generation wizard shall support per-file document type selection via modal before submission. & Document type notes/warnings are surfaced in UI. \\ \hline
-W12 & The AI review flow shall support draft edit/view and selective approval. & Approved drafts persist through quiz-service batch route. \\ \hline
-W13 & Class management shall support class creation, class editing, student management, and class deletion flows. & Integrates with user-service student provisioning APIs. \\ \hline
-W14 & Class pages shall support overview, students, scheduling, results, and rewards tabs. & Rewards tab is class-scoped and teacher-facing. \\ \hline
-W15 & Scheduling UI shall support assigning/removing quizzes and handling conflict behaviors by quiz type. & Randomized quiz duplicate behavior is reflected by backend logic. \\ \hline
-W16 & Results pages shall support schedule-level and student-level attempt review. & Includes attempt detail routes by student/attempt IDs. \\ \hline
-W17 & Settings shall support account updates (name/email/password workflows). & Re-auth + verification pathways included. \\ \hline
-W18 & Settings shall support subject/topic management and subject color assignment. & Includes dedicated accounts/subjects tabs. \\ \hline
-W19 & Navigation/breadcrumbs shall reflect nested class/settings routes consistently. & Includes settings > accounts/subjects behavior. \\ \hline
-W20 & The rewards tab shall allow teachers to manage class reward catalogs for cosmetics, accessories, pets, and badges. & Includes create/edit/activate/deactivate/delete flows. \\ \hline
-W21 & The rewards tab shall allow teachers to configure class-specific reward conditions/rules from default templates. & Rule types include streak, score, and leaderboard milestones. \\ \hline
-W22 & The rewards tab shall allow teachers to inspect and modify each student’s inventory and equipped loadout. & Teacher edits must be audited. \\ \hline
-W23 & The rewards tab shall support manual badge/item grant and revoke actions. & Manual overrides are role-gated to teacher/admin users. \\ \hline
-W24 & Existing class leaderboard widgets and student rank/streak displays shall consume game-service data after migration. & Includes overview podium and student list/profile pages. \\ \hline
-W25 & Student profile pages in web shall render game-service avatar and badge data. & Avatar should be consistent with mobile profile display. \\ \hline
+W1 & The web app shall provide public landing and authenticated app route separation. \\ \hline
+W2 & The web app shall support teacher sign-up, sign-in, OTP verify, and password reset flows. \\ \hline
+W3 & The web app shall maintain authenticated service access using JWT-bearing server actions. \\ \hline
+W4 & The home dashboard shall display current and upcoming scheduling summaries. \\ \hline
+W5 & The quiz management module shall support create/view/edit/clone/delete operations across quiz versions. \\ \hline
+W6 & The quiz creation module shall support \texttt{basic}, \texttt{rapid}, \texttt{crossword}, \texttt{rapid-arithmetic}, \texttt{crossword-bank}, and \texttt{true-false} forms. \\ \hline
+W7 & The basic quiz form shall support MC, open-ended, context blocks, and optional image attachments. \\ \hline
+W8 & The crossword-bank form shall support row-based entry editing and CSV import workflow. \\ \hline
+W9 & The quizzes table shall support search, filter, tag display, and type color display. \\ \hline
+W10 & The AI generation wizard shall support model selection from available backend models. \\ \hline
+W11 & The AI generation wizard shall support per-file document type selection via modal before submission. \\ \hline
+W12 & The AI review flow shall support draft edit/view and selective approval. \\ \hline
+W13 & Class management shall support class creation, class editing, student management, and class deletion flows. \\ \hline
+W14 & Class pages shall support overview, students, scheduling, results, and rewards tabs. \\ \hline
+W15 & Scheduling UI shall support assigning/removing quizzes and handling conflict behaviors by quiz type. \\ \hline
+W16 & Results pages shall support schedule-level and student-level attempt review. \\ \hline
+W17 & Settings shall support account updates (name/email/password workflows). \\ \hline
+W18 & Settings shall support subject/topic management and subject color assignment. \\ \hline
+W19 & Navigation/breadcrumbs shall reflect nested class/settings routes consistently. \\ \hline
+W20 & The rewards tab shall allow teachers to manage class reward catalogs for cosmetics, accessories, pets, and badges. \\ \hline
+W21 & The rewards tab shall allow teachers to configure class-specific reward conditions/rules from default templates. \\ \hline
+W22 & The rewards tab shall allow teachers to inspect and modify each student’s inventory and equipped loadout. \\ \hline
+W23 & The rewards tab shall support manual badge/item grant and revoke actions. \\ \hline
+W24 & Existing class leaderboard widgets and student rank/streak displays shall consume game-service data after migration. \\ \hline
+W25 & Student profile pages in web shall render game-service avatar and badge data. \\ \hline
 \end{xltabular}
 }
 
@@ -296,27 +296,27 @@ W25 & Student profile pages in web shall render game-service avatar and badge da
 \fontsize{10}{12}\selectfont
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|>{\raggedright\arraybackslash}X|}
+\begin{xltabular}{\textwidth}{|>{\centering\arraybackslash}p{0.9cm}|>{\raggedright\arraybackslash}X|}
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Notes} \\ \hline
+\textbf{ID} & \textbf{Requirement} \\ \hline
 \endhead
-N1 & All service-to-service and client-to-service protected APIs shall enforce JWT-based authorization. & User-service delegated auth pattern is used across services. \\ \hline
-N2 & Passwords shall be hashed before storage. & Bcrypt hashing in user-service. \\ \hline
-N3 & OTP and reset token flows shall enforce expiry, cooldown, and failed-attempt controls. & Reduces brute force and token abuse risk. \\ \hline
-N4 & Internal privileged endpoints shall require shared-secret protection in addition to network controls. & Used for bootstrap/internal batch integrations. \\ \hline
-N5 & Event publication shall use outbox-based reliability for cross-service consistency workflows. & Implemented in class-service and quiz-service. \\ \hline
-N6 & Services with background consumers/publishers shall run worker processes separately from HTTP paths. & Class/quiz service process model. \\ \hline
-N7 & AI generation shall operate asynchronously with persisted job state to avoid long blocking HTTP requests. & Web app polls job status endpoints. \\ \hline
-N8 & AI analytics data exposure shall be restricted via secret-gated access path. & Prevents default user exposure. \\ \hline
-N9 & File upload and server action body limits shall support large educational document inputs. & Current stack configured for high upload ceilings and 20MB file cap. \\ \hline
-N10 & The architecture shall remain container-friendly and horizontally scalable across stateless service replicas. & Dockerized microservices + event backbone + external state stores. \\ \hline
-N11 & Data consistency across services shall tolerate eventual consistency semantics through idempotent event handling. & Required for distributed stats/lifecycle updates. \\ \hline
-N12 & Observability shall capture generation retries, latency, and token usage for AI evaluation workflows. & Metrics emitted by ai-service analytics model. \\ \hline
-N13 & Game-service event consumers shall implement idempotent, replay-safe projection updates with deterministic conflict handling. & Prevents leaderboard/streak drift under retries, rebalances, and replays. \\ \hline
-N14 & Gamification migration shall perform full backfill and direct cutover before runtime traffic is switched. & Backward-compatible dual-read periods are out of scope for this deployment stage. \\ \hline
-N15 & Avatar rendering and leaderboard reads shall use cache-aware design with bounded staleness. & Redis-backed hot paths with explicit invalidation/versioning. \\ \hline
-N16 & Reward, inventory, rule, and equip mutations shall be fully auditable with immutable history. & Supports moderation, recovery, and compliance needs. \\ \hline
-N17 & Student-to-student profile visibility shall be privacy-scoped by class membership and role authorization. & Prevents cross-class profile leakage. \\ \hline
+N1 & All service-to-service and client-to-service protected APIs shall enforce JWT-based authorization. \\ \hline
+N2 & Passwords shall be hashed before storage. \\ \hline
+N3 & OTP and reset token flows shall enforce expiry, cooldown, and failed-attempt controls. \\ \hline
+N4 & Internal privileged endpoints shall require shared-secret protection in addition to network controls. \\ \hline
+N5 & Event publication shall use outbox-based reliability for cross-service consistency workflows. \\ \hline
+N6 & Services with background consumers/publishers shall run worker processes separately from HTTP paths. \\ \hline
+N7 & AI generation shall operate asynchronously with persisted job state to avoid long blocking HTTP requests. \\ \hline
+N8 & AI analytics data exposure shall be restricted via secret-gated access path. \\ \hline
+N9 & File upload and server action body limits shall support large educational document inputs. \\ \hline
+N10 & The architecture shall remain container-friendly and horizontally scalable across stateless service replicas. \\ \hline
+N11 & Data consistency across services shall tolerate eventual consistency semantics through idempotent event handling. \\ \hline
+N12 & Observability shall capture generation retries, latency, and token usage for AI evaluation workflows. \\ \hline
+N13 & Game-service event consumers shall implement idempotent, replay-safe projection updates with deterministic conflict handling. \\ \hline
+N14 & Gamification migration shall perform full backfill and direct cutover before runtime traffic is switched. \\ \hline
+N15 & Avatar rendering and leaderboard reads shall use cache-aware design with bounded staleness. \\ \hline
+N16 & Reward, inventory, rule, and equip mutations shall be fully auditable with immutable history. \\ \hline
+N17 & Student-to-student profile visibility shall be privacy-scoped by class membership and role authorization. \\ \hline
 \end{xltabular}
 }
 

@@ -121,6 +121,7 @@
 \raggedbottom
 \onehalfspacing
 
+\titleclass{\chapter}{straight}
 \titleformat{name=\chapter}[block]
   {\normalfont\bfseries\singlespacing\fontsize{14}{16}\selectfont}
   {}
@@ -235,13 +236,13 @@ Retrieval practice is well established as a valuable mechanism for
 enhancing information retention and improving academic performance in
 students. (Roediger et al., 2006) However, in the fast-paced learning
 environment of Singapore primary schools, teachers have to cover a
-packed syllabus, and revisionpractices also take time to craft, making
+packed syllabus, and revision practices also take time to craft, making
 it difficult for teachers to facilitate structured retrieval practices
 of taught topics. The platform outlined in this report aims to address
 this problem, and provide a software that enables teachers to easily
-generate, schedule and monitorshort revision quizzes for students. The
+generate, schedule and monitor short revision quizzes for students. The
 platform will also make use of gamification features to engage and
-retain students, allowing forconsistent participation in retrieval
+retain students, allowing for consistent participation in retrieval
 practice and improving students' learning outcomes.
 
 \noindent Subject Descriptors:\par
@@ -261,7 +262,7 @@ practice and improving students' learning outcomes.
 }
 
 \noindent Keywords:\par
-\hspace*{1cm}\parbox{\dimexpr\linewidth-0.5cm\relax}{retrieval practice, quiz generation, primary education, learning analytics, gamification}\par
+\hspace*{1cm}\parbox{\dimexpr\linewidth-0.5cm\relax}{Retrieval practice, quiz generation, primary education, learning analytics, gamification}\par
 
 \noindent Implementation Software and Hardware:\par
 \hspace*{1cm}\parbox{\dimexpr\linewidth-0.5cm\relax}{Next.js, React Native (Expo), Node.js, TypeScript, MongoDB, Redis, Redpanda/Kafka, Docker}\par
@@ -273,12 +274,16 @@ practice and improving students' learning outcomes.
 {\bfseries Acknowledgements}
 \end{center}
 
+\begingroup
+\setstretch{2}
 I would like to thank my advisor Prof Anandha Gopalan for continued guidance
 throughout the development of the project, and the teachers who contributed their
 valuable time to participate in the user testing and evaluation activities. Their
-feedback was crucial for informing the design and refinment of this platform.
+feedback was crucial for informing the design and refinement of this platform.
+\endgroup
 
 \clearpage
+\setcounter{tocdepth}{1}
 \tableofcontents
 \clearpage
 \setcounter{frontmatterlastromanpage}{\value{page}}
@@ -333,11 +338,9 @@ The project consists of two main user-facing components:
 
 This platform is currently named Ember, signifying the steady flame of learning that
 the platform aims to ignite in students through consistent retrieval practice.
-From preliminary user studies and feedback, this system is generally well recieved by
-teachers, who find the overall value of the platform to be high, and the retreival practice
+From preliminary user studies and feedback, this system is generally well received by
+teachers, who find the overall value of the platform to be high, and the retrieval practice
 and AI generation features to be particularly useful.
-
-\clearpage
 
 \hypertarget{chapter-2-literature-review}{%
 \chapter{Chapter 2 --- Literature Review}\label{chapter-2-literature-review}}
@@ -382,7 +385,7 @@ Tests}\label{optimal-spacing-of-tests}}
 
 Further studies have also indicated that the interval between these
 practice tests are also significant. In a case of paired foreign-word
-learning, Pyc \& Rawson (2009) manipulated the schedules of practice
+learning, Pyc \& Rawson (2012) manipulated the schedules of practice
 tests for different learners. Their findings indicate that when practice
 tests were spaced with longer gaps to make recall of content more
 difficult, students scored higher on the later test as compared to
@@ -448,7 +451,7 @@ were given the option to personalise an avatar with cosmetic items
 complete tasks (Birk et al., 2016). Moreover, studies of game design
 have found that customisation and self-expression features support key
 needs from Self-Determination Theory, especially autonomy and
-relatedness, which improves motivation and replay (Türkay \& Kinzer,
+relatedness, which improves motivation and replay (Turkay \& Adinolf,
 2015). Sinha (2025) also emphasised the importance of positive reinforcement
 in promoting consistent participation and timely submissions. In particular,
 progressive reward systems, such as points and badges, are effective in
@@ -465,7 +468,7 @@ practice-testing mechanisms by increasing frequency and regularity of
 practice to produce the positive effects of practice testing as outlined
 in Section 2.1. Accordingly, the gamification features for the proposed
 platform will be designed to encourage sustained use, and these will be
-outlined in Section 3.5.
+outlined in Chapter 8.
 
 \hypertarget{use-of-large-language-models-llms-to-generate-practice-testing-content}{%
 \section{2.3 Use of Large Language Models (LLMs) to Generate
@@ -502,7 +505,7 @@ Mitigations}\label{common-weaknesses-and-practical-mitigations}}
 
 Across multiple studies, evaluations and reviews, several recurring
 problems appear when using LLM to draft assessment items. Firstly, when
-a LLM isn't given precise constraints, wording might drift away from the
+an LLM isn't given precise constraints, wording might drift away from the
 intended syllabus, difficulty level and target idea (Kiyak et al., 2024)
 (Al Shuraiqi et al., 2024) (Law et al., 2025). Secondly, generated items might be
 ambiguous, having more than one interpretation, or having multiple
@@ -538,7 +541,7 @@ they have timely and interpretable evidence about their students'
 understanding and struggles. Classic formative assessment research has
 shown that using assessment evidence to guide teaching can raise overall
 student achievement, with particularly strong effectiveness for
-lower-achieving students (Black \& Wiliam 1998). A study on
+lower-achieving students (Black \& Wiliam, 1998). A study on
 instructor-facing analytics also reported that learning analytics was
 regarded by many teachers to be an important tool to support them in
 revising syllabus content or providing good intervention to students
@@ -565,7 +568,7 @@ mode).}\label{kahoot-teacher-paced-live-quiz-games-optional-homework-mode.}}
 Synthesis work on classroom use of Kahoot! consistently reports
 improvements in test performance, classroom dynamics, and
 student/teacher attitudes, especially when run as short, in-class
-episodes with immediate feedback (Wang et al., 2025). However, Kahoot!'s
+episodes with immediate feedback  (Wang \& Tahir, 2020). However, Kahoot!'s
 core design is optimised for synchronous, whole-class play. While it has
 an assignment mode, the predominant use pattern is still live classroom
 sessions rather than routine quizzing meant to target retrieval
@@ -653,7 +656,7 @@ methods, and the main tradeoffs or limitations that follow from them.
 
 For the functional requirements, the platform is designed around two core user
 journeys. This includes the overall teacher journey for preparing and assigning
-retrieval practice, and the student journey for attempting that retreival practice
+retrieval practice, and the student journey for attempting that retrieval practice
 with the least amount of friction possible.
 
 For teachers, the main journey is:
@@ -676,7 +679,7 @@ For teachers, the main journey is:
   Review student performance afterwards through class, student and quiz based analytics.
 \end{enumerate}
 
-For students, the main journey is intetionally designed to be simple, to reduce
+For students, the main journey is intentionally designed to be simple, to reduce
 the complexity of the overall experience and encourage regular use.
 
 The main student journey is:
@@ -687,8 +690,8 @@ The main student journey is:
 \item
   Sign in with their credentials
 \item
-  See the retreival practice quizzes that are currently available for them
-  to attmept, assigned by their teachers.
+  See the retrieval practice quizzes that are currently available for them
+  to attempt, assigned by their teachers.
 \item
   Start or resume their attempts in quiz interfaces optimised for a mobile experience.
 \item
@@ -697,15 +700,15 @@ The main student journey is:
   Immediately review results and progress after attempt submission.
 \end{enumerate}
 
-Seperately, as supporting infrastructure for the above journeys, there are two
+Separately, as supporting infrastructure for the above journeys, there are two
 key sets of functional requirements that are not part of any key user journey
 but are still critical to the overall value of the platform.
 
 The first is a teacher-in-the-loop AI workflow, as defined in Section 2.3.
 Teachers should be able to provide instructions and source material, and the
 system should use LLMs to generate draft quizzes, formatted in supported quiz
-types by the paltform. Teachers should then be able to review and edit the generated
-quizzes, before assignment to students. This worflow is designed to make the
+types by the platform. Teachers should then be able to review and edit the generated
+quizzes, before assignment to students. This workflow is designed to make the
 most tedious part of the key teacher journey (quiz authoring) more efficient,
 while still ensuring that teachers have full control over the content and quality
 of the quizzes that they assign to their students.
@@ -719,38 +722,31 @@ avatars and profiles.
 \section{3.3 Non-Functional
 Requirements}\label{non-functional-requirements}}
 
-The core non-functional requirements help to ensure that the system does
-not just contain the necessary features, but allows the system to work in
-a reliable, consistent and secure manner.
+The core non-functional requirements help to ensure that the system executes
+the functional requirements in a reliable, consistent and secure manner.
 
-The non-functional requirements under four main categories: integrity,
+These requirements fall under four main categories: integrity,
 reliability, security, and maintainability.
 
-Integrity requirements ensure that educational records remain
-consistent. Quiz versions should be immutable after creation and student
-attempts should be tied to the exact version of the quiz. For randomised
-quiz variants, quizzes should resolve deterministically and be the same
-for all students to ensure a fair and consistent student experience.
+Integrity requirements focus on system consistency and correctness.
+Core records should remain accurate throughout all operations,
+and derived or linked records should stay
+aligned with their source of truth.
 
 Reliability requirements focus on resilience under stress and
-distributed conditions. The platform relies on multiple bounded
-services, so the system is designed around an event-based architecture
-with eventual consistency and asynchronous propagation in mind. As such,
-the system should be able to tolerate retries, partial outages, and
-delayed delivery without corrupting state.
+distributed conditions The system should be able to tolerate retries,
+partial outages, and delayed event delivery without corrupting state.
 
-Security requirements ensure data protection and privacy. Users are
-built with role-scoped authorisation and secure credential handling.
+Security requirements focus on data protection and privacy.
 Routes should be secured with access tokens issued by a central
 authority. Internal routes between services must be secured with
-secrets. Upload constraints and AI generation limits are also required
+secrets. Upload constraints and AI generation limits should also be used
 to mitigate abuse and prevent exhaustion of available resources.
 
-Maintainability requirements ensure the system can be updated without
-frequent cross-domain regression. The system should be built with
-modularity and clear ownership boundaries in mind. Each service should
-have a well-defined API contract, and changes to one service should not
-require changes to others.
+Maintainability requirements focus on ease of development and upkeep.
+The system should be designed to minimise cross-domain regression by
+maintaining a modular and decoupled architecture.  Each service should
+have clear boundaries and a well defined API for interactions.
 
 \hypertarget{high-level-architecture}{%
 \section{3.4 High-Level Architecture}\label{high-level-architecture}}
@@ -872,16 +868,15 @@ services, as Kafka's pub/sub model allows for multiple independent
 consumers to subscribe to the same event stream without interfering with
 each other.
 
-The system uses a durable outbox pattern. Instead of emitting events
-directly to Kafka within the main request flow, events are first written
+The system also uses a durable outbox pattern. Instead of emitting events
+directly to Kafka, events are first written
 to a durable outbox table in the emitter's database. Events in the outbox
 are only marked as emitted after they have been successfully sent to Kafka,
 and a worker ensures that the order of events is preserved.
 
 Consumers of the events are also designed to be idempotent.
-All events are keyed with an id, and consumers check for duplicate
-events before applying any updates. If an event with the same id has already been
-processed, the consumer simply ignores the new event.
+All events are keyed with an id, and consumers discard duplicates
+before applying any updates.
 
 \begin{figure}[H]
 \centering
@@ -952,7 +947,7 @@ For sign-in, teachers can use either email or username, together with
 password.
 
 Teacher accounts are the main identity type on the platform as most
-operations on the platform are ownership scoped to teacher identity.
+operations on the platform are ownership scoped to teachers.
 Teacher accounts are therefore very important, and the platform designs
 a stricter onboarding flow to ensure account integrity and account
 recoverability.
@@ -999,7 +994,7 @@ Reset email flow:
   User confirms the email change on the platform using the OTP.
 \end{enumerate}
 
-To support these recovery and maintainance flows securely,
+To support these recovery and maintenance flows securely,
 short-lived and single-purpose tokens with a selector and validator design are
 used. These tokens get consumed immediately after use, and are invalidated
 after a short period of time, or when too many attempts have been made.
@@ -1011,37 +1006,33 @@ after a short period of time, or when too many attempts have been made.
 \addcontentsline{lof}{figure}{Figure 4.2: Teacher password recovery flow.}
 \end{figure}
 
+\hypertarget{authentication-verification-and-recovery-flows}{%
+\section{4.2 Student Account Journeys}\label{authentication-verification-and-recovery-flows}}
+
 The student journeys are designed with the assumption that primary school
 students might not yet have sufficient technical knowledge to manage their own accounts.
 Therefore, most account management workflows are routed through the teacher, allowing
 for a more guided and controlled experience for students.
 
-\hypertarget{authentication-verification-and-recovery-flows}{%
-\section{4.2 Student Account Journeys}\label{authentication-verification-and-recovery-flows}}
-
 \hypertarget{student-accounts-and-teacher-ownership}{%
 \subsection{4.2.1 Teacher Guided Account Access
 }\label{student-accounts-and-teacher-ownership}}
 
-Student account creation is intenationally restricted to teachers.
-
-Sign-in flow for students:
+Student Account Access Flow:
 \begin{enumerate}
+  \item Teacher creates student accounts under their class and generates credentials for them.
   \item Teacher shares credentials with students.
   \item Students use the credentials to sign in for the first time.
   \item Students are prompted to change their password after first sign in,
         and they can then access the platform in the future with their new credentials.
 \end{enumerate}
 
-To support this workflow, student accounts are modelled differently from teacher accounts. Each
-student account is technically ``owned'' by a teacher, and key student account management flows such
-go through the owning teacher rather than the students.
+Each student account is therefore ``owned'' by a teacher, allowing future student account management flows
+to go through the owning teacher rather than the students.
 
 \hypertarget{student-sign-in}{%
 \subsection{4.2.2 Teacher-Guided
 Recovery}\label{student-sign-in}}
-
-Account recovery is also intentioally designed to be mediated by teachers.
 
 Account Recovery Flow:
 \begin{enumerate}
@@ -1060,7 +1051,7 @@ sign in, after which the student is required to change it again to a new passwor
 Backbone}\label{centralised-authorisation-and-role-based-access}}
 
 To support the role-based access control and authentication needs of the platform, a centralised model needs to
-be used for identity resolution. The sections below explains high level details on the implmentation that
+be used for identity resolution. The sections below explain high-level details on the implementation that
 the project used for this.
 
 \hypertarget{jwt-verification-and-role-guards}{%
@@ -1069,7 +1060,7 @@ the project used for this.
 The platform uses a single JWT access-token model as the common
 authentication contract across both user facing clients and backend services.
 After sign in, the User Service issues the JWT token to clients, who store it and attach it
-as bearer tokens in the authorization header for all subsequent requests.
+as bearer tokens in the authorisation header for all subsequent requests.
 Backend services then verify the token on each request to confirm the identity and role of the caller.
 As JWT tokens are self-contained and portable, they can be easily passed along with requests across different services without needing to query a central session store.
 
@@ -1093,14 +1084,14 @@ Limits}\label{design-tradeoffs-and-limits}}
 \subsection{4.4.1 Rationale for an In-House User
 Service}\label{rationale-for-an-in-house-user-service}}
 
-An early decision was made to develop user service internally from
-scratch instead of using an existing authentication provider. The
+An early decision was made to develop an identity management service internally from
+scratch instead of using an existing library or provider. The
 platform needed two account types with noticeably different lifecycles,
 teacher ownership of student access, and downstream identity checks that
 are tightly tied to the rest of the platform. Adopting an existing
 library would likely have required significant code adaptation and workarounds
 to fit the unique needs of the platform, which would defeat the
-purpose of using a pre built solution in the first place.
+purpose of using a pre-built solution in the first place.
 
 Building an in-house user service allowed for a more seamless integration
 with the rest of the platform, and it also provided more flexibility to
@@ -1159,17 +1150,17 @@ Teachers may want to update quiz content over time, either to fix errors,
 improve clarity, or adjust the difficulty based on student performance.
 However, the previous version of the quiz might already have been
 attempted by students, and changing the quiz content directly would lead
-to an inconsistent experience for students who have already attempted the quiz,
-and lead to inconsistent schedule specific analytics.
+to inconsistent schedule specific analytics and an inconsistent experience for students who have already attempted the quiz,
 
-To prevent any inconsistencies, one of the key design decisions in the quiz system was to make
-quiz content immutable after creation. Instead of direct mutation on updates,
-a versioning system is used instead, allowing teachers to update quizzes
+
+To prevent inconsistencies, one of the key design decisions was to make
+quiz content immutable after creation.
+Instead of direct changes, a versioning system is used to handle updates, allowing teachers to update quizzes
 without affecting historical attempts unless they explicitly choose to.
 
 Scheduled quizzes can then be linked to specific versions of a quiz,
 and student attempts on that schedule are tied to that quiz version. Students will
-therefore all recieve the same consistent quiz experience even as teachers
+therefore all receive the same consistent quiz experience even as teachers
 update their quiz content, and past attempts can still be reviewed
 without confusion even after content updates.
 
@@ -1178,12 +1169,13 @@ without confusion even after content updates.
 
 Different topics and learning outcomes require different forms of
 retrieval practice. As such, the quiz service has been implemented with
-support for multuple quiz formats, each with different interaction
+support for multiple quiz formats, each with different interaction
 patterns and content structures.
 
 \begin{enumerate}
-  \item \textbf{Basic Quiz}: a flexible format that supports a range of question types and structures, suitable for most use cases.
-  \item \textbf{Rapid Quiz}: a faster-paced format with a simpler interaction pattern of only multiple-choice questions, designed for fluency-oriented practice.
+  \item \textbf{Basic Quiz}: a flexible format that supports a range of question types and structures, suitable for most use cases. Includes support for
+  multiple-choice, multiple response, short answer, lists, and has a multi-part question structure.
+  \item \textbf{Rapid Quiz}: a faster-paced format with a simpler interaction pattern of timed multiple-choice questions, designed for fluency practice.
   \item \textbf{Crossword Quiz}: a format that presents questions in a crossword puzzle format, adding a game-like interaction while still being retrieval-focused.
   \item \textbf{True/False Quiz}: a format that only supports true/false questions, designed for quick fact-checking and reinforcement of key concepts.
 \end{enumerate}
@@ -1275,8 +1267,7 @@ The first step of the student user journey is finding the available quizzes.
 To make this as seamless as possible, The first screens that students see
 after login will immediately display the list of quizzes available for them to attempt.
 Only quizzes that are currently within their schedule windows and that the
-students have remaining attempts for are shown to the students. Any future or past quizzes, as well as
-quizzes with no attempts remaining, are compeltely hidden from view.
+students have remaining attempts for are shown to the students.
 
 From there, the students simply tap on the quiz they want to attempt,
 and they are taken to a screen where the basic details of the quiz are
@@ -1286,7 +1277,7 @@ window closes. This gives students a clear overview of the quiz before they star
 
 This interface design is simple and focused, and it was intentionally made this
 was to reduce any potential confusion or extra cognitive load for students. With two
-taps, students can get from app launch into retreival practice, which is the main goal
+taps, students can get from app launch into retrieval practice, which is the main goal
 of the platform
 
 \begin{figure}[H]
@@ -1388,7 +1379,7 @@ effective retrieval practice.
 Mobile Experience}\label{backend-managed-attempt-lifecycle}}
 
 A key consideration when designing the student experience was that it was phone-based.
-Mobile usage is natrually prone to interruptions, as students may switch apps, lose connectivity, or
+Mobile usage is naturally prone to interruptions, as students may switch apps, lose connectivity, or
 leave and return later. As such, the system needs to be designed to support a smooth experience even with
 connectivity and usage interruptions.
 
@@ -1475,18 +1466,16 @@ extending from the base quiz schema. The registry is then used to route
 quiz-related operations such as quiz creation, retrieval, and grading to
 the correct quiz type logic based on the quiz type specified in the request.
 
-The quiz types also define structures for quiz specific analytic breadowns
+The quiz types also define structures for quiz-specific analytic breakdowns
 and AI generation prompts, which allow new quiz types to be easily integrated
 into analytics and AI generation features without needing to change the logic
 in Class and AI services.
 
 Overall, this structure keeps the teacher journey of quiz management stable over
 time. Even if new types of quizzes are added, the core management experience
-remain consistent as new quiz types extend from the same base schema and contract,
-and therefore integrate seamlesssly into exisitng worflows of creation, scheduling, attempt,
+remains consistent as new quiz types extend from the same base schema and contract,
+and therefore integrate seamlessly into existing workflows of creation, scheduling, attempt,
 analytics, and AI generation.
-
-\pagebreak
 
 \hypertarget{chapter-6-class-scheduling-and-analytics-system}{%
 \chapter{Chapter 6 --- Class, Scheduling and Analytics
@@ -1562,7 +1551,7 @@ exporting.
 Work}\label{scheduling}}
 
 After classes have been created, the teacher needs to be able to assign created quizzes to
-those classes for students to attempt. To make scheduling more accesible and intuitive,
+those classes for students to attempt. To make scheduling more accessible and intuitive,
 there are multiple journeys that teachers can take to schedule quizzes.
 
 Scheduling from quizzes page:
@@ -1586,8 +1575,8 @@ Scheduling from the scheduling page:
   \item Edit when needed by right-clicking the scheduled quiz to update details, or by dragging the ends of the scheduled quiz to adjust its schedule window.
 \end{enumerate}
 
-Scheduling was designed as a tab of its own, as it forms a critical part of the teacher journey in assigning retreival tests to students. This design was
-informed by the user testing feedback, where inital
+Scheduling was designed as a tab of its own, as it forms a critical part of the teacher journey in assigning retrieval tests to students. This design was
+informed by the user testing feedback, where initial
 testing revealed that the lack of a dedicated scheduling page was confusing and made it less intuitive for
 teachers to find and manage the class schedules.
 
@@ -1599,7 +1588,7 @@ teachers to find and manage the class schedules.
 \end{figure}
 
 \hypertarget{schedule-crud-flow}{%
-\subsection{6.2.1 Scheduling Workflow}\label{schedule-crud-flow}}
+\subsection{6.2.1 Supporting Structure: Scheduling Logic}\label{schedule-crud-flow}}
 
 The teacher journey for scheduling is simple from the user perspective, as the teacher
 simply needs to assign quizzes on a single scheduling interface. But to support
@@ -1643,25 +1632,25 @@ which is consumed by Class Service to delete the schedules making use of that qu
 More specific details about the quiz/class linking and event flows can be found within Developer Guide Section 3.2.
 
 \hypertarget{analytics-and-projection-models}{%
-\section{6.3 Teacher Journey: Analytics Sense-Making with Projection
+\section{6.3 Supporting Structure: Analytics using Projection
 Models}\label{analytics-and-projection-models}}
 
 After the students have worked through scheduled quizzes, the platform should
 provide the teacher with a tool for analysing the class performance. It will allow the
-teacher to idenfity weak topics or students, and adjust/iterate on the quizzes to better
+teacher to identify weak topics or students, and adjust/iterate on the quizzes to better
 target weak areas in the next round of scheduling.
 
-To support this, the platform needs to maintain analytics across different diensions such as
+To support this, the platform needs to maintain analytics across different dimensions such as
 student-based performance and schedule-based performance, These analytics need to be updated reasonably
 quickly, be accurate and consistent, while being able to scale as the number of students and attempts grow.
-
-To implement the analytics features, the key design decision was to use projection models that can be
-asynchronously update in the background rather than trying to compute all the analytics on demand at request time.
-This allows the analytics views to be responsive and up-to-date without putting too much load on the system at request time.
+To enable analytics without excessive system load, the analytics system is designed with projection models that are
+asynchronously updated in the background based on attempt events emitted by Quiz Service. At request time,
+the analytics views simply query the latest projections to provide insights to teachers, so no
+heavy computations need to be done on the fly.
 
 For updating projections, class service consumes the attempt events emitted by quiz service, and calculates the
 appropriate deltas that should be applied to existing projections. Current analytics include student topic performance,
-subject performance and overall performance and participcation. Where multiple attempts are allowed for a schedule,
+subject performance and overall performance and participation. Where multiple attempts are allowed for a schedule,
 the analytics are based on a single ``canonical'' attempt per student and schedule, which is currently defined as the
 best valid attempt.
 
@@ -1800,13 +1789,9 @@ the generation prompts of individual quizzes.
 Uploaded documents must be classified by the teacher as
 ``syllabus'', ``question-bank'', ``subject-content'', or
 ``other'' when they are uploaded. Each document type is then
-handled in a different way during context construction. This
-design is supported by retrieval-augmented generation literature,
-which suggests that chunking and retrieval strategy should depend
-on the role, structure, and semantic density of the source
-documents, rather than applying a single uniform treatment to all
-documents (Wang et al., 2025; Shaukat et al., 2026; Merola \& Singh,
-2025).
+handled in a different way during context construction.
+
+The following are the specific processing strategies for each document type:
 
 \begin{itemize}
 \tightlist
@@ -1817,7 +1802,7 @@ documents (Wang et al., 2025; Shaukat et al., 2026; Merola \& Singh,
   extracted from syllabus documents will be present in the prompt for
   every quiz. This is consistent with prior educational retrieval work
   suggesting that syllabus documents serve as an important grounding
-  source for, since they contain critical logistical
+  source, since they contain critical logistical
   constraints and factual information that models need access during
   generation. (Fernandez et al., 2024)
 \item
@@ -1845,13 +1830,13 @@ documents (Wang et al., 2025; Shaukat et al., 2026; Merola \& Singh,
   of the prompt.
 \end{itemize}
 
-By having a proper processing system for different types
-of documents, the system can assign a clearer semantic role to each
-piece of context, which improves the relevance of generated items.
-The alternative of concatenating or chunking all extracted text into one
-large prompt might risk hitting token limits, and would also make it
-harder for the model to identify which pieces of context are most
-relevant.
+This typed document parsing and context construction system is
+supported by retrieval-augmented generation literature,
+which suggests that handling of documents should be adaptive based
+on the role, structure, and semantic density, rather than using
+a single uniform treatment. This approach allows for a clearer semantic role to each
+piece of context, which improves the relevance of generated items. (Wang et al., 2025; Shaukat et al., 2026; Merola \& Singh,
+2025).
 
 A simple OCR pipeline is also used if documents are identified to not
 contain extractable text, which allows teachers to upload image-based
@@ -1948,7 +1933,7 @@ to discard them altogether. Approved quizzes are then saved into the
 teacher's quiz library where they can then be scheduled for students to
 attempt.
 
-This structure fulfills the teacher-in-the-loop workflow,
+This structure fulfils the teacher-in-the-loop workflow,
 as all generated content stays as draft within the AI Service until
 the teacher explicitly approves it, after which the content is saved into
 their quiz library. Teachers maintain full control over the generated
@@ -1956,6 +1941,11 @@ content that they wish to use or discard.
 
 \hypertarget{design-choices-and-tradeoffs}{%
 \section{7.5 Design Choices and Tradeoffs}\label{design-choices-and-tradeoffs}}
+
+The design choices in this section reflect tradeoffs made to balance quiz quality,
+reliability, cost, and system complexity.
+
+\subsection{7.5.1 Parallel Quiz Generation and Planning}
 
 The system generates quizzes in parallel to save time and to improve reliability,
 as shorter, individual requests are generally easier to retry and debug than one
@@ -1968,7 +1958,7 @@ within the same batch. This reflects a trade-off, since larger prompts may conta
 more shared context, but language models do not always use long contexts robustly
 (Liu et al., 2023).
 
-The additional planning pass mitigates this problem, as a blueprint is first created for the whole
+The additional planning pass also mitigates the shared context problem, as a blueprint is first created for the whole
 batch, which can then be used to guide the parallel generation of individual quizzes
 with clearer differentiation. However, the additional pass incurs
 additional cost and also introduces a critical point of failure
@@ -1976,16 +1966,18 @@ in the generation workflow. This was accepted as
 a valid tradeoff to achieve better overall quality of generated quizzes, but it remains
 a key limitation of the current generation design.
 
+\subsection{7.5.2 Multimodal Content Limitations}
+
 There are also limitations in extracting and producing multi-modal
 content. The current document-processing pipeline is designed mainly for
 extracting text. Images contained within uploaded documents are not
 parsed as visual content, and generated quiz questions do not support
 image generation or retrieving images from external sources.
 
-This was an also an intentional design-choice tradeoff, as reliable multi-modal support
+This was an intentional design choice tradeoff, as reliable multi-modal support
 would require additional vision-related components such as computer
-vision models. These would significantly increase system complexity and
-incur a lot of additional cost and latency. It would also make prompt
+vision models. These would significantly increase system complexity,
+incur cost, latency and make prompt
 construction and output validation a lot more complicated. As such, to
 make the generated quizzes more reliable at scale, the generation scope
 has been deliberately limited to text-based quizzes only.
@@ -2115,14 +2107,14 @@ provides a sense of accomplishment for maintaining a high streak count.
 The implementation of streaks and leaderboards are rather straightforward. Streaks are simply
 as part of an attendance ledger stored in the student's game profile in Game Service.
 The system stores the date of the student's last attempt, and the current streak count.
-When a new attempt event is received or when a request is made to retreive the streak count,
+When a new attempt event is received or when a request is made to retrieve the streak count,
 the system checks the date of the last attempt to determine whether to increment the streak count or reset it.
-Since this logic only depends on a small and amount of states within each student's profile, both streak updates
+Since this logic only depends on a small amount of state within each student's profile, both streak updates
 and streak retrieval can be performed in constant time. This makes the streak system computationally efficient,
 while also keeping the logic simple and easy to maintain.
 
 For leaderboards, the system simply stores a record of student overall, monthly and
-weekly scores in the game profile, and when a request is made to retreive the leaderboard,
+weekly scores in the game profile, and when a request is made to retrieve the leaderboard,
 the system retrieves the relevant scores for all students and sorts them to produce the leaderboard rankings.
 
 \begin{figure}[H]
@@ -2151,7 +2143,7 @@ streaks. They provide students with specific goals to work towards and therefore
 a progression loop in which students are motivated to continue engaging with the platform in
 order to unlock more rewards and further customise their avatar and profile.
 
-The user journey for this reward flow are as follows:
+The user journey for this reward workflow are as follows:
 
 \begin{enumerate}
   \item Student receives progression updates after attempting quizzes.
@@ -2180,7 +2172,7 @@ The user journey for this reward flow are as follows:
 \end{figure}
 
 \hypertarget{supporting-infrastructure-for-avatar}{%
-\subsection{8.4.1 Supporting Infrastructure for Avatar and Badge
+\subsection{8.4.1 Supporting Structure for Avatar and Badge
 Rewards}\label{supporting-infrastructure-for-avatar-and-badge-rewards}}
 
 To support the features listed above, a set of rules is defined in the Game Service that
@@ -2206,16 +2198,9 @@ game profile is updated to reflect the new avatar items and badges.
 
 To ensure the best execution of the avatar system for self-expression,
 it was also designed to support a large variety of customisation options.
-Items include options such as hats, glasses, shirts, outerwear, shoes, accesories and even pets.
+Items include options such as hats, glasses, shirts, outerwear, shoes, accessories and even pets.
 As students are rewarded with more items, they can mix and match
 different items to create more unique looks for their avatar.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.78\textwidth,height=0.38\textheight,keepaspectratio]{assets/main-report/Figure_8_4_Avatar_Asset_Layering_Construction.pdf}
-\caption*{Figure 8.4: Avatar asset layering construction}
-\addcontentsline{lof}{figure}{Figure 8.4: Avatar asset layering construction (from Developer Guide).}
-\end{figure}
 
 \hypertarget{extensibility-of-assets}{%
 \subsection{8.4.2 Extensibility of Assets}\label{extensibility-of-assets}}
@@ -2243,12 +2228,12 @@ simply layer the equipped items on top of one another within the same
 item. As long as new items follow the blueprint, they can be added to
 the system and rendered correctly without changes to rendering code.
 
-The badge assets are similarly structured with extensibility in mind.
-Rather than a separate hand-drawn image for every single badge, the
-render makes use of a small number of reusable base assets and layered
-visual elements to create different badge meanings. This allows for new
-badges to be added by defining new combinations of existing visual
-components.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth,height=0.38\textheight,keepaspectratio]{assets/main-report/Figure_8_4_Avatar_Asset_Layering_Construction.pdf}
+\caption*{Figure 8.4: Avatar asset layering construction}
+\addcontentsline{lof}{figure}{Figure 8.4: Avatar asset layering construction (from Developer Guide).}
+\end{figure}
 
 \hypertarget{current-limitations-1}{%
 \section{8.5 Current Limitations}\label{current-limitations-1}}
@@ -2270,9 +2255,10 @@ concept that demonstrates the technical viability of avatar
 personalisation as a motivational feature, with plenty of space for
 future expansion through improved artwork and a larger asset catalogue.
 
-The more detailed topic catalogue and end-to-end workflow diagrams are
-documented in the separate Developer Guide, especially Sections 2.1 to
+The more detailed topic catalogue and end-to-end workflow diagrams ca be found
+in the separate Developer Guide, specifically Sections 2.1 to
 2.5 and Sections 3.2.8 to 3.2.9.
+
 \hypertarget{chapter-10-evaluation-and-testing}{%
 \chapter{Chapter 9 --- Evaluation and
 Testing}\label{chapter-9-evaluation-and-testing}}
@@ -2333,14 +2319,14 @@ attitudes toward AI-assisted quiz generation.
 \small
 \begin{tabular}{@{}p{0.31\textwidth}c c p{0.33\textwidth}@{}}
 \toprule
-Survey block & n & Mean / 5.00 & Main reading \\
+Survey block & n & Mean / 5.00 & Main outcome \\
 \midrule
-Class creation & 11 & 4.95 & Strongest workflow; onboarding was very clear. \\
-Quiz creation & 10 & 4.70 & Generally usable, but some first-use clarity issues remained. \\
-Scheduling and rescheduling & 9 & 4.51 & Weakest core workflow; discoverability and rescheduling were the main pain points. \\
-Student quiz experience & 9 & 4.81 & Teachers found the mobile flow suitable for short revision use. \\
-Overall platform value & 9 & 4.15 & Practical value was seen, but time-saving benefits were not yet convincing enough. \\
-AI attitudes & 9 & 4.80 & Teachers were positive about AI drafting, but still wanted oversight. \\
+Class creation & 11 & 4.95 & Strongest workflow, onboarding was very clear. \\
+Quiz creation & 10 & 4.70 & Generally usable, but with some clarity issues. \\
+Scheduling and rescheduling & 9 & 4.51 & Weakest core workflow, issues with discoverability and rescheduling. \\
+Student quiz experience & 9 & 4.81 & Mobile flow was suitable for short revision use but lacked engagement. \\
+Overall platform value & 9 & 4.15 & Practical value was seen, but time saving benefits were not yet convincing enough. \\
+AI attitudes & 9 & 4.80 & Teachers were optimistic toward AI drafting, but only with oversight. \\
 \bottomrule
 \end{tabular}
 \caption*{Table 9.1: Summary of the initial user-testing results.}
@@ -2377,7 +2363,7 @@ priorities for the next iteration:
 \item
   The scheduling interface needed a redesign to improve discoverability
   and ease of use, especially for rescheduling. Promoting scheduling into
-  a dedicated top-level workflow gives a clearer mental model than
+  a dedicated top-level workflow would give a clearer mental model than
   keeping it a functionality behind class and quiz pages.
 \item
   The quiz creation workflow needed clearer guidance for fields such as
@@ -2451,7 +2437,7 @@ Survey block & n & Mean / 5.00 & Main reading \\
 \midrule
 Scheduling and rescheduling & 9 & 4.63 & Better than the first phase overall, especially for discoverability. \\
 AI generation interface & 9 & 4.85 & The workflow itself was easy to find and easy to use. \\
-AI generated output & 9 & 4.40 & Output quality was usable, but still uneven. \\
+AI generated output & 9 & 4.40 & Output quality was usable, but not consistent. \\
 Gamification review & 9 & 4.67 & Teachers generally felt the features would motivate students. \\
 \bottomrule
 \end{tabular}
@@ -2481,7 +2467,7 @@ the redesign from feedback in the initial survey.
 
 There was generally good improvement across all aspects of the scheduling
 workflow, the largest improvement being discoverability (4.33 to 5.00),
-while other aspects such as ease of use and rescheduling worflows also
+while other aspects such as ease of use and rescheduling workflows also
 improved in ratings. Teachers described scheduling
 as easier to find and clearer to use than in the initial phase, but
 multiple responses reported that the scheduling modal was clipped on
@@ -2502,7 +2488,7 @@ For gamification, feedback was generally positive with an aggregate average of 4
 for the gamification block. Teachers noted in responses that the features were suitable
 for motivating students, although they would exercise caution with the leaderboard ranking
 features, as the additional competitive pressure might discourage weaker students. Some teachers
-also suggested that students should be allowed to select the rewards they get (perhaps thorugh
+also suggested that students should be allowed to select the rewards they get (perhaps through
 a shop system with points as currency), rather than having rewards be randomly assigned.
 
 \hypertarget{key-takeaways-follow-up-user-testing}{%
@@ -2525,7 +2511,7 @@ the right direction, but there were still important issues to address:
 \item
   Gamification features were generally well received, but concerns about
   competitive pressure remained. Additional non-competitive rewards, such
-  as shop-based customisation choices and teacher-created rewards, should
+  as a shop based customisation choices and teacher created rewards, should
   be explored in future iterations.
 \end{enumerate}
 
@@ -2581,7 +2567,7 @@ Models}\label{comparative-results-across-models}}
 For the main comparison, an overall score was computed by weighting
 reliability most heavily, then structural integrity, then variety. This
 weightage fits the practical considerations of the platform, as a model that is slow
-and unrealiable would be completely unsuited for this platform's use case.
+and unreliable would be completely unsuited for this platform's use case.
 
 \begin{table}[H]
 \centering
@@ -2619,7 +2605,7 @@ Overall, the results suggest a tradeoff between using each model. GPT-5 mini
 achieved the highest deterministic variety score, but it was a lot slower
 on average. Claude Haiku 4.5 was the fastest on average, but it also
 had the weakest operational stability as it had many retries and even an
-incomplete run (indicating complete failure). Gemini 2.5 Flash gave thebest overall balance for
+incomplete run (indicating complete failure). Gemini 2.5 Flash gave the best overall balance for
 this specific use case, and it was also the cheapest option in the tested set. Gemini 2.5 Flash was
 therefore selected as the model of choice for the secondary user testing phase.
 
@@ -2648,13 +2634,13 @@ content.
 
 To fully assess the quality of AI-generated content, a more
 comprehensive human evaluation is still needed. From the deterministic
-evaluation pipeline, generated quiz samples already exist and can be
+evaluation pipeline in Chapter 9.3, generated quiz samples already exist and can be
 used directly for SME review. Appendix F also includes a planned human
 evaluation framework for this next phase. The framework uses a 1--5
 rubric across four dimensions: alignment to prompt, alignment to
 syllabus/curriculum intent, question correctness, and question variety.
 Ratings are converted into a weighted manual score (with correctness
-weighted highest), and can then be combined with the automated score for
+weighted highest), and can then be combined with the deterministic score for
 a more complete overall assessment during future iterations.
 
 
@@ -2790,7 +2776,6 @@ Even if this platform does not achieve widespread adoption, I believe that it
 can still serve as a useful prototype and proof of
 concept for how retrieval testing and AI generation can be used to
 support education in the future.
-
 \clearpage
 \hypertarget{bibliography}{%
 \chapter{Bibliography}\label{bibliography}}
@@ -2798,98 +2783,95 @@ support education in the future.
 \begingroup
 \begin{hangparas}{0.5in}{1}
 
-Al Shuraiqi, S., Aal Abdulsalam, A., Masters, K., Zidoum, H., \& AlZaabi, A. (2024). Automatic Generation of Medical Case-Based Multiple-Choice Questions (MCQs): A Review of Methodologies, Applications, Evaluation, and Future Directions. Big Data and Cognitive Computing, 8(10), 139. \url{https://doi.org/10.3390/bdcc8100139}
+Al Shuraiqi, S., Aal Abdulsalam, A., Masters, K., Zidoum, H., \& AlZaabi, A. (2024). Automatic generation of medical case-based multiple-choice questions (MCQs): A review of methodologies, applications, evaluation, and future directions. \textit{Big Data and Cognitive Computing, 8}(10), 139. \url{https://doi.org/10.3390/bdcc8100139}
 
-An, Y., Liu, J., Acharya, N., \& Hashmi, R. (2025). Enhancing Student Learning with LLM-Generated Retrieval Practice Questions: An Empirical Study in Data Science Courses (arXiv:2507.05629). arXiv. \url{https://doi.org/10.48550/arXiv.2507.05629}
+An, Y., Liu, J., Acharya, N., \& Hashmi, R. (2025). Enhancing student learning with LLM-generated retrieval practice questions: An empirical study in data science courses. \textit{arXiv}. \url{https://doi.org/10.48550/arXiv.2507.05629}
 
-Artsi, Y., Sorin, V., Konen, E., Glicksberg, B. S., Nadkarni, G., \& Klang, E. (2024). Large language models for generating medical examinations: Systematic review. BMC Medical Education, 24(1), 354. \url{https://doi.org/10.1186/s12909-024-05239-y}
+Artsi, Y., Sorin, V., Konen, E., Glicksberg, B. S., Nadkarni, G., \& Klang, E. (2024). Large language models for generating medical examinations: Systematic review. \textit{BMC Medical Education, 24}(1), 354. \url{https://doi.org/10.1186/s12909-024-05239-y}
 
-Balci, S., Secaur, J. M., \& Morris, B. J. (2022). Comparing the effectiveness of badges and leaderboards on academic performance and motivation of students in fully versus partially gamified online physics classes. Education and Information Technologies, 27(6), 8669–8704. \url{https://doi.org/10.1007/s10639-022-10983-z}
+Balci, S., Secaur, J. M., \& Morris, B. J. (2022). Comparing the effectiveness of badges and leaderboards on academic performance and motivation of students in fully versus partially gamified online physics classes. \textit{Education and Information Technologies, 27}(6), 8669--8704. \url{https://doi.org/10.1007/s10639-022-10983-z}
 
-Birk, M. V., Atkins, C., Bowey, J. T., \& Mandryk, R. L. (2016). Fostering intrinsic motivation through avatar identification in digital games. In Proceedings of the 2016 CHI Conference on Human Factors in Computing Systems, 2982–2995. \url{https://doi.org/10.1145/2858036.2858062}
+Birk, M. V., Atkins, C., Bowey, J. T., \& Mandryk, R. L. (2016). Fostering intrinsic motivation through avatar identification in digital games. In \textit{Proceedings of the 2016 CHI Conference on Human Factors in Computing Systems} (pp. 2982--2995). \url{https://doi.org/10.1145/2858036.2858062}
 
-Best practices for prompt engineering with the OpenAI API. (n.d.). OpenAI Help Center. Retrieved October 27, 2025, from \url{https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api}
+OpenAI. (n.d.). \textit{Best practices for prompt engineering with the OpenAI API}. Retrieved October 27, 2025, from \url{https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api}
 
-Bhandari, S., Liu, Y., Kwak, Y., \& Pardos, Z. A. (2024). Evaluating the psychometric properties of ChatGPT-generated questions. Computers and Education: Artificial Intelligence, 7, 100284. \url{https://doi.org/10.1016/j.caeai.2024.100284}
+Bhandari, S., Liu, Y., Kwak, Y., \& Pardos, Z. A. (2024). Evaluating the psychometric properties of ChatGPT-generated questions. \textit{Computers and Education: Artificial Intelligence, 7}, 100284. \url{https://doi.org/10.1016/j.caeai.2024.100284}
 
-Black, P., \& Wiliam, D. (1998). Inside the Black Box: Raising Standards through Classroom Assessment. The Phi Delta Kappan, 80(2), 139–148.
+Black, P., \& Wiliam, D. (1998). Inside the black box: Raising standards through classroom assessment. \textit{The Phi Delta Kappan, 80}(2), 139--148.
 
-Blended Learning to Enhance Schooling Experience and Further Develop Students into Self-Directed Learners. (n.d.). Retrieved October 27, 2025, from \url{http://www.moe.gov.sg/news/press-releases/20201229-blended-learning-to-enhance-schooling-experience-and-further-develop-students-into-self-directed-learners}
+Ministry of Education Singapore. (n.d.). \textit{Blended learning to enhance schooling experience and further develop students into self-directed learners}. Retrieved October 27, 2025, from \url{http://www.moe.gov.sg/news/press-releases/20201229-blended-learning-to-enhance-schooling-experience-and-further-develop-students-into-self-directed-learners}
 
-Bouamor, H., Pino, J., \& Bali, K. (Eds.). (2023). Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing. Association for Computational Linguistics. \url{https://aclanthology.org/2023.emnlp-main.0/}
+Bouamor, H., Pino, J., \& Bali, K. (Eds.). (2023). \textit{Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing}. Association for Computational Linguistics. \url{https://aclanthology.org/2023.emnlp-main.0/}
 
-Cheung, B. H. H., Lau, G. K. K., Wong, G. T. C., Lee, E. Y. P., Kulkarni, D., Seow, C. S., Wong, R., \& Co, M. T.-H. (2023). ChatGPT versus human in generating medical graduate exam multiple choice questions—A multinational prospective study (Hong Kong S.A.R., Singapore, Ireland, and the United Kingdom). PLOS ONE, 18(8), e0290691. \url{https://doi.org/10.1371/journal.pone.0290691}
+Cheung, B. H. H., Lau, G. K. K., Wong, G. T. C., Lee, E. Y. P., Kulkarni, D., Seow, C. S., Wong, R., \& Co, M. T.-H. (2023). ChatGPT versus human in generating medical graduate exam multiple choice questions: A multinational prospective study (Hong Kong S.A.R., Singapore, Ireland, and the United Kingdom). \textit{PLOS ONE, 18}(8), e0290691. \url{https://doi.org/10.1371/journal.pone.0290691}
 
-Clark, D. B., Tanner-Smith, E. E., \& Killingsworth, S. S. (2016). Digital Games, Design, and Learning: A Systematic Review and Meta-Analysis. Review of Educational Research, 86(1), 79–122. \url{https://doi.org/10.3102/0034654315582065}
+Clark, D. B., Tanner-Smith, E. E., \& Killingsworth, S. S. (2016). Digital games, design, and learning: A systematic review and meta-analysis. \textit{Review of Educational Research, 86}(1), 79--122. \url{https://doi.org/10.3102/0034654315582065}
 
-Deterding, S., Dixon, D., Khaled, R., \& Nacke, L. (2011). From game design elements to gamefulness: Defining “gamification.” Proceedings of the 15th International Academic MindTrek Conference: Envisioning Future Media Environments, 9–15. \url{https://doi.org/10.1145/2181037.2181040}
+Deterding, S., Dixon, D., Khaled, R., \& Nacke, L. (2011). From game design elements to gamefulness: Defining ``gamification.'' In \textit{Proceedings of the 15th International Academic MindTrek Conference: Envisioning Future Media Environments} (pp. 9--15). \url{https://doi.org/10.1145/2181037.2181040}
 
-Elzayyat, M., Mohammad, J. N., \& Zaqout, S. (n.d.). Assessing LLM-generated vs. expert-created clinical anatomy MCQs: A student perception-based comparative study in medical education. Medical Education Online, 30(1), 2554678. \url{https://doi.org/10.1080/10872981.2025.2554678}
+Elzayyat, M., Mohammad, J. N., \& Zaqout, S. (n.d.). Assessing LLM-generated vs. expert-created clinical anatomy MCQs: A student perception-based comparative study in medical education. \textit{Medical Education Online, 30}(1), 2554678. \url{https://doi.org/10.1080/10872981.2025.2554678}
 
-Firat, M., \& Kuzu, A. (2011). Semantic Web for E-Learning Bottlenecks: Disorientation and Cognitive Overload. International Journal of Web \& Semantic Technology, 2(4), 55–66. \url{https://doi.org/10.5121/ijwest.2011.2404}
+Firat, M., \& Kuzu, A. (2011). Semantic web for e-learning bottlenecks: Disorientation and cognitive overload. \textit{International Journal of Web \& Semantic Technology, 2}(4), 55--66. \url{https://doi.org/10.5121/ijwest.2011.2404}
 
-Fernandez, N., Scarlatos, A., \& Lan, A. (2024). SyllabusQA: A Course Logistics Question Answering Dataset. In L.-W. Ku, A. Martins, \& V. Srikumar (Eds.), Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) (pp. 10344–10369). Association for Computational Linguistics. \url{https://doi.org/10.18653/v1/2024.acl-long.557}
+Fernandez, N., Scarlatos, A., \& Lan, A. (2024). SyllabusQA: A course logistics question answering dataset. In L.-W. Ku, A. Martins, \& V. Srikumar (Eds.), \textit{Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)} (pp. 10344--10369). Association for Computational Linguistics. \url{https://doi.org/10.18653/v1/2024.acl-long.557}
 
-Florian, N. (2025). QUIZ GENERATOR USING LARGE LANGUAGE MODELS. PROMPT ENGINEERING EXAMPLE. 2.
+Florian, N. (2025). \textit{Quiz generator using large language models: Prompt engineering example}.
 
-Hirsh-Pasek, K., Zosh, J. M., Golinkoff, R. M., Gray, J. H., Robb, M. B., \& Kaufman, J. (2015). Putting Education in “Educational” Apps: Lessons From the Science of Learning. Psychological Science in the Public Interest, 16(1), 3–34. \url{https://doi.org/10.1177/1529100615569721}
+Hirsh-Pasek, K., Zosh, J. M., Golinkoff, R. M., Gray, J. H., Robb, M. B., \& Kaufman, J. (2015). Putting education in ``educational'' apps: Lessons from the science of learning. \textit{Psychological Science in the Public Interest, 16}(1), 3--34. \url{https://doi.org/10.1177/1529100615569721}
 
-Anthropic. (n.d.). Increase output consistency. Claude API Docs. Retrieved April 8, 2026, from \url{https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/increase-consistency}
+Anthropic. (n.d.). \textit{Increase output consistency}. Claude API Docs. Retrieved April 8, 2026, from \url{https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/increase-consistency}
 
-Karpicke, J. D., \& Roediger, H. L. (2008). The Critical Importance of Retrieval for Learning. Science, 319(5865), 966–968. \url{https://doi.org/10.1126/science.1152408}
+Karpicke, J. D., \& Roediger, H. L. (2008). The critical importance of retrieval for learning. \textit{Science, 319}(5865), 966--968. \url{https://doi.org/10.1126/science.1152408}
 
-Kiyak, Y. S., \& Emekli, E. (2024). ChatGPT prompts for generating multiple-choice questions in medical education and evidence on their validity: A literature review. Postgraduate Medical Journal, 100(1189), 858–865. \url{https://doi.org/10.1093/postmj/qgae065}
+Kiyak, Y. S., \& Emekli, E. (2024). ChatGPT prompts for generating multiple-choice questions in medical education and evidence on their validity: A literature review. \textit{Postgraduate Medical Journal, 100}(1189), 858--865. \url{https://doi.org/10.1093/postmj/qgae065}
 
-Law, A. K., So, J., Lui, C. T., Choi, Y. F., Cheung, K. H., Kei-ching Hung, K., \& Graham, C. A. (2025). AI versus human-generated multiple-choice questions for medical education: A cohort study in a high-stakes examination. BMC Medical Education, 25(1), 208. \url{https://doi.org/10.1186/s12909-025-06796-6}
+Law, A. K., So, J., Lui, C. T., Choi, Y. F., Cheung, K. H., Kei-ching Hung, K., \& Graham, C. A. (2025). AI versus human-generated multiple-choice questions for medical education: A cohort study in a high-stakes examination. \textit{BMC Medical Education, 25}(1), 208. \url{https://doi.org/10.1186/s12909-025-06796-6}
 
-Liu, N. F., Lin, K., Hewitt, J., Paranjape, A., Bevilacqua, M., Petroni, F., \& Liang, P. (2023). Lost in the Middle: How Language Models Use Long Contexts (arXiv:2307.03172). arXiv. \url{https://doi.org/10.48550/arXiv.2307.03172}
+Liu, N. F., Lin, K., Hewitt, J., Paranjape, A., Bevilacqua, M., Petroni, F., \& Liang, P. (2023). Lost in the middle: How language models use long contexts. \textit{arXiv}. \url{https://doi.org/10.48550/arXiv.2307.03172}
 
-Martínez Serna, M. I., \& Parra Azor, J. F. (2011). Active learning: Creating interactive crossword puzzles. Universidad Politécnica de Cartagena. \url{http://hdl.handle.net/10317/2237}
+Martínez Serna, M. I., \& Parra Azor, J. F. (2011). \textit{Active learning: Creating interactive crossword puzzles}. Universidad Politécnica de Cartagena. \url{http://hdl.handle.net/10317/2237}
 
-Masters, K. (2023). Medical Teacher’s first ChatGPT’s referencing hallucinations: Lessons for editors, reviewers, and teachers. Medical Teacher, 45(7), 673–675. \url{https://doi.org/10.1080/0142159X.2023.2208731}
+Masters, K. (2023). Medical Teacher's first ChatGPT's referencing hallucinations: Lessons for editors, reviewers, and teachers. \textit{Medical Teacher, 45}(7), 673--675. \url{https://doi.org/10.1080/0142159X.2023.2208731}
 
-Mekler, E. D., Brühlmann, F., Tuch, A. N., \& Opwis, K. (2017). Towards understanding the effects of individual gamification elements on intrinsic motivation and performance. Computers in Human Behavior, 71, 525–534. \url{https://doi.org/10.1016/j.chb.2015.08.048}
+Mekler, E. D., Brühlmann, F., Tuch, A. N., \& Opwis, K. (2017). Towards understanding the effects of individual gamification elements on intrinsic motivation and performance. \textit{Computers in Human Behavior, 71}, 525--534. \url{https://doi.org/10.1016/j.chb.2015.08.048}
 
-Merola, C., \& Singh, J. (2025). Reconstructing Context: Evaluating Advanced Chunking Strategies for Retrieval-Augmented Generation (arXiv:2504.19754). arXiv. \url{https://doi.org/10.48550/arXiv.2504.19754}
+Merola, C., \& Singh, J. (2025). Reconstructing context: Evaluating advanced chunking strategies for retrieval-augmented generation. \textit{arXiv}. \url{https://doi.org/10.48550/arXiv.2504.19754}
 
-Ministry of Education Singapore (2024). OECD TALIS 2024 Study. Retrieved October 27, 2025, from \url{http://www.moe.gov.sg/news/press-releases/20251007-singapore-teachers-embrace-digital-technologies-and-benefit-from-strong-professional-development-oecd-talis-2024-study}
+Ministry of Education Singapore. (2024). \textit{OECD TALIS 2024 study}. Retrieved October 27, 2025, from \url{http://www.moe.gov.sg/news/press-releases/20251007-singapore-teachers-embrace-digital-technologies-and-benefit-from-strong-professional-development-oecd-talis-2024-study}
 
-Olszewski, F. (2025). Social gamification elements on user engagement and user retention in gamified learning apps [Thesis, Technische Universität Wien]. \url{https://doi.org/10.34726/hss.2025.132021}
+Olszewski, F. (2025). \textit{Social gamification elements on user engagement and user retention in gamified learning apps} [Thesis, Technische Universität Wien]. \url{https://doi.org/10.34726/hss.2025.132021}
 
-Özdemir, O., \& Seçkin, H. (2024). Quantifying cognitive and affective impacts of Quizlet on learning outcomes: A systematic review and comprehensive meta-analysis. Frontiers in Psychology, 15, 1349835. \url{https://doi.org/10.3389/fpsyg.2024.1349835}
+Özdemir, O., \& Seçkin, H. (2024). Quantifying cognitive and affective impacts of Quizlet on learning outcomes: A systematic review and comprehensive meta-analysis. \textit{Frontiers in Psychology, 15}, 1349835. \url{https://doi.org/10.3389/fpsyg.2024.1349835}
 
-Amazon Web Services (2024). Prompt engineering techniques and best practices: Learn by doing with Anthropic’s Claude 3 on Amazon Bedrock | Artificial Intelligence. \url{https://aws.amazon.com/blogs/machine-learning/prompt-engineering-techniques-and-best-practices-learn-by-doing-with-anthropics-claude-3-on-amazon-bedrock/}
+Amazon Web Services. (2024). \textit{Prompt engineering techniques and best practices: Learn by doing with Anthropic's Claude 3 on Amazon Bedrock}. Retrieved April 8, 2026, from \url{https://aws.amazon.com/blogs/machine-learning/prompt-engineering-techniques-and-best-practices-learn-by-doing-with-anthropics-claude-3-on-amazon-bedrock/}
 
-Pyae, A. (2025). Understanding Students’ Acceptance, Trust, and Attitudes towards AI-generated Images for Educational Purposes. Proceedings of the 2025 Conference on Creativity and Cognition, C\&C ’25, 338–343. \url{https://doi.org/10.1145/3698061.3734405}
+Pyae, A. (2025). Understanding students' acceptance, trust, and attitudes towards AI-generated images for educational purposes. In \textit{Proceedings of the 2025 Conference on Creativity and Cognition} (pp. 338--343). \url{https://doi.org/10.1145/3698061.3734405}
 
-Pyc, M. A., \& Rawson, K. A. (2012). Why is test–restudy practice beneficial for memory? An evaluation of the mediator shift hypothesis. Journal of Experimental Psychology: Learning, Memory, and Cognition, 38(3), 737–746. \url{https://doi.org/10.1037/a0026166}
+Pyc, M. A., \& Rawson, K. A. (2012). Why is test--restudy practice beneficial for memory? An evaluation of the mediator shift hypothesis. \textit{Journal of Experimental Psychology: Learning, Memory, and Cognition, 38}(3), 737--746. \url{https://doi.org/10.1037/a0026166}
 
-Ratnam-Lim, C. T. L., \& Tan, K. H. K. (2015). Large-scale implementation of formative assessment practices in an examination-oriented culture. Assessment in Education: Principles, Policy \& Practice, 22(1), 61–78. \url{https://doi.org/10.1080/0969594X.2014.1001319}
+Ratnam-Lim, C. T. L., \& Tan, K. H. K. (2015). Large-scale implementation of formative assessment practices in an examination-oriented culture. \textit{Assessment in Education: Principles, Policy \& Practice, 22}(1), 61--78. \url{https://doi.org/10.1080/0969594X.2014.1001319}
 
-Roediger, H. L., \& Karpicke, J. D. (2006). Test-Enhanced Learning: Taking Memory Tests Improves Long-Term Retention. Psychological Science, 17(3), 249–255. \url{https://doi.org/10.1111/j.1467-9280.2006.01693.x}
+Roediger, H. L., \& Karpicke, J. D. (2006). Test-enhanced learning: Taking memory tests improves long-term retention. \textit{Psychological Science, 17}(3), 249--255. \url{https://doi.org/10.1111/j.1467-9280.2006.01693.x}
 
-Sailer, M., \& Homner, L. (2020). The Gamification of Learning: A Meta-analysis. Educational Psychology Review, 32(1), 77–112. \url{https://doi.org/10.1007/s10648-019-09498-w}
+Sailer, M., \& Homner, L. (2020). The gamification of learning: A meta-analysis. \textit{Educational Psychology Review, 32}(1), 77--112. \url{https://doi.org/10.1007/s10648-019-09498-w}
 
-Shaukat, M. A., Adnan, M., \& Kuhn, C. C. N. (2026). A Systematic Investigation of Document Chunking Strategies and Embedding Sensitivity (arXiv:2603.06976). arXiv. \url{https://doi.org/10.48550/arXiv.2603.06976}
+Shaukat, M. A., Adnan, M., \& Kuhn, C. C. N. (2026). A systematic investigation of document chunking strategies and embedding sensitivity. \textit{arXiv}. \url{https://doi.org/10.48550/arXiv.2603.06976}
 
-Sinha, P. (2025). Gamification in Technology-Integrated Education: Investigating Its Role in Boosting Engagement and Learning Effectiveness. International Journal of Engineering Research in Computer Science and Engineering, 12(07).
+Sinha, P. (2025). Gamification in technology-integrated education: Investigating its role in boosting engagement and learning effectiveness. \textit{International Journal of Engineering Research in Computer Science and Engineering, 12}(07).
 
-Student Learning Space (SLS). (n.d.). Government Technology Agency of Singapore (GovTech Singapore). Retrieved October 27, 2025, from \url{https://www.tech.gov.sg/products-and-services/for-citizens/education/student-learning-space/}
+Government Technology Agency of Singapore. (n.d.). \textit{Student Learning Space (SLS)}. Retrieved October 27, 2025, from \url{https://www.tech.gov.sg/products-and-services/for-citizens/education/student-learning-space/}
 
-Turkay, S., \& Adinolf, S. (2015). The effects of customization on motivation in an extended study with a massively multiplayer online roleplaying game. Cyberpsychology: Journal of Psychosocial Research on Cyberspace, 9(3). \url{https://doi.org/10.5817/CP2015-3-2}
+Turkay, S., \& Adinolf, S. (2015). The effects of customization on motivation in an extended study with a massively multiplayer online roleplaying game. \textit{Cyberpsychology: Journal of Psychosocial Research on Cyberspace, 9}(3). \url{https://doi.org/10.5817/CP2015-3-2}
 
-Wang, A. I., \& Tahir, R. (2020). The effect of using Kahoot! For learning – A literature review. Computers \& Education, 149, 103818. \url{https://doi.org/10.1016/j.compedu.2020.103818}
+Wang, A. I., \& Tahir, R. (2020). The effect of using Kahoot! for learning: A literature review. \textit{Computers \& Education, 149}, 103818. \url{https://doi.org/10.1016/j.compedu.2020.103818}
 
-Webb, T., Mondal, S. S., \& Momennejad, I. (2023). Improving planning with large language models: A modular agentic architecture. arXiv. \url{https://doi.org/10.48550/arXiv.2310.00194}
+Webb, T., Mondal, S. S., \& Momennejad, I. (2023). Improving planning with large language models: A modular agentic architecture. \textit{arXiv}. \url{https://doi.org/10.48550/arXiv.2310.00194}
 
-Wang, Z., Gao, C., Xiao, C., Huang, Y., Si, S., Luo, K., Bai, Y., Li, W., Duan, T., Lv, C., Lu, G., Chen, G., Qi, F., \& Sun, M. (2025). Document Segmentation Matters for Retrieval-Augmented Generation. In W. Che, J. Nabende, E. Shutova, \& M. T. Pilehvar (Eds.), Findings of the Association for Computational Linguistics: ACL 2025 (pp. 8063–8075). Association for Computational Linguistics. \url{https://doi.org/10.18653/v1/2025.findings-acl.422}
+Wang, Z., Gao, C., Xiao, C., Huang, Y., Si, S., Luo, K., Bai, Y., Li, W., Duan, T., Lv, C., Lu, G., Chen, G., Qi, F., \& Sun, M. (2025). Document segmentation matters for retrieval-augmented generation. In W. Che, J. Nabende, E. Shutova, \& M. T. Pilehvar (Eds.), \textit{Findings of the Association for Computational Linguistics: ACL 2025} (pp. 8063--8075). Association for Computational Linguistics. \url{https://doi.org/10.18653/v1/2025.findings-acl.422}
 
-Wise, A. F., \& Jung, Y. (2019). Teaching with Analytics: Towards a Situated Model of Instructional Decision-Making. Journal of Learning Analytics, 6(2), 53–69. \url{https://doi.org/10.18608/jla.2019.62.4}
+Wise, A. F., \& Jung, Y. (2019). Teaching with analytics: Towards a situated model of instructional decision-making. \textit{Journal of Learning Analytics, 6}(2), 53--69. \url{https://doi.org/10.18608/jla.2019.62.4}
 
-Zelikman, E., Ma, W., Tran, J., Yang, D., Yeatman, J., \& Haber, N. (2023). Generating and Evaluating Tests for K-12 Students with Language Model Simulations: A Case Study on Sentence Reading Efficiency. Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing, 2190–2205. \url{https://doi.org/10.18653/v1/2023.emnlp-main.135}
-
-
-\clearpage
+Zelikman, E., Ma, W., Tran, J., Yang, D., Yeatman, J., \& Haber, N. (2023). Generating and evaluating tests for K--12 students with language model simulations: A case study on sentence reading efficiency. In \textit{Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing} (pp. 2190--2205). \url{https://doi.org/10.18653/v1/2023.emnlp-main.135}
 
 \end{hangparas}
 \endgroup
