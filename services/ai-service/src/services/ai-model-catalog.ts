@@ -64,7 +64,12 @@ export function resolveSelectedAIModel(
   const available = getAvailableAIModels();
   if (available.length === 0) return null;
 
-  if (!modelId) return available[0] || null;
+  if (!modelId) {
+    const geminiDefault = available.find(
+      (model) => model.id === "google-gemini-2-5-flash",
+    );
+    return geminiDefault || available[0] || null;
+  }
 
   const selected = available.find((m) => m.id === modelId);
   return selected || null;

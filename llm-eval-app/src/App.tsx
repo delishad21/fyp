@@ -43,9 +43,9 @@ import {
 } from "./testcase-runner-utils";
 
 const DEFAULT_AI_URL =
-  import.meta.env.VITE_AI_SVC_URL?.trim() || "http://localhost:7304";
+  import.meta.env.VITE_AI_SVC_URL?.trim() || "http://localhost:8085/api/ai";
 const DEFAULT_USER_URL =
-  import.meta.env.VITE_USER_SVC_URL?.trim() || "http://localhost:7301";
+  import.meta.env.VITE_USER_SVC_URL?.trim() || "http://localhost:8085/api/user";
 const DEFAULT_TEACHER_IDENTIFIER =
   import.meta.env.VITE_TEACHER_IDENTIFIER?.trim() || "";
 const DEFAULT_TEACHER_PASSWORD =

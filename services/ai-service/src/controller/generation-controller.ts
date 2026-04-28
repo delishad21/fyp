@@ -699,9 +699,27 @@ export async function approveQuizzes(req: CustomRequest, res: Response) {
         totalTimeLimit: quiz.totalTimeLimit,
       };
 
-      // Crossword quizzes use 'entries' field, others use 'items'
+      // Crossword quizzes need both placed entries and grid to preserve layout.
       if (quiz.quizType === "crossword") {
-        baseQuiz.entries = (quiz as any).entries || quiz.items || [];
+        const crosswordQuiz = quiz as any;
+        const entries =
+          (Array.isArray(crosswordQuiz.entries) &&
+            crosswordQuiz.entries.length > 0 &&
+            crosswordQuiz.entries) ||
+          (Array.isArray(crosswordQuiz.placedEntries) &&
+            crosswordQuiz.placedEntries.length > 0 &&
+            crosswordQuiz.placedEntries) ||
+          quiz.items ||
+          [];
+
+        baseQuiz.entries = entries;
+
+        if (
+          Array.isArray(crosswordQuiz.grid) &&
+          crosswordQuiz.grid.length > 0
+        ) {
+          baseQuiz.grid = crosswordQuiz.grid;
+        }
       } else {
         baseQuiz.items = quiz.items;
       }

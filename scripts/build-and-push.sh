@@ -3,7 +3,7 @@ set -euo pipefail
 
 TAG=""
 REGISTRY=${REGISTRY:-}
-ENV_FILE="${ENV_FILE:-.env.prod}"
+ENV_FILE="${ENV_FILE:-.env.test}"
 VERSION_PREFIX="${VERSION_PREFIX:-v}"
 service_filters=()
 published_env_updates=()
@@ -15,7 +15,7 @@ Usage: scripts/build-and-push.sh [--service name[,name...]] [--tag vN]
 
 Options:
   --service  Build/push only the named service(s). Repeat or comma-separate.
-  --tag      Explicit version tag to publish. If omitted, increments IMAGE_TAG from .env.prod.
+  --tag      Explicit version tag to publish. If omitted, increments IMAGE_TAG from .env.test.
   -h, --help Show this help.
 EOF
 }

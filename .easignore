@@ -1,0 +1,28 @@
+# Runtime data and local infra
+/prod-data
+/mongo
+/mongo_old
+/uploads
+/redis (prod)
+/redpanda (prod)
+/mongo (prod)
+/uploads (prod)
+
+# Non-phone-app projects and docs
+/services
+/web-app
+/llm-eval-app
+/nginx
+/docs
+/archive
+/seeding
+/evaluation docs
+
+# Local tooling and generated files
+.git
+.github
+.vscode
+.code-workspace
+node_modules
+dist
+*.log

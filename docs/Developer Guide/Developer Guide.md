@@ -42,7 +42,7 @@ After publishing, the script writes:
 - Updated `IMAGE_TAG`
 - Each `*_IMAGE` env value pointing to the newly published version tag
 
-This means `.env.prod` evolves with each publish.
+This means `.env.test` evolves with each publish.
 
 **Push Authentication and WSL Fallback**
 
@@ -76,7 +76,7 @@ It also injects phone web app API endpoints as build args:
 ./scripts/build-and-push.sh --tag v99
 
 # Override env source file
-ENV_FILE=.env.prod ./scripts/build-and-push.sh
+ENV_FILE=.env.test ./scripts/build-and-push.sh
 ```
 
 ## 1.2 Development Docker Compose

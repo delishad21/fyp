@@ -299,6 +299,15 @@ export default function RapidArithmeticQuizForm({
     useState<RapidArithmeticOperationSettings>(() =>
       normalizeOperationSettings(initialData?.operationSettings),
     );
+  const [activeOperationTab, setActiveOperationTab] = useState<
+    "+" | "-" | "*" | "/"
+  >(() => {
+    if (initialData?.operators?.includes("+")) return "+";
+    if (initialData?.operators?.includes("-")) return "-";
+    if (initialData?.operators?.includes("*")) return "*";
+    if (initialData?.operators?.includes("/")) return "/";
+    return "+";
+  });
 
   const operatorsJson = useMemo(() => JSON.stringify(operators), [operators]);
   const operationSettingsJson = useMemo(
@@ -314,6 +323,23 @@ export default function RapidArithmeticQuizForm({
         return prev.filter((op) => op !== value);
       }
       return [...prev, value];
+    });
+    clearFieldError("operators");
+    clearFieldError("operationSettings");
+  };
+  const setOperatorEnabled = (
+    value: "+" | "-" | "*" | "/",
+    enabled: boolean,
+  ) => {
+    setOperators((prev) => {
+      const exists = prev.includes(value);
+      if (enabled) {
+        if (exists) return prev;
+        return [...prev, value];
+      }
+      if (!exists) return prev;
+      if (prev.length === 1) return prev;
+      return prev.filter((op) => op !== value);
     });
     clearFieldError("operators");
     clearFieldError("operationSettings");
@@ -483,6 +509,14 @@ export default function RapidArithmeticQuizForm({
   const subEnabled = operators.includes("-");
   const mulEnabled = operators.includes("*");
   const divEnabled = operators.includes("/");
+  const activeOperatorEnabled = operators.includes(activeOperationTab);
+
+  useEffect(() => {
+    const validTabs = new Set(["+", "-", "*", "/"]);
+    if (!validTabs.has(activeOperationTab)) {
+      setActiveOperationTab("+");
+    }
+  }, [activeOperationTab]);
 
   return (
     <div className="w-full max-w-[1400px] px-4">
@@ -560,47 +594,7 @@ export default function RapidArithmeticQuizForm({
             </div>
           )}
 
-          <div className="grid w-full gap-3 xl:grid-cols-[max-content_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] xl:items-stretch">
-            <div className="h-full w-fit rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3">
-              <div className="space-y-3">
-                <label className="block text-sm text-[var(--color-text-primary)]">
-                  Operations
-                </label>
-                <div className="flex flex-nowrap gap-3">
-                  {OPERATOR_BUTTONS.map((op) => {
-                    const selected = operators.includes(op.value);
-                    return (
-                      <div
-                        key={op.value}
-                        className="flex w-[78px] shrink-0 flex-col items-center gap-1"
-                      >
-                        <IconButton
-                          icon={op.icon}
-                          title={op.label}
-                          variant={selected ? "success" : "ghost"}
-                          size={40}
-                          onClick={() => toggleOperator(op.value)}
-                          className={
-                            selected
-                              ? ""
-                              : "text-[var(--color-text-secondary)] border-[var(--color-bg4)]"
-                          }
-                        />
-                        <span className="text-xs text-[var(--color-text-secondary)]">
-                          {op.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {getVisibleFieldError("operators") && (
-                  <p className="text-xs text-[var(--color-error)]">
-                    {String(getVisibleFieldError("operators"))}
-                  </p>
-                )}
-              </div>
-            </div>
-
+          <div className="grid w-full gap-3 xl:grid-cols-3 xl:items-stretch">
             <div className="flex h-full flex-col justify-center rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/40 px-4 py-3">
               <div className="mb-2 flex items-center gap-2">
                 <Icon
@@ -688,418 +682,453 @@ export default function RapidArithmeticQuizForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <section
-              className={`rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4 ${
-                addEnabled ? "" : "opacity-60"
-              }`}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  Addition
-                </h3>
-                {!addEnabled && (
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    Disabled
-                  </span>
-                )}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <TextInput
-                  id="add-operand-min"
-                  type="number"
-                  label="Min operand"
-                  value={String(operationSettings.addition.operandMin)}
-                  disabled={!addEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateAddition({ operandMin: n });
-                  }}
-                />
-                <TextInput
-                  id="add-operand-max"
-                  type="number"
-                  label="Max operand"
-                  value={String(operationSettings.addition.operandMax)}
-                  disabled={!addEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateAddition({ operandMax: n });
-                  }}
-                />
-                <TextInput
-                  id="add-answer-min"
-                  type="number"
-                  label="Min answer"
-                  value={String(operationSettings.addition.answerMin)}
-                  disabled={!addEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateAddition({ answerMin: n });
-                  }}
-                />
-                <TextInput
-                  id="add-answer-max"
-                  type="number"
-                  label="Max answer"
-                  value={String(operationSettings.addition.answerMax)}
-                  disabled={!addEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateAddition({ answerMax: n });
-                  }}
-                />
-              </div>
-              <div className="mt-3">
-                <ToggleButton
-                  on={operationSettings.addition.allowNegative}
-                  onToggle={() =>
-                    updateAddition({
-                      allowNegative: !operationSettings.addition.allowNegative,
-                    })
-                  }
-                  label="Allow negative numbers"
-                  disabled={!addEnabled}
-                />
-              </div>
-            </section>
+          <section className="rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {OPERATOR_BUTTONS.map((op) => {
+                const isActiveTab = activeOperationTab === op.value;
+                const isEnabled = operators.includes(op.value);
+                return (
+                  <button
+                    key={op.value}
+                    type="button"
+                    onClick={() => setActiveOperationTab(op.value)}
+                    className={[
+                      "inline-flex items-center gap-2 rounded-sm border px-3 py-2 text-sm transition",
+                      isActiveTab
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary)]/15 text-[var(--color-primary)]"
+                        : "border-[var(--color-bg4)] bg-[var(--color-bg2)] text-[var(--color-text-primary)]",
+                    ].join(" ")}
+                  >
+                    <Icon icon={op.icon} className="h-4 w-4" />
+                    <span>{op.label}</span>
+                    <span
+                      className={[
+                        "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+                        isEnabled
+                          ? "bg-[var(--color-success)]/20 text-[var(--color-success)]"
+                          : "bg-[var(--color-bg4)] text-[var(--color-text-secondary)]",
+                      ].join(" ")}
+                    >
+                      {isEnabled ? "On" : "Off"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-            <section
-              className={`rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4 ${
-                subEnabled ? "" : "opacity-60"
-              }`}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  Subtraction
-                </h3>
-                {!subEnabled && (
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    Disabled
-                  </span>
-                )}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <TextInput
-                  id="sub-operand-min"
-                  type="number"
-                  label="Min operand"
-                  value={String(operationSettings.subtraction.operandMin)}
-                  disabled={!subEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateSubtraction({ operandMin: n });
-                  }}
-                />
-                <TextInput
-                  id="sub-operand-max"
-                  type="number"
-                  label="Max operand"
-                  value={String(operationSettings.subtraction.operandMax)}
-                  disabled={!subEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateSubtraction({ operandMax: n });
-                  }}
-                />
-                <TextInput
-                  id="sub-answer-min"
-                  type="number"
-                  label="Min answer"
-                  value={String(operationSettings.subtraction.answerMin)}
-                  disabled={!subEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateSubtraction({ answerMin: n });
-                  }}
-                />
-                <TextInput
-                  id="sub-answer-max"
-                  type="number"
-                  label="Max answer"
-                  value={String(operationSettings.subtraction.answerMax)}
-                  disabled={!subEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateSubtraction({ answerMax: n });
-                  }}
-                />
-              </div>
-              <div className="mt-3">
-                <ToggleButton
-                  on={operationSettings.subtraction.allowNegative}
-                  onToggle={() =>
-                    updateSubtraction({
-                      allowNegative:
-                        !operationSettings.subtraction.allowNegative,
-                    })
-                  }
-                  label="Allow negative answers"
-                  disabled={!subEnabled}
-                />
-              </div>
-            </section>
-
-            <section
-              className={`rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4 ${
-                mulEnabled ? "" : "opacity-60"
-              }`}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  Multiplication
-                </h3>
-                {!mulEnabled && (
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    Disabled
-                  </span>
-                )}
-              </div>
-
-              <div className="mb-3">
-                <Select
-                  id="mul-mode"
-                  label="Generation mode"
-                  options={[
-                    { label: "Times table mode", value: "times-table" },
-                    { label: "Range mode", value: "range" },
-                  ]}
-                  value={operationSettings.multiplication.mode}
-                  disabled={!mulEnabled}
-                  onChange={(value) =>
-                    updateMultiplication({
-                      mode: value === "range" ? "range" : "times-table",
-                    })
-                  }
-                />
-              </div>
-
-              {operationSettings.multiplication.mode === "times-table" ? (
-                <div className="space-y-3">
-                  <div>
-                    <p className="mb-2 text-sm text-[var(--color-text-primary)]">
-                      Times tables
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {TIMES_TABLE_OPTIONS.map((table) => {
-                        const selected =
-                          operationSettings.multiplication.tables.includes(table);
-                        return (
-                          <button
-                            key={table}
-                            type="button"
-                            disabled={!mulEnabled}
-                            onClick={() => toggleTimesTable(table)}
-                            className={[
-                              "rounded-sm border px-3 py-1.5 text-xs font-medium transition",
-                              selected
-                                ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
-                                : "border-[var(--color-bg4)] bg-[var(--color-bg2)] text-[var(--color-text-primary)]",
-                              !mulEnabled ? "cursor-not-allowed opacity-60" : "",
-                            ].join(" ")}
-                          >
-                            {table}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <TextInput
-                      id="mul-multiplier-min"
-                      type="number"
-                      label="Min multiplier"
-                      value={String(operationSettings.multiplication.multiplierMin)}
-                      disabled={!mulEnabled}
-                      onValueChange={(v) => {
-                        const n = Number(v);
-                        if (!Number.isFinite(n)) return;
-                        updateMultiplication({ multiplierMin: n });
-                      }}
-                    />
-                    <TextInput
-                      id="mul-multiplier-max"
-                      type="number"
-                      label="Max multiplier"
-                      value={String(operationSettings.multiplication.multiplierMax)}
-                      disabled={!mulEnabled}
-                      onValueChange={(v) => {
-                        const n = Number(v);
-                        if (!Number.isFinite(n)) return;
-                        updateMultiplication({ multiplierMax: n });
-                      }}
-                    />
-                  </div>
+            {activeOperationTab === "+" && (
+              <div className={activeOperatorEnabled ? "" : "opacity-70"}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    Addition
+                  </h3>
+                  <ToggleButton
+                    on={addEnabled}
+                    onToggle={() => setOperatorEnabled("+", !addEnabled)}
+                    label="Enable addition"
+                    disabled={addEnabled && operators.length === 1}
+                  />
                 </div>
-              ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <TextInput
-                    id="mul-operand-min"
+                    id="add-operand-min"
                     type="number"
                     label="Min operand"
-                    value={String(operationSettings.multiplication.operandMin)}
-                    disabled={!mulEnabled}
+                    value={String(operationSettings.addition.operandMin)}
+                    disabled={!addEnabled}
                     onValueChange={(v) => {
                       const n = Number(v);
                       if (!Number.isFinite(n)) return;
-                      updateMultiplication({ operandMin: n });
+                      updateAddition({ operandMin: n });
                     }}
                   />
                   <TextInput
-                    id="mul-operand-max"
+                    id="add-operand-max"
                     type="number"
                     label="Max operand"
-                    value={String(operationSettings.multiplication.operandMax)}
+                    value={String(operationSettings.addition.operandMax)}
+                    disabled={!addEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateAddition({ operandMax: n });
+                    }}
+                  />
+                  <TextInput
+                    id="add-answer-min"
+                    type="number"
+                    label="Min answer"
+                    value={String(operationSettings.addition.answerMin)}
+                    disabled={!addEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateAddition({ answerMin: n });
+                    }}
+                  />
+                  <TextInput
+                    id="add-answer-max"
+                    type="number"
+                    label="Max answer"
+                    value={String(operationSettings.addition.answerMax)}
+                    disabled={!addEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateAddition({ answerMax: n });
+                    }}
+                  />
+                </div>
+                <div className="mt-3">
+                  <ToggleButton
+                    on={operationSettings.addition.allowNegative}
+                    onToggle={() =>
+                      updateAddition({
+                        allowNegative: !operationSettings.addition.allowNegative,
+                      })
+                    }
+                    label="Allow negative numbers"
+                    disabled={!addEnabled}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeOperationTab === "-" && (
+              <div className={activeOperatorEnabled ? "" : "opacity-70"}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    Subtraction
+                  </h3>
+                  <ToggleButton
+                    on={subEnabled}
+                    onToggle={() => setOperatorEnabled("-", !subEnabled)}
+                    label="Enable subtraction"
+                    disabled={subEnabled && operators.length === 1}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <TextInput
+                    id="sub-operand-min"
+                    type="number"
+                    label="Min operand"
+                    value={String(operationSettings.subtraction.operandMin)}
+                    disabled={!subEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateSubtraction({ operandMin: n });
+                    }}
+                  />
+                  <TextInput
+                    id="sub-operand-max"
+                    type="number"
+                    label="Max operand"
+                    value={String(operationSettings.subtraction.operandMax)}
+                    disabled={!subEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateSubtraction({ operandMax: n });
+                    }}
+                  />
+                  <TextInput
+                    id="sub-answer-min"
+                    type="number"
+                    label="Min answer"
+                    value={String(operationSettings.subtraction.answerMin)}
+                    disabled={!subEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateSubtraction({ answerMin: n });
+                    }}
+                  />
+                  <TextInput
+                    id="sub-answer-max"
+                    type="number"
+                    label="Max answer"
+                    value={String(operationSettings.subtraction.answerMax)}
+                    disabled={!subEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateSubtraction({ answerMax: n });
+                    }}
+                  />
+                </div>
+                <div className="mt-3">
+                  <ToggleButton
+                    on={operationSettings.subtraction.allowNegative}
+                    onToggle={() =>
+                      updateSubtraction({
+                        allowNegative:
+                          !operationSettings.subtraction.allowNegative,
+                      })
+                    }
+                    label="Allow negative answers"
+                    disabled={!subEnabled}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeOperationTab === "*" && (
+              <div className={activeOperatorEnabled ? "" : "opacity-70"}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    Multiplication
+                  </h3>
+                  <ToggleButton
+                    on={mulEnabled}
+                    onToggle={() => setOperatorEnabled("*", !mulEnabled)}
+                    label="Enable multiplication"
+                    disabled={mulEnabled && operators.length === 1}
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <Select
+                    id="mul-mode"
+                    label="Generation mode"
+                    options={[
+                      { label: "Times table mode", value: "times-table" },
+                      { label: "Range mode", value: "range" },
+                    ]}
+                    value={operationSettings.multiplication.mode}
+                    disabled={!mulEnabled}
+                    onChange={(value) =>
+                      updateMultiplication({
+                        mode: value === "range" ? "range" : "times-table",
+                      })
+                    }
+                  />
+                </div>
+
+                {operationSettings.multiplication.mode === "times-table" ? (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="mb-2 text-sm text-[var(--color-text-primary)]">
+                        Times tables
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {TIMES_TABLE_OPTIONS.map((table) => {
+                          const selected =
+                            operationSettings.multiplication.tables.includes(
+                              table,
+                            );
+                          return (
+                            <button
+                              key={table}
+                              type="button"
+                              disabled={!mulEnabled}
+                              onClick={() => toggleTimesTable(table)}
+                              className={[
+                                "rounded-sm border px-3 py-1.5 text-xs font-medium transition",
+                                selected
+                                  ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                                  : "border-[var(--color-bg4)] bg-[var(--color-bg2)] text-[var(--color-text-primary)]",
+                                !mulEnabled ? "cursor-not-allowed opacity-60" : "",
+                              ].join(" ")}
+                            >
+                              {table}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextInput
+                        id="mul-multiplier-min"
+                        type="number"
+                        label="Min multiplier"
+                        value={String(
+                          operationSettings.multiplication.multiplierMin,
+                        )}
+                        disabled={!mulEnabled}
+                        onValueChange={(v) => {
+                          const n = Number(v);
+                          if (!Number.isFinite(n)) return;
+                          updateMultiplication({ multiplierMin: n });
+                        }}
+                      />
+                      <TextInput
+                        id="mul-multiplier-max"
+                        type="number"
+                        label="Max multiplier"
+                        value={String(
+                          operationSettings.multiplication.multiplierMax,
+                        )}
+                        disabled={!mulEnabled}
+                        onValueChange={(v) => {
+                          const n = Number(v);
+                          if (!Number.isFinite(n)) return;
+                          updateMultiplication({ multiplierMax: n });
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <TextInput
+                      id="mul-operand-min"
+                      type="number"
+                      label="Min operand"
+                      value={String(operationSettings.multiplication.operandMin)}
+                      disabled={!mulEnabled}
+                      onValueChange={(v) => {
+                        const n = Number(v);
+                        if (!Number.isFinite(n)) return;
+                        updateMultiplication({ operandMin: n });
+                      }}
+                    />
+                    <TextInput
+                      id="mul-operand-max"
+                      type="number"
+                      label="Max operand"
+                      value={String(operationSettings.multiplication.operandMax)}
+                      disabled={!mulEnabled}
+                      onValueChange={(v) => {
+                        const n = Number(v);
+                        if (!Number.isFinite(n)) return;
+                        updateMultiplication({ operandMax: n });
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <TextInput
+                    id="mul-answer-min"
+                    type="number"
+                    label="Min answer"
+                    value={String(operationSettings.multiplication.answerMin)}
                     disabled={!mulEnabled}
                     onValueChange={(v) => {
                       const n = Number(v);
                       if (!Number.isFinite(n)) return;
-                      updateMultiplication({ operandMax: n });
+                      updateMultiplication({ answerMin: n });
+                    }}
+                  />
+                  <TextInput
+                    id="mul-answer-max"
+                    type="number"
+                    label="Max answer"
+                    value={String(operationSettings.multiplication.answerMax)}
+                    disabled={!mulEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateMultiplication({ answerMax: n });
                     }}
                   />
                 </div>
-              )}
+              </div>
+            )}
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <TextInput
-                  id="mul-answer-min"
-                  type="number"
-                  label="Min answer"
-                  value={String(operationSettings.multiplication.answerMin)}
-                  disabled={!mulEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateMultiplication({ answerMin: n });
-                  }}
-                />
-                <TextInput
-                  id="mul-answer-max"
-                  type="number"
-                  label="Max answer"
-                  value={String(operationSettings.multiplication.answerMax)}
-                  disabled={!mulEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateMultiplication({ answerMax: n });
-                  }}
-                />
+            {activeOperationTab === "/" && (
+              <div className={activeOperatorEnabled ? "" : "opacity-70"}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    Division (integer-only)
+                  </h3>
+                  <ToggleButton
+                    on={divEnabled}
+                    onToggle={() => setOperatorEnabled("/", !divEnabled)}
+                    label="Enable division"
+                    disabled={divEnabled && operators.length === 1}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <TextInput
+                    id="div-divisor-min"
+                    type="number"
+                    label="Min divisor"
+                    value={String(operationSettings.division.divisorMin)}
+                    disabled={!divEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateDivision({ divisorMin: n });
+                    }}
+                  />
+                  <TextInput
+                    id="div-divisor-max"
+                    type="number"
+                    label="Max divisor"
+                    value={String(operationSettings.division.divisorMax)}
+                    disabled={!divEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateDivision({ divisorMax: n });
+                    }}
+                  />
+                  <TextInput
+                    id="div-quotient-min"
+                    type="number"
+                    label="Min quotient"
+                    value={String(operationSettings.division.quotientMin)}
+                    disabled={!divEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateDivision({ quotientMin: n });
+                    }}
+                  />
+                  <TextInput
+                    id="div-quotient-max"
+                    type="number"
+                    label="Max quotient"
+                    value={String(operationSettings.division.quotientMax)}
+                    disabled={!divEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateDivision({ quotientMax: n });
+                    }}
+                  />
+                  <TextInput
+                    id="div-answer-min"
+                    type="number"
+                    label="Min answer"
+                    value={String(operationSettings.division.answerMin)}
+                    disabled={!divEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateDivision({ answerMin: n });
+                    }}
+                  />
+                  <TextInput
+                    id="div-answer-max"
+                    type="number"
+                    label="Max answer"
+                    value={String(operationSettings.division.answerMax)}
+                    disabled={!divEnabled}
+                    onValueChange={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      updateDivision({ answerMax: n });
+                    }}
+                  />
+                </div>
+                <div className="mt-3">
+                  <ToggleButton
+                    on={operationSettings.division.allowNegative}
+                    onToggle={() =>
+                      updateDivision({
+                        allowNegative: !operationSettings.division.allowNegative,
+                      })
+                    }
+                    label="Allow negative answers"
+                    disabled={!divEnabled}
+                  />
+                </div>
               </div>
-            </section>
-
-            <section
-              className={`rounded-lg border border-[var(--color-bg4)] bg-[var(--color-bg2)]/30 p-4 ${
-                divEnabled ? "" : "opacity-60"
-              }`}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  Division (integer-only)
-                </h3>
-                {!divEnabled && (
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    Disabled
-                  </span>
-                )}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <TextInput
-                  id="div-divisor-min"
-                  type="number"
-                  label="Min divisor"
-                  value={String(operationSettings.division.divisorMin)}
-                  disabled={!divEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateDivision({ divisorMin: n });
-                  }}
-                />
-                <TextInput
-                  id="div-divisor-max"
-                  type="number"
-                  label="Max divisor"
-                  value={String(operationSettings.division.divisorMax)}
-                  disabled={!divEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateDivision({ divisorMax: n });
-                  }}
-                />
-                <TextInput
-                  id="div-quotient-min"
-                  type="number"
-                  label="Min quotient"
-                  value={String(operationSettings.division.quotientMin)}
-                  disabled={!divEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateDivision({ quotientMin: n });
-                  }}
-                />
-                <TextInput
-                  id="div-quotient-max"
-                  type="number"
-                  label="Max quotient"
-                  value={String(operationSettings.division.quotientMax)}
-                  disabled={!divEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateDivision({ quotientMax: n });
-                  }}
-                />
-                <TextInput
-                  id="div-answer-min"
-                  type="number"
-                  label="Min answer"
-                  value={String(operationSettings.division.answerMin)}
-                  disabled={!divEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateDivision({ answerMin: n });
-                  }}
-                />
-                <TextInput
-                  id="div-answer-max"
-                  type="number"
-                  label="Max answer"
-                  value={String(operationSettings.division.answerMax)}
-                  disabled={!divEnabled}
-                  onValueChange={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return;
-                    updateDivision({ answerMax: n });
-                  }}
-                />
-              </div>
-              <div className="mt-3">
-                <ToggleButton
-                  on={operationSettings.division.allowNegative}
-                  onToggle={() =>
-                    updateDivision({
-                      allowNegative: !operationSettings.division.allowNegative,
-                    })
-                  }
-                  label="Allow negative answers"
-                  disabled={!divEnabled}
-                />
-              </div>
-            </section>
-          </div>
+            )}
+          </section>
 
           {getVisibleFieldError("operationSettings") && (
             <p className="text-xs text-[var(--color-error)]">

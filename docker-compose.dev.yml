@@ -314,6 +314,7 @@ services:
     env_file:
       - .env
     environment:
+      NODE_ENV: development
       JWT_SECRET: ${JWT_SECRET:-dev-secret}
       USER_SVC_URL: ${NEXT_USER_URL}
       QUIZ_SVC_URL: ${NEXT_QUIZ_URL}

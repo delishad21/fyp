@@ -1,9 +1,13 @@
 node_modules
 dist/
+dist-android/
 .vscode
 setup-project.sh
 .env
 .env.prod
+.env.test
+.env.presentation
+prod-data
 mongo
 mongo_old
 uploads
@@ -13,3 +17,4 @@ archive
 teacher-credentials.csv
 seeding
 evaluation docs
+docs/badge-examples/

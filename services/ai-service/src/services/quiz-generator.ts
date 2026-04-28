@@ -1642,7 +1642,11 @@ export class QuizGeneratorService {
         return {
           grid: response.data.grid,
           entries: response.data.entries.map((entry: any, idx: number) => ({
-            id: entries[idx]?.id || entry.id,
+            // Keep the crossword-generator IDs (manual flow parity: "0", "1", ...).
+            id:
+              typeof entry?.id === "string" && entry.id.trim().length > 0
+                ? entry.id
+                : String(idx),
             answer: entry.answer,
             clue: entry.clue,
             positions: entry.positions || [],
@@ -1657,8 +1661,11 @@ export class QuizGeneratorService {
       // Return entries without grid on failure
       return {
         grid: [],
-        entries: entries.map((entry: any) => ({
-          id: entry.id,
+        entries: entries.map((entry: any, idx: number) => ({
+          id:
+            typeof entry?.id === "string" && entry.id.trim().length > 0
+              ? entry.id
+              : String(idx),
           answer: entry.answer,
           clue: entry.clue,
           positions: [],
